@@ -25,7 +25,9 @@ function DocBody({ documentId }: { documentId: Id<"documents"> }) {
       </p>
     );
   }
-  return <Editor documentId={documentId} />;
+  // key on documentId → a doc switch fully remounts the editor (fresh refs),
+  // so load/debounce/hash state never leaks between documents.
+  return <Editor key={documentId} documentId={documentId} />;
 }
 
 export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
