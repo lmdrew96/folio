@@ -107,6 +107,15 @@ body {
   }
 }
 
+/* Highlights are always light tints, so keep their text dark ink in BOTH
+   themes — otherwise dark mode's light prose text would vanish on them. The
+   actual tint comes from the mark's inline background-color (multicolor). */
+.ProseMirror mark {
+  color: #1e1830;
+  border-radius: 3px;
+  padding: 0 0.12em;
+}
+
 /* ── Per-block attribution (Patch 3, restyled v1) ─────────────────────────────
    A quiet marginal tick, NOT a bullet. The data + tooltip are unchanged; only
    the indicator is restyled so longform prose reads as prose, not a list.
