@@ -108,13 +108,58 @@ body {
   --tw-prose-counters: #88739e;
 }
 
-/* Highlights are always light tints, so keep their text dark ink in BOTH
-   themes — otherwise dark mode's light prose text would vanish on them. The
-   actual tint comes from the mark's inline background-color (multicolor). */
+/* Theme-aware highlights. The mark carries a semantic name (data-highlight);
+   light mode gets a light tint + dark ink, dark mode a deep muted tint + light
+   text — so a highlight reads calmly in either theme instead of washing out. */
 .ProseMirror mark {
-  color: #1e1830;
   border-radius: 3px;
   padding: 0 0.12em;
+  background-color: transparent;
+  /* Inherit the theme's prose color so an unmatched/legacy highlight stays
+     readable instead of falling back to the browser's default black <mark>. */
+  color: inherit;
+}
+.ProseMirror mark[data-highlight="amber"] {
+  background-color: #f4e3be;
+  color: #1e1830;
+}
+.ProseMirror mark[data-highlight="green"] {
+  background-color: #d6ebc8;
+  color: #1e1830;
+}
+.ProseMirror mark[data-highlight="mint"] {
+  background-color: #cfe6e2;
+  color: #1e1830;
+}
+.ProseMirror mark[data-highlight="lavender"] {
+  background-color: #e5dfee;
+  color: #1e1830;
+}
+.dark .ProseMirror mark[data-highlight="amber"] {
+  background-color: #5a4a24;
+  color: #f1e6cb;
+}
+.dark .ProseMirror mark[data-highlight="green"] {
+  background-color: #3e4a2c;
+  color: #e6f0d8;
+}
+.dark .ProseMirror mark[data-highlight="mint"] {
+  background-color: #2c4a47;
+  color: #d6ece8;
+}
+.dark .ProseMirror mark[data-highlight="lavender"] {
+  background-color: #443a5e;
+  color: #e9e3f3;
+}
+
+/* Headings sit snug above the next line — prose-lg's default leaves an H1 with
+   a huge gap before the following block. Keep the space *above* a heading
+   (separates sections); collapse the space *below* it to the heading's margin. */
+.ProseMirror :is(h1, h2, h3, h4) {
+  margin-bottom: 0.3em;
+}
+.ProseMirror :is(h1, h2, h3, h4) + * {
+  margin-top: 0;
 }
 
 /* ── Per-block attribution (Patch 3, restyled v1) ─────────────────────────────
