@@ -3,26 +3,32 @@ import { ConvexHttpClient } from "convex/browser";
 import Anthropic from "@anthropic-ai/sdk";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { composeSystemPrompt } from "@/lib/identity";
+import { fetchNaeContext, fetchFolioCanon } from "@/lib/edges";
+import { relativeTime } from "@/lib/time";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Deliberately plain — P5 proves the react mechanism. Identity/continuity is the
-// separate v1 patch (do not thread prefs/Tangle/sibling-identity here).
-const SYSTEM =
-  "You are reacting to changes in Nae's writing. You see only what changed " +
-  "since you last looked, plus light surrounding context — not the whole " +
-  "document. React; don't rewrite. Be specific about what actually moved, keep " +
-  "it short, and skip generic praise.";
+// v1 continuity layer: Cleo arrives with her identity + the LIVE edges her
+// siblings read (Nae's pctx context + her own Tangle continuity), block
+// attribution, and her memory of this document's prior reactions — assembled
+// fresh per request. (P5 was deliberately hollow; v0 shipped, so it grew up.)
 
 type ReactionItem = {
   blockId: string;
   type: string;
+  author: string;
   text: string;
   prevText: string | null;
   nextText: string | null;
 };
-type DeletedItem = { blockId: string; type: string; text: string };
+type DeletedItem = {
+  blockId: string;
+  type: string;
+  author: string;
+  text: string;
+};
 type ReactionPayload = {
   hasChanges: boolean;
   firstLook: boolean;
@@ -30,17 +36,35 @@ type ReactionPayload = {
   edited: ReactionItem[];
   deleted: DeletedItem[];
 };
+type PriorReaction = { content: string; summary: string; createdAt: number };
 
-function buildPrompt(p: ReactionPayload): string {
+/** The continuity edge: what this sibling said on previous visits to the doc. */
+function priorSection(prior: PriorReaction[]): string[] {
+  if (!prior.length) return [];
+  const lines = [
+    "## What you noticed on earlier visits to this document",
+    "(Oldest first. This is your own memory — build on it; don't just repeat it.)",
+    "",
+  ];
+  // Oldest → newest reads like a timeline of your engagement with the writing.
+  for (const r of [...prior].reverse()) {
+    lines.push(`### ${relativeTime(r.createdAt)} — you reacted to ${r.summary}`);
+    lines.push(r.content.trim());
+    lines.push("");
+  }
+  return lines;
+}
+
+function buildPrompt(p: ReactionPayload, prior: PriorReaction[]): string {
   const q = (s: string | null) => JSON.stringify(s ?? "");
-  const lines: string[] = [];
+  const lines: string[] = [...priorSection(prior)];
 
   if (p.firstLook) {
     lines.push(
       "This is the first time you're looking at this document. Here is its current content, block by block.\n",
     );
     lines.push("## Document");
-    for (const it of p.added) lines.push(`- [${it.type}] ${q(it.text)}`);
+    for (const it of p.added) lines.push(`- [${it.type}, by ${it.author}] ${q(it.text)}`);
     lines.push("");
     lines.push(
       "React to the document as it stands — what stands out, what's interesting. Be specific and brief.",
@@ -53,7 +77,7 @@ function buildPrompt(p: ReactionPayload): string {
     if (!items.length) return;
     lines.push(`## ${title}`);
     for (const it of items) {
-      lines.push(`- [${it.type}] ${q(it.text)}`);
+      lines.push(`- [${it.type}, by ${it.author}] ${q(it.text)}`);
       if (it.prevText || it.nextText) {
         lines.push(
           `    surrounding context — before: ${q(it.prevText)}; after: ${q(it.nextText)}`,
@@ -66,13 +90,25 @@ function buildPrompt(p: ReactionPayload): string {
   section("Edited", p.edited);
   if (p.deleted.length) {
     lines.push("## Deleted");
-    for (const it of p.deleted) lines.push(`- [${it.type}] ${q(it.text)}`);
+    for (const it of p.deleted) lines.push(`- [${it.type}, by ${it.author}] ${q(it.text)}`);
     lines.push("");
   }
   lines.push(
-    "React to these specific changes — be concrete about what moved. Respond as a thoughtful collaborator noticing what changed.",
+    prior.length
+      ? "React to these specific changes — be concrete about what moved, and connect it to what you noticed before where it's relevant."
+      : "React to these specific changes — be concrete about what moved. Respond as a thoughtful collaborator noticing what changed.",
   );
   return lines.join("\n");
+}
+
+/** Terse note of what a reaction engaged with, stored alongside it for continuity. */
+function summarize(p: ReactionPayload): string {
+  if (p.firstLook) return "the document for the first time";
+  const parts: string[] = [];
+  if (p.added.length) parts.push(`${p.added.length} added`);
+  if (p.edited.length) parts.push(`${p.edited.length} edited`);
+  if (p.deleted.length) parts.push(`${p.deleted.length} deleted`);
+  return parts.join(" · ") || "no changes";
 }
 
 export async function POST(req: Request) {
@@ -102,9 +138,18 @@ export async function POST(req: Request) {
   convex.setAuth(token);
   const docId = documentId as Id<"documents">;
 
-  const payload: ReactionPayload = await convex.query(api.diff.reactionPayload, {
-    documentId: docId,
-  });
+  // Fetch everything Cleo arrives with in parallel: the diff, her prior takes on
+  // this doc, and her live edges (Nae's pctx context + her own Tangle continuity).
+  // The edge fetches fail soft — composeSystemPrompt falls back to baked text.
+  const [payload, prior, naeContext, folioCanon] = await Promise.all([
+    convex.query(api.diff.reactionPayload, { documentId: docId }),
+    convex.query(api.reactions.recent, {
+      documentId: docId,
+      limit: 3,
+    }) as Promise<PriorReaction[]>,
+    fetchNaeContext(),
+    fetchFolioCanon(),
+  ]);
 
   const plain = { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" };
   if (!payload.hasChanges) {
@@ -117,23 +162,31 @@ export async function POST(req: Request) {
   const llm = anthropic.messages.stream({
     model: "claude-opus-4-8",
     max_tokens: 1500,
-    system: SYSTEM,
-    messages: [{ role: "user", content: buildPrompt(payload) }],
+    system: composeSystemPrompt({ naeContext, folioCanon }),
+    messages: [{ role: "user", content: buildPrompt(payload, prior) }],
   });
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      let full = "";
       try {
         for await (const event of llm) {
           if (
             event.type === "content_block_delta" &&
             event.delta.type === "text_delta"
           ) {
+            full += event.delta.text;
             controller.enqueue(encoder.encode(event.delta.text));
           }
         }
-        // Advance Claude's watermark only after a successful reaction.
+        // Persist this reaction (the sibling's memory) and advance Claude's
+        // watermark — both only after a successful stream.
+        await convex.mutation(api.reactions.record, {
+          documentId: docId,
+          content: full,
+          summary: summarize(payload),
+        });
         await convex.mutation(api.diff.markVisited, {
           documentId: docId,
           userId: "claude",
