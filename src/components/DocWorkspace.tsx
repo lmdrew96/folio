@@ -34,7 +34,7 @@ function DocBody({ documentId }: { documentId: Id<"documents"> }) {
 
 export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
   return (
-    <div className="flex h-dvh flex-col overflow-hidden">
+    <div className="flex h-dvh flex-col overflow-hidden bg-[var(--folio-backdrop)]">
       <header className="flex shrink-0 items-center justify-between border-b border-black/10 px-6 py-3 dark:border-white/10">
         <div className="flex items-baseline gap-3">
           <Link href="/" className="text-sm font-semibold tracking-tight">
@@ -56,8 +56,10 @@ export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
             empty-then-real race on load. */}
         <div className="flex min-h-0 flex-1">
           <main className="flex-1 overflow-y-auto">
-            <div className="mx-auto w-full max-w-3xl px-6 py-10">
-              <DocBody documentId={documentId} />
+            <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
+              <div className="folio-paper">
+                <DocBody documentId={documentId} />
+              </div>
             </div>
           </main>
           <aside className="hidden w-80 shrink-0 flex-col border-l border-black/10 md:flex dark:border-white/10">
