@@ -6,7 +6,7 @@ import { Authenticated, AuthLoading, useMutation, useQuery } from "convex/react"
 import { UserButton } from "@clerk/nextjs";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import { Editor } from "@/components/Editor";
+import { DocEditor } from "@/components/DocEditor";
 import { DiffPanel } from "@/components/DiffPanel";
 import { ClaudeReaction } from "@/components/ClaudeReaction";
 
@@ -65,14 +65,16 @@ function DocBody({ documentId }: { documentId: Id<"documents"> }) {
   const doc = useQuery(api.documents.get, { documentId });
   if (doc === null) {
     return (
-      <p className="text-black/60 dark:text-white/60">
-        This document doesn&apos;t exist or isn&apos;t yours.
-      </p>
+      <div className="mx-auto w-full max-w-3xl px-6 py-16">
+        <p className="text-foreground/60">
+          This document doesn&apos;t exist or isn&apos;t yours.
+        </p>
+      </div>
     );
   }
   // key on documentId → a doc switch fully remounts the editor (fresh refs),
   // so load/debounce/hash state never leaks between documents.
-  return <Editor key={documentId} documentId={documentId} />;
+  return <DocEditor key={documentId} documentId={documentId} />;
 }
 
 export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
@@ -102,12 +104,8 @@ export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
             first blocks/diff query results are always authenticated — no
             empty-then-real race on load. */}
         <div className="flex min-h-0 flex-1">
-          <main className="flex-1 overflow-y-auto">
-            <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
-              <div className="folio-paper">
-                <DocBody documentId={documentId} />
-              </div>
-            </div>
+          <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <DocBody documentId={documentId} />
           </main>
           <aside className="hidden w-80 shrink-0 flex-col border-l border-black/10 md:flex dark:border-white/10">
             <DiffPanel documentId={documentId} />

@@ -9,6 +9,10 @@ import {
 } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { UniqueID } from "@tiptap/extension-unique-id";
+import { TextAlign } from "@tiptap/extension-text-align";
+import { Highlight } from "@tiptap/extension-highlight";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { Color } from "@tiptap/extension-color";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -18,6 +22,7 @@ import {
   type AttrInfo,
 } from "./extensions/attribution";
 import { SmartTypography } from "./extensions/typography";
+import { Toolbar } from "./Toolbar";
 
 // Top-level block node types that get a stable UniqueID (and thus a Convex row).
 const BLOCK_TYPES = [
@@ -58,7 +63,7 @@ function buildDesired(editor: TiptapEditor): DesiredBlock[] | null {
   return desired;
 }
 
-export function Editor({ documentId }: { documentId: Id<"documents"> }) {
+export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
   const blocks = useQuery(api.blocks.list, { documentId });
   const reconcile = useMutation(api.blocks.reconcile);
 
@@ -113,18 +118,39 @@ export function Editor({ documentId }: { documentId: Id<"documents"> }) {
   const editor = useEditor({
     immediatelyRender: false, // required for Next.js SSR (TipTap v3)
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        // Link ships with StarterKit v3; don't follow links while editing.
+        link: {
+          openOnClick: false,
+          autolink: true,
+          defaultProtocol: "https",
+        },
+      }),
       UniqueID.configure({ types: BLOCK_TYPES }),
       Attribution,
       SmartTypography,
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      Highlight.configure({ multicolor: true }),
+      TextStyle,
+      Color,
     ],
     editorProps: {
       attributes: {
         // prose-lg = longform reading size; the default 65ch measure (no
         // max-w-none) + mx-auto centers the column as a page in calm space.
         // The attribution tick lives in the left margin now, so no pl gutter.
-        class:
-          "prose prose-lg mx-auto min-h-[60vh] focus:outline-none",
+        class: "prose prose-lg mx-auto min-h-[60vh] focus:outline-none",
+      },
+      // Ctrl/Cmd+click opens a link in a new tab; a plain click just places the
+      // cursor to edit it (Link is configured with openOnClick: false).
+      handleClick(_view, _pos, event) {
+        if (!(event.metaKey || event.ctrlKey)) return false;
+        const href = (event.target as HTMLElement | null)
+          ?.closest("a")
+          ?.getAttribute("href");
+        if (!href) return false;
+        window.open(href, "_blank", "noopener,noreferrer");
+        return true;
       },
     },
     onUpdate: ({ editor }) => {
@@ -204,11 +230,24 @@ export function Editor({ documentId }: { documentId: Id<"documents"> }) {
     [],
   );
 
-  if (!editor) return null;
-
   return (
-    <>
-      <EditorContent editor={editor} />
+    <div className="flex min-h-0 flex-1 flex-col">
+      {editor ? (
+        <Toolbar editor={editor} />
+      ) : (
+        <div className="h-11 shrink-0 border-b border-foreground/10 bg-[var(--folio-backdrop)]" />
+      )}
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
+          <div className="folio-paper">
+            {editor ? (
+              <EditorContent editor={editor} />
+            ) : (
+              <div className="min-h-[60vh]" />
+            )}
+          </div>
+        </div>
+      </div>
       <div
         aria-live="polite"
         className={`pointer-events-none fixed bottom-5 left-1/2 z-20 -translate-x-1/2 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-foreground/60 shadow-sm transition-opacity duration-200 ${
@@ -217,6 +256,6 @@ export function Editor({ documentId }: { documentId: Id<"documents"> }) {
       >
         {saveStatus === "saving" ? "Saving…" : "Saved"}
       </div>
-    </>
+    </div>
   );
 }
