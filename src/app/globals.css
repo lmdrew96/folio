@@ -25,3 +25,22 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Folio — per-block attribution gutter dot (Patch 3) */
+.ProseMirror .folio-attr {
+  position: relative;
+}
+.ProseMirror .folio-attr::before {
+  content: "";
+  position: absolute;
+  left: -1.25rem;
+  top: 0.55em;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: #849440; /* nae — olive (default) */
+  opacity: 0.7;
+}
+.ProseMirror .folio-attr[data-author="claude"]::before {
+  background: #88739e; /* claude — mauve */
+}
