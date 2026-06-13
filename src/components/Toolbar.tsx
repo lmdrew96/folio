@@ -3,21 +3,30 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
 
-// Curated highlight tints — light enough to keep ink text readable.
+// Curated highlights. `value` is the semantic name stored on the mark (themed
+// in CSS); `display` is the light-mode tint shown in the swatch.
 const HIGHLIGHTS = [
-  { name: "Amber", color: "#f4e3be" },
-  { name: "Green", color: "#d6ebc8" },
-  { name: "Mint", color: "#cfe6e2" },
-  { name: "Lavender", color: "#e5dfee" },
+  { name: "Amber", value: "amber", display: "#f4e3be" },
+  { name: "Green", value: "green", display: "#d6ebc8" },
+  { name: "Mint", value: "mint", display: "#cfe6e2" },
+  { name: "Lavender", value: "lavender", display: "#e5dfee" },
 ];
 
 // Curated accent text colors — mid-tone brand hues that stay legible on both
 // the light paper and the dark sheet (deep colors would vanish in dark mode).
 const TEXT_COLORS = [
-  { name: "Olive", color: "#849440" },
-  { name: "Gold", color: "#dfa649" },
-  { name: "Teal", color: "#8cbdb9" },
-  { name: "Mauve", color: "#88739e" },
+  { name: "Olive", value: "#849440", display: "#849440" },
+  { name: "Gold", value: "#dfa649", display: "#dfa649" },
+  { name: "Teal", value: "#8cbdb9", display: "#8cbdb9" },
+  { name: "Mauve", value: "#88739e", display: "#88739e" },
+];
+
+const LINE_SPACINGS = [
+  { label: "Default", value: "" },
+  { label: "Tight", value: "1.25" },
+  { label: "Normal", value: "1.5" },
+  { label: "Relaxed", value: "1.75" },
+  { label: "Loose", value: "2" },
 ];
 
 const BTN =
@@ -109,6 +118,11 @@ const AlignRightIcon = (
     <path d="M4 6h16M10 12h10M7 18h13" />
   </Icon>
 );
+const LineSpacingIcon = (
+  <Icon>
+    <path d="M9 6h11M9 12h11M9 18h11M4 4v16M4 4 2 6M4 4l2 2M4 20l-2-2M4 20l2-2" />
+  </Icon>
+);
 
 function SwatchPopover({
   label,
@@ -120,8 +134,8 @@ function SwatchPopover({
 }: {
   label: string;
   trigger: ReactNode;
-  swatches: { name: string; color: string }[];
-  onPick: (color: string) => void;
+  swatches: { name: string; value: string; display: string }[];
+  onPick: (value: string) => void;
   onClear: () => void;
   clearLabel: string;
 }) {
@@ -154,17 +168,17 @@ function SwatchPopover({
         <div className="absolute left-0 top-9 z-30 flex items-center gap-1 rounded-lg border border-foreground/10 bg-[var(--folio-paper)] p-1.5 shadow-md">
           {swatches.map((s) => (
             <button
-              key={s.color}
+              key={s.value}
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
-                onPick(s.color);
+                onPick(s.value);
                 setOpen(false);
               }}
               aria-label={s.name}
               title={s.name}
               className="h-5 w-5 rounded-full border border-black/15 transition hover:scale-110 dark:border-white/20"
-              style={{ background: s.color }}
+              style={{ background: s.display }}
             />
           ))}
           <button
@@ -178,6 +192,66 @@ function SwatchPopover({
           >
             {clearLabel}
           </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LineSpacingControl({
+  editor,
+  current,
+}: {
+  editor: Editor;
+  current: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const apply = (value: string) => {
+    if (value) editor.chain().focus().setLineHeight(value).run();
+    else editor.chain().focus().unsetLineHeight().run();
+    setOpen(false);
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Line spacing"
+        aria-expanded={open}
+        title="Line spacing"
+        className={`${BTN} ${open ? BTN_ACTIVE : ""}`}
+      >
+        {LineSpacingIcon}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-9 z-30 w-32 overflow-hidden rounded-lg border border-foreground/10 bg-[var(--folio-paper)] py-1 shadow-md">
+          {LINE_SPACINGS.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => apply(o.value)}
+              className={`flex w-full items-center justify-between px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/10 ${
+                current === o.value ? "text-foreground" : "text-foreground/60"
+              }`}
+            >
+              <span>{o.label}</span>
+              {current === o.value && <span className="text-xs">✓</span>}
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -204,6 +278,10 @@ export function Toolbar({ editor }: { editor: Editor }) {
       alignCenter: e.isActive({ textAlign: "center" }),
       alignRight: e.isActive({ textAlign: "right" }),
       highlight: e.isActive("highlight"),
+      lineHeight:
+        e.getAttributes("paragraph").lineHeight ||
+        e.getAttributes("heading").lineHeight ||
+        "",
     }),
   });
 
@@ -387,6 +465,11 @@ export function Toolbar({ editor }: { editor: Editor }) {
       >
         {AlignRightIcon}
       </ToolButton>
+
+      <Divider />
+
+      {/* Line spacing */}
+      <LineSpacingControl editor={editor} current={s.lineHeight} />
     </div>
   );
 }

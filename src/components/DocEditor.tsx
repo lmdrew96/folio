@@ -10,9 +10,10 @@ import {
 import { StarterKit } from "@tiptap/starter-kit";
 import { UniqueID } from "@tiptap/extension-unique-id";
 import { TextAlign } from "@tiptap/extension-text-align";
-import { Highlight } from "@tiptap/extension-highlight";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
+import { ThemeHighlight } from "./extensions/theme-highlight";
+import { LineHeight } from "./extensions/line-height";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -130,9 +131,10 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
       Attribution,
       SmartTypography,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
-      Highlight.configure({ multicolor: true }),
+      ThemeHighlight.configure({ multicolor: true }),
       TextStyle,
       Color,
+      LineHeight,
     ],
     editorProps: {
       attributes: {
