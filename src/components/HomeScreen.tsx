@@ -3,6 +3,7 @@
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 import { SignInButton, UserButton } from "@clerk/nextjs";
 import { DocList } from "./DocList";
+import { ThemeToggle } from "./ThemeToggle";
 
 /** The desk: signed-out gets the pitch, signed-in gets their documents. */
 export function HomeScreen() {
@@ -12,9 +13,12 @@ export function HomeScreen() {
         <span className="font-serif text-lg font-medium tracking-tight text-foreground">
           Folio
         </span>
-        <Authenticated>
-          <UserButton />
-        </Authenticated>
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          <Authenticated>
+            <UserButton />
+          </Authenticated>
+        </div>
       </header>
 
       <AuthLoading>
