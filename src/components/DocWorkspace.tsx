@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Authenticated, AuthLoading, useQuery } from "convex/react";
+import { Authenticated, AuthLoading, useMutation, useQuery } from "convex/react";
 import { UserButton } from "@clerk/nextjs";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -9,12 +10,54 @@ import { Editor } from "@/components/Editor";
 import { DiffPanel } from "@/components/DiffPanel";
 import { ClaudeReaction } from "@/components/ClaudeReaction";
 
-function DocTitle({ documentId }: { documentId: Id<"documents"> }) {
+function DocTitleEditor({ documentId }: { documentId: Id<"documents"> }) {
   const doc = useQuery(api.documents.get, { documentId });
+  const rename = useMutation(api.documents.rename);
+  const [draft, setDraft] = useState("");
+  const [focused, setFocused] = useState(false);
+
+  // Keep the field synced to the server title whenever we're not mid-edit.
+  useEffect(() => {
+    if (!focused && doc) setDraft(doc.title);
+  }, [doc, focused]);
+
+  if (doc === undefined) {
+    return <span className="text-sm text-foreground/40">Loading…</span>;
+  }
+  if (doc === null) return null;
+
+  const commit = () => {
+    const next = draft.trim();
+    if (next !== doc.title) {
+      void rename({ documentId, title: next }).catch((e) =>
+        console.error("Folio: rename failed", e),
+      );
+    }
+    setDraft(next || "Untitled"); // reflect the effective title immediately
+  };
+
   return (
-    <span className="text-sm text-black/50 dark:text-white/50">
-      {doc === undefined ? "Loading…" : (doc?.title ?? "Untitled")}
-    </span>
+    <input
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        setFocused(false);
+        commit();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.currentTarget.blur();
+        } else if (e.key === "Escape") {
+          setDraft(doc.title);
+          e.currentTarget.blur();
+        }
+      }}
+      placeholder="Untitled"
+      aria-label="Document title"
+      className="w-48 max-w-[40vw] truncate rounded bg-transparent px-1.5 py-0.5 text-sm text-foreground/70 outline-none transition placeholder:text-foreground/30 hover:bg-black/5 focus:bg-black/5 focus:text-foreground dark:hover:bg-white/10 dark:focus:bg-white/10"
+    />
   );
 }
 
@@ -36,12 +79,16 @@ export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-[var(--folio-backdrop)]">
       <header className="flex shrink-0 items-center justify-between border-b border-black/10 px-6 py-3 dark:border-white/10">
-        <div className="flex items-baseline gap-3">
-          <Link href="/" className="text-sm font-semibold tracking-tight">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="font-serif text-base font-medium tracking-tight text-foreground"
+            title="All documents"
+          >
             Folio
           </Link>
           <Authenticated>
-            <DocTitle documentId={documentId} />
+            <DocTitleEditor documentId={documentId} />
           </Authenticated>
         </div>
         <UserButton />
