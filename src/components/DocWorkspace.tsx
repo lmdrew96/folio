@@ -7,6 +7,7 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { Editor } from "@/components/Editor";
 import { DiffPanel } from "@/components/DiffPanel";
+import { ClaudeReaction } from "@/components/ClaudeReaction";
 
 function DocTitle({ documentId }: { documentId: Id<"documents"> }) {
   const doc = useQuery(api.documents.get, { documentId });
@@ -59,7 +60,10 @@ export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
               <DocBody documentId={documentId} />
             </div>
           </main>
-          <DiffPanel documentId={documentId} />
+          <aside className="hidden w-80 shrink-0 flex-col border-l border-black/10 md:flex dark:border-white/10">
+            <DiffPanel documentId={documentId} />
+            <ClaudeReaction documentId={documentId} />
+          </aside>
         </div>
       </Authenticated>
     </div>

@@ -63,7 +63,7 @@ export function DiffPanel({ documentId }: { documentId: Id<"documents"> }) {
   };
 
   return (
-    <aside className="hidden w-80 shrink-0 flex-col border-l border-black/10 md:flex dark:border-white/10">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between border-b border-black/10 px-4 py-3 dark:border-white/10">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">Since you last looked</h2>
@@ -109,6 +109,6 @@ export function DiffPanel({ documentId }: { documentId: Id<"documents"> }) {
           </ul>
         )}
       </div>
-    </aside>
+    </div>
   );
 }

@@ -45,7 +45,19 @@ CLERK_JWT_ISSUER_DOMAIN = <the Issuer URL from the Clerk template>
 
 `convex/auth.config.ts` reads this to validate Clerk tokens.
 
-### 4. Run the app
+### 4. Anthropic (for the Claude reaction panel — Patch 5)
+
+Add your Anthropic API key to `.env.local` (server-side only — the `/api/react`
+route holds it; never expose it client-side):
+
+```
+ANTHROPIC_API_KEY = <your key from console.anthropic.com>
+```
+
+Without it, the editor still works fully; only the "React to what changed"
+button returns an error.
+
+### 5. Run the app
 
 ```bash
 cp .env.local.example .env.local   # then fill in the values above

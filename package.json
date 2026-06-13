@@ -1,6 +1,6 @@
 {
   "name": "folio",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.1",
     "@clerk/nextjs": "^7.5.2",
     "@tiptap/core": "^3.26.1",
     "@tiptap/extension-unique-id": "^3.26.1",
@@ -18,7 +19,9 @@
     "convex": "^1.41.0",
     "next": "16.2.9",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
