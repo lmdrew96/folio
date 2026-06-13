@@ -11,6 +11,8 @@
 import type * as blocks from "../blocks.js";
 import type * as diff from "../diff.js";
 import type * as documents from "../documents.js";
+import type * as http from "../http.js";
+import type * as mcpData from "../mcpData.js";
 import type * as reactions from "../reactions.js";
 
 import type {
@@ -23,6 +25,8 @@ declare const fullApi: ApiFromModules<{
   blocks: typeof blocks;
   diff: typeof diff;
   documents: typeof documents;
+  http: typeof http;
+  mcpData: typeof mcpData;
   reactions: typeof reactions;
 }>;
 
