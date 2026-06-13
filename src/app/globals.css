@@ -60,6 +60,20 @@ body {
   padding: clamp(2.5rem, 4vw, 4rem) clamp(1.5rem, 5vw, 4rem);
 }
 
+/* A document on the desk — a small sheet. Same material as the page, scaled. */
+.folio-card {
+  background: var(--folio-paper);
+  border: 1px solid var(--folio-paper-edge);
+  border-radius: 16px;
+  box-shadow: var(--folio-paper-shadow);
+  transition: transform 140ms ease;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .folio-card-link:hover .folio-card {
+    transform: translateY(-2px); /* pick the sheet up a touch — it's clickable */
+  }
+}
+
 /* ── The writing surface IS the serif — Fraunces at a longform reading rhythm.
    Color vars override the typography plugin's grays with calm, on-brand ink. ── */
 .ProseMirror {
