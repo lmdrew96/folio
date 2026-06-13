@@ -1,6 +1,7 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import { relativeTime } from "@/lib/time";
 
 export type AttrInfo = { author?: string; lastEditedAt: number };
 
@@ -13,17 +14,6 @@ export type AttrInfo = { author?: string; lastEditedAt: number };
 export const attributionPluginKey = new PluginKey<Map<string, AttrInfo>>(
   "folioAttribution",
 );
-
-function relativeTime(ts: number): string {
-  const seconds = Math.round((Date.now() - ts) / 1000);
-  if (seconds < 45) return "just now";
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
-  return `${days}d ago`;
-}
 
 export const Attribution = Extension.create({
   name: "folioAttribution",

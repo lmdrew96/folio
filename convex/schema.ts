@@ -30,8 +30,17 @@ export default defineSchema({
     author: v.optional(v.string()), // Patch 3 — who wrote/last touched it
     createdAt: v.number(),
     lastEditedAt: v.number(),
+    deletedAt: v.optional(v.number()), // Patch 4 — soft-delete tombstone for diff
     previouslyDraftedBy: v.optional(v.string()), // v1 lineage
   })
     .index("by_document", ["documentId"])
     .index("by_document_block", ["documentId", "blockId"]),
+
+  // Patch 4 — per-(document, user) "last looked at" watermark. A diff query
+  // compares block timestamps against this to surface what changed since.
+  visits: defineTable({
+    documentId: v.id("documents"),
+    userId: v.string(), // who looked (nae | claude)
+    lastVisitedAt: v.number(),
+  }).index("by_doc_user", ["documentId", "userId"]),
 });

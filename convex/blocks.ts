@@ -14,7 +14,9 @@ export const list = query({
       .query("blocks")
       .withIndex("by_document", (q) => q.eq("documentId", documentId))
       .collect();
-    return blocks.sort((a, b) => a.order - b.order);
+    return blocks
+      .filter((b) => b.deletedAt === undefined) // hide soft-deleted (Patch 4)
+      .sort((a, b) => a.order - b.order);
   },
 });
 
@@ -101,7 +103,8 @@ function computeOrders(
  *
  * `actor` is who's writing — "nae" from the human editor, "claude" from the AI
  * path in Patch 5. Threaded through so attribution is correct per block.
- * Deletes are hard for now; Patch 4 soft-deletes.
+ * Removed blocks are soft-deleted (deletedAt tombstone) so diff-since-visit
+ * (Patch 4) can still see them; a returning blockId (undo) is revived.
  */
 export const reconcile = mutation({
   args: {
@@ -153,6 +156,20 @@ export const reconcile = mutation({
         continue;
       }
 
+      // A soft-deleted block whose id is back (e.g. undo) → revive it.
+      if (existing.deletedAt !== undefined) {
+        await ctx.db.patch(existing._id, {
+          content: b.content,
+          type: b.type,
+          order,
+          author: actor,
+          lastEditedAt: now,
+          deletedAt: undefined, // clear the tombstone
+        });
+        changed = true;
+        continue;
+      }
+
       const contentChanged =
         existing.type !== b.type || !deepEqual(existing.content, b.content);
       const orderChanged = existing.order !== order;
@@ -170,9 +187,10 @@ export const reconcile = mutation({
       changed = true;
     }
 
+    // Soft-delete rows that left the doc (keep the tombstone so diff can see it).
     for (const row of existingRows) {
-      if (!desiredIds.has(row.blockId)) {
-        await ctx.db.delete(row._id);
+      if (!desiredIds.has(row.blockId) && row.deletedAt === undefined) {
+        await ctx.db.patch(row._id, { deletedAt: now });
         changed = true;
       }
     }
