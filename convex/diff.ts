@@ -124,11 +124,17 @@ export const markVisited = mutation({
 type ReactionItem = {
   blockId: string;
   type: string;
+  author: string; // who last touched it ("nae" | "claude") — v1 attribution edge
   text: string;
   prevText: string | null;
   nextText: string | null;
 };
-type DeletedItem = { blockId: string; type: string; text: string };
+type DeletedItem = {
+  blockId: string;
+  type: string;
+  author: string;
+  text: string;
+};
 
 /**
  * Patch 5 — the payload the in-app Claude reacts to. Like diffSince, but keyed
@@ -174,6 +180,7 @@ export const reactionPayload = query({
       return {
         blockId: r.blockId,
         type: r.type,
+        author: r.author ?? "nae",
         text: blockText(r.content),
         prevText: i > 0 ? blockText(live[i - 1].content) : null,
         nextText: i < live.length - 1 ? blockText(live[i + 1].content) : null,
@@ -211,6 +218,7 @@ export const reactionPayload = query({
           deleted.push({
             blockId: r.blockId,
             type: r.type,
+            author: r.author ?? "nae",
             text: blockText(r.content),
           });
         }

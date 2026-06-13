@@ -43,4 +43,16 @@ export default defineSchema({
     userId: v.string(), // who looked (nae | claude)
     lastVisitedAt: v.number(),
   }).index("by_doc_user", ["documentId", "userId"]),
+
+  // v1 continuity layer — the in-app Claude's own memory of this document.
+  // Every reaction is persisted so the next one can build on it ("last time you
+  // noticed X"), turning a cold per-diff stranger into a sibling that returns to
+  // the same writing over time. This is doc-scoped epistemic continuity, native
+  // to Folio because it already tracks what moved.
+  reactions: defineTable({
+    documentId: v.id("documents"),
+    content: v.string(), // what the sibling said (markdown)
+    summary: v.string(), // terse note of what it reacted to ("2 added · 1 edited")
+    createdAt: v.number(),
+  }).index("by_document", ["documentId"]),
 });
