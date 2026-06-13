@@ -9,6 +9,7 @@ import type { Id } from "@convex/_generated/dataModel";
 import { DocEditor } from "@/components/DocEditor";
 import { DiffPanel } from "@/components/DiffPanel";
 import { ClaudeReaction } from "@/components/ClaudeReaction";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { folioClaudeLabel } from "@/lib/identity";
 
 function DocTitleEditor({ documentId }: { documentId: Id<"documents"> }) {
@@ -158,6 +159,7 @@ export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
               onClick={() => setPanelOpen(true)}
             />
           </Authenticated>
+          <ThemeToggle />
           <UserButton />
         </div>
       </header>

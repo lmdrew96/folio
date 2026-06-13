@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/* Manual theme control: drive dark mode off a `.dark` class on <html> (set by
+   next-themes) instead of the OS media query, so System/Light/Dark all work.
+   "System" still resolves to the OS preference — next-themes sets the class. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ── Folio's own look: calm, paper-forward, distinct from the Lab Notebook
    dashboards. Leans on the ADHDesigns palette but defines a small Folio set. ── */
 :root {
@@ -28,20 +33,18 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Low-contrast dark: deep brand-purple canvas, lavender ink — not white. */
-    --background: #1e1830;
-    --foreground: #dbd5e2;
+.dark {
+  /* Low-contrast dark: deep brand-purple canvas, lavender ink — not white. */
+  --background: #1e1830;
+  --foreground: #dbd5e2;
 
-    /* In the dark the sheet is *lifted* above the desk (lighter, not shadowed)
-       so the page edge still reads without harsh contrast. */
-    --folio-backdrop: #14101c; /* deep desk */
-    --folio-paper: #221b33; /* sheet, a step lighter than the desk */
-    --folio-paper-edge: rgba(255, 255, 255, 0.06);
-    --folio-paper-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.3), 0 18px 44px -18px rgba(0, 0, 0, 0.6);
-  }
+  /* In the dark the sheet is *lifted* above the desk (lighter, not shadowed)
+     so the page edge still reads without harsh contrast. */
+  --folio-backdrop: #14101c; /* deep desk */
+  --folio-paper: #221b33; /* sheet, a step lighter than the desk */
+  --folio-paper-edge: rgba(255, 255, 255, 0.06);
+  --folio-paper-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3), 0 18px 44px -18px rgba(0, 0, 0, 0.6);
 }
 
 body {
@@ -92,19 +95,17 @@ body {
   --tw-prose-counters: #88739e;
 }
 
-@media (prefers-color-scheme: dark) {
-  .ProseMirror {
-    --tw-prose-body: #d6cfe1;
-    --tw-prose-headings: #f1ecf7;
-    --tw-prose-bold: #f1ecf7;
-    --tw-prose-links: #8cbdb9;
-    --tw-prose-quotes: #8cbdb9;
-    --tw-prose-quote-borders: #3a3350;
-    --tw-prose-hr: #2e2742;
-    --tw-prose-code: #8cbdb9;
-    --tw-prose-bullets: #88739e;
-    --tw-prose-counters: #88739e;
-  }
+.dark .ProseMirror {
+  --tw-prose-body: #d6cfe1;
+  --tw-prose-headings: #f1ecf7;
+  --tw-prose-bold: #f1ecf7;
+  --tw-prose-links: #8cbdb9;
+  --tw-prose-quotes: #8cbdb9;
+  --tw-prose-quote-borders: #3a3350;
+  --tw-prose-hr: #2e2742;
+  --tw-prose-code: #8cbdb9;
+  --tw-prose-bullets: #88739e;
+  --tw-prose-counters: #88739e;
 }
 
 /* Highlights are always light tints, so keep their text dark ink in BOTH
