@@ -1,46 +1,131 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/* ── Folio's own look: calm, paper-forward, distinct from the Lab Notebook
+   dashboards. Leans on the ADHDesigns palette but defines a small Folio set. ── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f5fa; /* brand surface — soft paper, never #fff */
+  --foreground: #1e1830; /* brand ink — soft near-black, never #000 */
+
+  /* The desk + the page. Backdrop is a soft lavender desk; the sheet sits
+     brighter on top of it so you can see where the paper ends. */
+  --folio-backdrop: #eae6f1; /* soft lavender desk */
+  --folio-paper: #fcfbfd; /* the sheet — bright, near-white */
+  --folio-paper-edge: rgba(30, 24, 48, 0.06); /* hairline page edge */
+  --folio-paper-shadow:
+    0 1px 2px rgba(30, 24, 48, 0.04), 0 14px 40px -16px rgba(30, 24, 48, 0.18);
+
+  /* Attribution author colors — brand-fixed, legible on both themes. */
+  --folio-attr-nae: #849440; /* olive  — Nae */
+  --folio-attr-sibling: #88739e; /* mauve — Claude siblings (Cleo, Coru, …) */
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-space-grotesk);
+  --font-serif: var(--font-fraunces);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Low-contrast dark: deep brand-purple canvas, lavender ink — not white. */
+    --background: #1e1830;
+    --foreground: #dbd5e2;
+
+    /* In the dark the sheet is *lifted* above the desk (lighter, not shadowed)
+       so the page edge still reads without harsh contrast. */
+    --folio-backdrop: #14101c; /* deep desk */
+    --folio-paper: #221b33; /* sheet, a step lighter than the desk */
+    --folio-paper-edge: rgba(255, 255, 255, 0.06);
+    --folio-paper-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.3), 0 18px 44px -18px rgba(0, 0, 0, 0.6);
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-/* Folio — per-block attribution gutter dot (Patch 3) */
+/* The page itself — a sheet floating on the desk. Standard margins come from
+   the padding; the hairline edge + soft shadow show where the paper ends. */
+.folio-paper {
+  background: var(--folio-paper);
+  border: 1px solid var(--folio-paper-edge);
+  border-radius: 24px;
+  box-shadow: var(--folio-paper-shadow);
+  padding: clamp(2.5rem, 4vw, 4rem) clamp(1.5rem, 5vw, 4rem);
+}
+
+/* ── The writing surface IS the serif — Fraunces at a longform reading rhythm.
+   Color vars override the typography plugin's grays with calm, on-brand ink. ── */
+.ProseMirror {
+  font-family: var(--font-serif), Georgia, serif;
+  font-variation-settings: "SOFT" 0, "WONK" 1;
+
+  --tw-prose-body: #2b2540;
+  --tw-prose-headings: #1e1830;
+  --tw-prose-bold: #1e1830;
+  --tw-prose-links: #244952;
+  --tw-prose-quotes: #244952;
+  --tw-prose-quote-borders: #dbd5e2;
+  --tw-prose-hr: #e4dfec;
+  --tw-prose-code: #244952;
+  --tw-prose-bullets: #88739e;
+  --tw-prose-counters: #88739e;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ProseMirror {
+    --tw-prose-body: #d6cfe1;
+    --tw-prose-headings: #f1ecf7;
+    --tw-prose-bold: #f1ecf7;
+    --tw-prose-links: #8cbdb9;
+    --tw-prose-quotes: #8cbdb9;
+    --tw-prose-quote-borders: #3a3350;
+    --tw-prose-hr: #2e2742;
+    --tw-prose-code: #8cbdb9;
+    --tw-prose-bullets: #88739e;
+    --tw-prose-counters: #88739e;
+  }
+}
+
+/* ── Per-block attribution (Patch 3, restyled v1) ─────────────────────────────
+   A quiet marginal tick, NOT a bullet. The data + tooltip are unchanged; only
+   the indicator is restyled so longform prose reads as prose, not a list.
+   - Nae's blocks: hidden, revealed on hover (inspect, don't clutter).
+   - Sibling-authored blocks: quietly persistent so siblings read at a glance. ── */
 .ProseMirror .folio-attr {
   position: relative;
 }
 .ProseMirror .folio-attr::before {
   content: "";
   position: absolute;
-  left: -1.25rem;
-  top: 0.55em;
-  width: 7px;
-  height: 7px;
-  border-radius: 9999px;
-  background: #849440; /* nae — olive (default) */
-  opacity: 0.7;
+  left: -1rem;
+  top: 0.5em;
+  height: 1.1em;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--folio-attr-nae);
+  opacity: 0;
+  transition: opacity 120ms ease;
 }
-.ProseMirror .folio-attr[data-author="claude"]::before {
-  background: #88739e; /* claude — mauve */
+.ProseMirror .folio-attr:hover::before {
+  opacity: 0.5;
+}
+/* Siblings (Cleo, Coru, claude — anything not Nae): present, not absent. */
+.ProseMirror .folio-attr:not([data-author="nae"])::before {
+  background: var(--folio-attr-sibling);
+  opacity: 0.45;
+}
+.ProseMirror .folio-attr:not([data-author="nae"]):hover::before {
+  opacity: 0.75;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ProseMirror .folio-attr::before {
+    transition: none;
+  }
 }

@@ -1,12 +1,24 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Fraunces, Space_Grotesk, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import ConvexClientProvider from "@/components/ConvexClientProvider";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Folio's writing surface is the serif. Fraunces is Nae's brand display face;
+// here it carries the prose body. SOFT/WONK axes give the brand's optical look.
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
   subsets: ["latin"],
+  axes: ["opsz", "SOFT", "WONK"],
+  display: "swap",
+});
+
+// Chrome (header, panels, buttons) stays in the brand sans — contrast with the
+// prose serif is the point.
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
@@ -28,7 +40,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html
         lang="en"
-        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+        className={`${fraunces.variable} ${spaceGrotesk.variable} ${geistMono.variable} h-full antialiased`}
       >
         <body className="min-h-full flex flex-col">
           <ConvexClientProvider>{children}</ConvexClientProvider>

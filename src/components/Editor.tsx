@@ -90,8 +90,11 @@ export function Editor({ documentId }: { documentId: Id<"documents"> }) {
     ],
     editorProps: {
       attributes: {
+        // prose-lg = longform reading size; the default 65ch measure (no
+        // max-w-none) + mx-auto centers the column as a page in calm space.
+        // The attribution tick lives in the left margin now, so no pl gutter.
         class:
-          "prose prose-neutral dark:prose-invert max-w-none min-h-[60vh] pl-8 focus:outline-none",
+          "prose prose-lg mx-auto min-h-[60vh] focus:outline-none",
       },
     },
     onUpdate: ({ editor }) => {
