@@ -99,12 +99,14 @@ function computeOrders(
  *   - row whose blockId vanished     → delete
  * Idempotent: re-running with the same desired state writes nothing.
  *
- * `actor` is hardcoded "nae" here; Patch 3 threads the real actor param and
- * builds the attribution UI. Deletes are hard for now; Patch 4 soft-deletes.
+ * `actor` is who's writing — "nae" from the human editor, "claude" from the AI
+ * path in Patch 5. Threaded through so attribution is correct per block.
+ * Deletes are hard for now; Patch 4 soft-deletes.
  */
 export const reconcile = mutation({
   args: {
     documentId: v.id("documents"),
+    actor: v.string(), // who is making these edits ("nae" | "claude")
     // Desired top-level blocks, in document order (array index = position).
     blocks: v.array(
       v.object({
@@ -114,7 +116,7 @@ export const reconcile = mutation({
       }),
     ),
   },
-  handler: async (ctx, { documentId, blocks }) => {
+  handler: async (ctx, { documentId, actor, blocks }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
     const doc = await ctx.db.get(documentId);
@@ -143,7 +145,7 @@ export const reconcile = mutation({
           order,
           type: b.type,
           content: b.content,
-          author: "nae", // Patch 3 threads the real actor
+          author: actor,
           createdAt: now,
           lastEditedAt: now,
         });
@@ -160,7 +162,8 @@ export const reconcile = mutation({
       if (existing.type !== b.type) patch.type = b.type;
       if (contentChanged) {
         patch.content = b.content;
-        patch.lastEditedAt = now; // an actual edit (Patch 3 also sets author here)
+        patch.author = actor; // whoever last touched it owns it now
+        patch.lastEditedAt = now;
       }
       if (orderChanged) patch.order = order; // reordering is not editing — no bump
       await ctx.db.patch(existing._id, patch);

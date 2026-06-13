@@ -12,6 +12,11 @@ import { UniqueID } from "@tiptap/extension-unique-id";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import {
+  Attribution,
+  attributionPluginKey,
+  type AttrInfo,
+} from "./extensions/attribution";
 
 // Top-level block node types that get a stable UniqueID (and thus a Convex row).
 const BLOCK_TYPES = [
@@ -25,6 +30,9 @@ const BLOCK_TYPES = [
 ];
 
 const DEBOUNCE_MS = 600;
+
+// v0 has a single human author; Patch 5's AI path writes blocks as "claude".
+const ACTOR = "nae";
 
 type DesiredBlock = { blockId: string; type: string; content: JSONContent };
 
@@ -64,7 +72,7 @@ export function Editor({ documentId }: { documentId: Id<"documents"> }) {
     if (desired === null) return; // duplicate ids — let UniqueID settle
     const hash = JSON.stringify(desired);
     if (hash === lastSyncedHashRef.current) return; // nothing changed
-    void reconcile({ documentId, blocks: desired })
+    void reconcile({ documentId, actor: ACTOR, blocks: desired })
       .then(() => {
         lastSyncedHashRef.current = hash;
       })
@@ -75,11 +83,15 @@ export function Editor({ documentId }: { documentId: Id<"documents"> }) {
 
   const editor = useEditor({
     immediatelyRender: false, // required for Next.js SSR (TipTap v3)
-    extensions: [StarterKit, UniqueID.configure({ types: BLOCK_TYPES })],
+    extensions: [
+      StarterKit,
+      UniqueID.configure({ types: BLOCK_TYPES }),
+      Attribution,
+    ],
     editorProps: {
       attributes: {
         class:
-          "prose prose-neutral dark:prose-invert max-w-none min-h-[60vh] focus:outline-none",
+          "prose prose-neutral dark:prose-invert max-w-none min-h-[60vh] pl-8 focus:outline-none",
       },
     },
     onUpdate: ({ editor }) => {
@@ -106,6 +118,18 @@ export function Editor({ documentId }: { documentId: Id<"documents"> }) {
     }
     const desired = buildDesired(editor);
     lastSyncedHashRef.current = desired ? JSON.stringify(desired) : null;
+  }, [editor, blocks]);
+
+  // Push live attribution (author + lastEditedAt per block) into the editor so
+  // the gutter decorations reflect persisted state. Meta-only transaction —
+  // no doc change, so it never triggers a reconcile.
+  useEffect(() => {
+    if (!editor || blocks === undefined) return;
+    const map = new Map<string, AttrInfo>();
+    for (const b of blocks) {
+      map.set(b.blockId, { author: b.author, lastEditedAt: b.lastEditedAt });
+    }
+    editor.view.dispatch(editor.state.tr.setMeta(attributionPluginKey, map));
   }, [editor, blocks]);
 
   // Flush any pending debounce on unmount so the last edit isn't lost.
