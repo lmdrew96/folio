@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useEditor,
   EditorContent,
@@ -17,6 +17,7 @@ import {
   attributionPluginKey,
   type AttrInfo,
 } from "./extensions/attribution";
+import { SmartTypography } from "./extensions/typography";
 
 // Top-level block node types that get a stable UniqueID (and thus a Convex row).
 const BLOCK_TYPES = [
@@ -66,6 +67,11 @@ export function Editor({ documentId }: { documentId: Id<"documents"> }) {
   // Hash of the last desired-state we successfully synced; lets us skip
   // reconcile calls that wouldn't change anything.
   const lastSyncedHashRef = useRef<string | null>(null);
+  // Transient "Saved" confirmation for the explicit Ctrl/Cmd+S save.
+  const savedHideRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
+    "idle",
+  );
 
   const flush = (editor: TiptapEditor) => {
     const desired = buildDesired(editor);
@@ -81,12 +87,36 @@ export function Editor({ documentId }: { documentId: Id<"documents"> }) {
       });
   };
 
+  // Explicit save (Ctrl/Cmd+S). Folio already autosaves, so this mostly exists
+  // to reassure — it flushes any pending edit now and flashes "Saved".
+  const saveNow = async (editor: TiptapEditor) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const desired = buildDesired(editor);
+    if (desired === null) return; // ids still settling — skip this beat
+    const hash = JSON.stringify(desired);
+    if (hash !== lastSyncedHashRef.current) {
+      setSaveStatus("saving");
+      try {
+        await reconcile({ documentId, actor: ACTOR, blocks: desired });
+        lastSyncedHashRef.current = hash;
+      } catch (e) {
+        console.error("Folio: manual save failed", e);
+        setSaveStatus("idle");
+        return;
+      }
+    }
+    setSaveStatus("saved");
+    if (savedHideRef.current) clearTimeout(savedHideRef.current);
+    savedHideRef.current = setTimeout(() => setSaveStatus("idle"), 1600);
+  };
+
   const editor = useEditor({
     immediatelyRender: false, // required for Next.js SSR (TipTap v3)
     extensions: [
       StarterKit,
       UniqueID.configure({ types: BLOCK_TYPES }),
       Attribution,
+      SmartTypography,
     ],
     editorProps: {
       attributes: {
@@ -147,7 +177,46 @@ export function Editor({ documentId }: { documentId: Id<"documents"> }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
 
+  // Ctrl/Cmd+S → save now (and swallow the browser's save-page dialog).
+  useEffect(() => {
+    if (!editor) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        !e.shiftKey &&
+        !e.altKey &&
+        (e.key === "s" || e.key === "S")
+      ) {
+        e.preventDefault();
+        void saveNow(editor);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
+
+  // Clear the "Saved" hide timer if we unmount mid-flash.
+  useEffect(
+    () => () => {
+      if (savedHideRef.current) clearTimeout(savedHideRef.current);
+    },
+    [],
+  );
+
   if (!editor) return null;
 
-  return <EditorContent editor={editor} />;
+  return (
+    <>
+      <EditorContent editor={editor} />
+      <div
+        aria-live="polite"
+        className={`pointer-events-none fixed bottom-5 left-1/2 z-20 -translate-x-1/2 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-foreground/60 shadow-sm transition-opacity duration-200 ${
+          saveStatus === "idle" ? "opacity-0" : "opacity-100"
+        }`}
+      >
+        {saveStatus === "saving" ? "Saving…" : "Saved"}
+      </div>
+    </>
+  );
 }
