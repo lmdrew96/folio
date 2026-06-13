@@ -160,7 +160,7 @@ export async function POST(req: Request) {
 
   const anthropic = new Anthropic();
   const llm = anthropic.messages.stream({
-    model: "claude-opus-4-8",
+    model: "claude-sonnet-4-6",
     max_tokens: 1500,
     system: composeSystemPrompt({ naeContext, folioCanon }),
     messages: [{ role: "user", content: buildPrompt(payload, prior) }],
