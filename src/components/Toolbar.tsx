@@ -323,7 +323,7 @@ export function Toolbar({ editor }: { editor: Editor }) {
   };
 
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-0.5 border-b border-foreground/10 bg-[var(--folio-backdrop)] px-3 py-1.5">
+    <div className="flex shrink-0 flex-wrap items-center gap-0.5 border-b border-foreground/10 bg-[var(--folio-backdrop)] px-3 py-1.5 print:hidden">
       {/* Block type */}
       <label className="sr-only" htmlFor="folio-block-type">
         Paragraph style
