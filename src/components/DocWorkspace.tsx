@@ -9,6 +9,7 @@ import type { Id } from "@convex/_generated/dataModel";
 import { DocEditor } from "@/components/DocEditor";
 import { DiffPanel } from "@/components/DiffPanel";
 import { ClaudeReaction } from "@/components/ClaudeReaction";
+import { ResizableDock } from "@/components/ResizableDock";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { folioClaudeLabel } from "@/lib/identity";
 
@@ -175,11 +176,8 @@ export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
           <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <DocBody documentId={documentId} />
           </main>
-          {/* Persistent sidebar on wide screens; a drawer below lg. */}
-          <aside className="hidden w-80 shrink-0 flex-col border-l border-black/10 lg:flex dark:border-white/10">
-            <DiffPanel documentId={documentId} />
-            <ClaudeReaction documentId={documentId} />
-          </aside>
+          {/* Resizable sidebar on wide screens; a drawer below lg. */}
+          <ResizableDock documentId={documentId} />
         </div>
 
         {/* Drawer for small/medium screens — same panels, slid in from the right. */}
@@ -220,8 +218,12 @@ export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
                   </svg>
                 </button>
               </div>
-              <DiffPanel documentId={documentId} />
-              <ClaudeReaction documentId={documentId} />
+              <div className="min-h-0 flex-1 overflow-hidden">
+                <DiffPanel documentId={documentId} />
+              </div>
+              <div className="max-h-[45%] shrink-0 overflow-hidden border-t border-black/10 dark:border-white/10">
+                <ClaudeReaction documentId={documentId} />
+              </div>
             </aside>
           </div>
         )}

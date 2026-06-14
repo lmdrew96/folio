@@ -53,7 +53,7 @@ export function ClaudeReaction({ documentId }: { documentId: Id<"documents"> }) 
   const empty = !error && !text && history.length === 0 && !loading;
 
   return (
-    <section className="flex max-h-[45%] shrink-0 flex-col border-t border-black/10 dark:border-white/10">
+    <section className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold">{label}</h2>
