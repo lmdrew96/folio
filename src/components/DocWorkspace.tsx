@@ -18,11 +18,15 @@ function DocTitleEditor({ documentId }: { documentId: Id<"documents"> }) {
   const rename = useMutation(api.documents.rename);
   const [draft, setDraft] = useState("");
   const [focused, setFocused] = useState(false);
+  const [syncedTitle, setSyncedTitle] = useState<string | null>(null);
 
   // Keep the field synced to the server title whenever we're not mid-edit.
-  useEffect(() => {
-    if (!focused && doc) setDraft(doc.title);
-  }, [doc, focused]);
+  // Adjusted during render (the blessed "store the previous prop" pattern)
+  // rather than in an effect, and converges once draft matches.
+  if (doc && !focused && doc.title !== syncedTitle) {
+    setSyncedTitle(doc.title);
+    setDraft(doc.title);
+  }
 
   if (doc === undefined) {
     return <span className="text-sm text-foreground/40">Loading…</span>;
