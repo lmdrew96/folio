@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { useTheme } from "next-themes";
 
 function Icon({ children }: { children: ReactNode }) {
@@ -61,13 +67,18 @@ const OPTIONS = [
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   // next-themes only knows the theme after mount — gate on this to avoid a
-  // hydration mismatch on the active icon/checkmark.
-  useEffect(() => setMounted(true), []);
+  // hydration mismatch on the active icon/checkmark. useSyncExternalStore gives
+  // us "false on the server and first paint, true once hydrated" without a
+  // set-state-in-effect.
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   useEffect(() => {
     if (!open) return;
