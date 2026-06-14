@@ -67,7 +67,9 @@ function buildDesired(editor: TiptapEditor): DesiredBlock[] | null {
 
 export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
   const blocks = useQuery(api.blocks.list, { documentId });
+  const doc = useQuery(api.documents.get, { documentId });
   const reconcile = useMutation(api.blocks.reconcile);
+  const title = doc?.title?.trim() || "Untitled";
 
   const loadedRef = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -237,7 +239,7 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {editor ? (
-        <Toolbar editor={editor} />
+        <Toolbar editor={editor} title={title} />
       ) : (
         <div className="h-11 shrink-0 border-b border-foreground/10 bg-[var(--folio-backdrop)]" />
       )}

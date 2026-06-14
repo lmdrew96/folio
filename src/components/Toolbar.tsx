@@ -2,6 +2,11 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
+import {
+  exportDocument,
+  EXPORT_FORMATS,
+  type ExportFormat,
+} from "@/lib/export";
 
 // Curated highlights. `value` is the semantic name stored on the mark (themed
 // in CSS); `display` is the light-mode tint shown in the swatch.
@@ -121,6 +126,11 @@ const AlignRightIcon = (
 const LineSpacingIcon = (
   <Icon>
     <path d="M9 6h11M9 12h11M9 18h11M4 4v16M4 4 2 6M4 4l2 2M4 20l-2-2M4 20l2-2" />
+  </Icon>
+);
+const ExportIcon = (
+  <Icon>
+    <path d="M12 3v12M8 11l4 4 4-4M5 21h14" />
   </Icon>
 );
 
@@ -258,7 +268,75 @@ function LineSpacingControl({
   );
 }
 
-export function Toolbar({ editor }: { editor: Editor }) {
+function ExportMenu({ editor, title }: { editor: Editor; title: string }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState<ExportFormat | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const pick = async (format: ExportFormat) => {
+    setOpen(false);
+    setBusy(format);
+    try {
+      await exportDocument(editor, title, format);
+    } catch (err) {
+      console.error("Folio: export failed", err);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Export document"
+        aria-expanded={open}
+        title="Export document"
+        className={`${BTN} ${open ? BTN_ACTIVE : ""}`}
+      >
+        {ExportIcon}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-9 z-30 w-40 overflow-hidden rounded-lg border border-foreground/10 bg-[var(--folio-paper)] py-1 shadow-md">
+          {EXPORT_FORMATS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => pick(f.id)}
+              disabled={busy !== null}
+              className="flex w-full items-center justify-between px-3 py-1.5 text-sm text-foreground/70 transition hover:bg-black/5 hover:text-foreground disabled:opacity-50 dark:hover:bg-white/10"
+            >
+              <span>{f.label}</span>
+              <span className="text-[11px] uppercase text-foreground/35">
+                {busy === f.id ? "…" : `.${f.ext}`}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function Toolbar({
+  editor,
+  title,
+}: {
+  editor: Editor;
+  title: string;
+}) {
   const s = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
@@ -470,6 +548,11 @@ export function Toolbar({ editor }: { editor: Editor }) {
 
       {/* Line spacing */}
       <LineSpacingControl editor={editor} current={s.lineHeight} />
+
+      <Divider />
+
+      {/* Export */}
+      <ExportMenu editor={editor} title={title} />
     </div>
   );
 }
