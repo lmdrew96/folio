@@ -14,6 +14,7 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
 import { ThemeHighlight } from "./extensions/theme-highlight";
 import { LineHeight } from "./extensions/line-height";
+import { Indent } from "./extensions/indent";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -135,6 +136,7 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
       TextStyle,
       Color,
       LineHeight,
+      Indent,
     ],
     editorProps: {
       attributes: {
