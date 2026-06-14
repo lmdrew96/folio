@@ -198,3 +198,99 @@ body {
     transition: none;
   }
 }
+
+/* ── Print: put just the paper on the page ────────────────────────────────────
+   Cmd/Ctrl+P prints the document sheet alone. We hide the desk chrome (header,
+   the changes/Cleo sidebar + drawer, the editor toolbar, the floating save
+   pill), release the app's full-height flex/overflow cage so the prose flows
+   across pages instead of clipping to one screen, and force calm dark-on-white
+   ink no matter which theme is active. ── */
+@media print {
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  /* Let every container grow to its content and stop clipping. */
+  body * {
+    overflow: visible !important;
+  }
+  .h-dvh {
+    height: auto !important;
+  }
+
+  /* Desk chrome — everything that isn't the sheet. (.fixed covers the save pill
+     and the mobile drawer; the editor toolbar carries print:hidden.) */
+  header,
+  aside,
+  .fixed {
+    display: none !important;
+  }
+
+  /* The sheet becomes the page: no float, no tint — page margins do the framing. */
+  .folio-paper {
+    background: #fff !important;
+    color: #1a1a1a !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  /* Calm, legible ink regardless of the active theme (including dark mode). */
+  .ProseMirror,
+  .dark .ProseMirror {
+    --tw-prose-body: #1a1a1a;
+    --tw-prose-headings: #000;
+    --tw-prose-bold: #000;
+    --tw-prose-links: #1a1a1a;
+    --tw-prose-quotes: #333;
+    --tw-prose-quote-borders: #ccc;
+    --tw-prose-hr: #ccc;
+    --tw-prose-code: #333;
+    --tw-prose-bullets: #555;
+    --tw-prose-counters: #555;
+  }
+
+  /* Highlights stay meaningful — light tint + dark ink, even from dark mode. */
+  .ProseMirror mark[data-highlight] {
+    color: #1e1830 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .ProseMirror mark[data-highlight="amber"] {
+    background-color: #f4e3be !important;
+  }
+  .ProseMirror mark[data-highlight="green"] {
+    background-color: #d6ebc8 !important;
+  }
+  .ProseMirror mark[data-highlight="mint"] {
+    background-color: #cfe6e2 !important;
+  }
+  .ProseMirror mark[data-highlight="lavender"] {
+    background-color: #e5dfee !important;
+  }
+
+  /* Attribution ticks are an editing aid, not part of the document. */
+  .ProseMirror .folio-attr::before {
+    display: none !important;
+  }
+
+  /* Tidy pagination — don't strand a heading at a page foot or split a quote. */
+  .ProseMirror :is(h1, h2, h3, h4) {
+    break-after: avoid;
+  }
+  .ProseMirror :is(blockquote, pre, img) {
+    break-inside: avoid;
+  }
+}
+
+/* Print page box — kept at the top level on purpose, NOT nested inside the
+   @media print block above: Turbopack's dev CSS parser drops an entire @media
+   block that contains a nested @page at-rule (it compiled to an empty
+   `@media print {}` and silently broke every print rule). @page is print-scoped
+   on its own, so it doesn't need the nesting. */
+@page {
+  margin: 1in;
+}
