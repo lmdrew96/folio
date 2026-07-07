@@ -65,7 +65,7 @@ const TOOLS = [
   {
     name: "folio_read_document",
     description:
-      "Read the full current content of one Folio document — its live blocks in order, each as plain text with author attribution (nae | claude | a sibling's name). Use after folio_list_documents.",
+      "Read the full current content of one Folio document — its live blocks in order, each as markdown text (list items one per line, bold/italic/headings preserved as markdown syntax) with author attribution (nae | claude | a sibling's name). Use after folio_list_documents.",
     inputSchema: {
       type: "object",
       properties: {
