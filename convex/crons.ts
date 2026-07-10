@@ -13,4 +13,20 @@ crons.interval(
   {},
 );
 
+// Block tombstones and reaction history both grow without bound otherwise —
+// see the doc comments on purgeOldTombstones / purgeOld for why each is safe.
+crons.interval(
+  "purge old block tombstones",
+  { hours: 24 * 7 },
+  internal.blocks.purgeOldTombstones,
+  {},
+);
+
+crons.interval(
+  "cap stored reactions per document",
+  { hours: 24 * 7 },
+  internal.reactions.purgeOld,
+  {},
+);
+
 export default crons;

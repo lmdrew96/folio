@@ -1,5 +1,9 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+
+// Floor on how long a soft-deleted block's tombstone is kept, regardless of
+// watermark state — see purgeOldTombstones below.
+const TOMBSTONE_RETENTION_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 
 /** All blocks for a document the caller owns, ordered. Reactive. */
 export const list = query({
@@ -196,5 +200,47 @@ export const reconcile = mutation({
     }
 
     if (changed) await ctx.db.patch(documentId, { updatedAt: now });
+  },
+});
+
+/**
+ * Hard-delete soft-deleted block tombstones that are both older than
+ * TOMBSTONE_RETENTION_MS and older than every watermark in `visits` for their
+ * document. The watermark bound is what makes this safe: diff/reactionPayload
+ * only surface a tombstone when `deletedAt > watermark`, so once a tombstone
+ * predates every watermark it's already invisible to every diff view — purging
+ * it changes nothing but row count. A document with no visits yet has no bound
+ * to violate (diffSince returns empty until a first watermark is set, so
+ * nothing could ever look back that far). Runs on a weekly cron (convex/crons.ts).
+ */
+export const purgeOldTombstones = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const cutoff = Date.now() - TOMBSTONE_RETENTION_MS;
+    const documents = await ctx.db.query("documents").collect();
+
+    for (const doc of documents) {
+      const tombstones = (
+        await ctx.db
+          .query("blocks")
+          .withIndex("by_document", (q) => q.eq("documentId", doc._id))
+          .collect()
+      ).filter(
+        (b): b is typeof b & { deletedAt: number } =>
+          b.deletedAt !== undefined && b.deletedAt < cutoff,
+      );
+      if (tombstones.length === 0) continue;
+
+      const visits = await ctx.db
+        .query("visits")
+        .withIndex("by_doc_user", (q) => q.eq("documentId", doc._id))
+        .collect();
+      const oldestWatermark = visits.length
+        ? Math.min(...visits.map((v) => v.lastVisitedAt))
+        : Infinity;
+
+      const purgeable = tombstones.filter((b) => b.deletedAt < oldestWatermark);
+      await Promise.all(purgeable.map((b) => ctx.db.delete(b._id)));
+    }
   },
 });

@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 /**
@@ -7,6 +7,10 @@ import { v } from "convex/values";
  * to the same writing with memory of its own takes, instead of cold-reading a
  * diff every time. Read path (`recent`) feeds both the prompt and the UI history.
  */
+
+// How many reactions per document `purgeOld` keeps — `recent`'s own `limit`
+// caps what's read, but nothing capped what's stored until now.
+const REACTIONS_KEEP = 50;
 
 /** Record one reaction the sibling just streamed. Owner-gated like everything else. */
 export const record = mutation({
@@ -57,5 +61,30 @@ export const recent = query({
         summary: r.summary,
         createdAt: r.createdAt,
       }));
+  },
+});
+
+/**
+ * Cap stored reactions per document to the most recent REACTIONS_KEEP —
+ * `recent` only ever capped what's read, so storage grew forever. Runs on a
+ * weekly cron (convex/crons.ts).
+ */
+export const purgeOld = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const documents = await ctx.db.query("documents").collect();
+
+    for (const doc of documents) {
+      const rows = await ctx.db
+        .query("reactions")
+        .withIndex("by_document", (q) => q.eq("documentId", doc._id))
+        .collect();
+      if (rows.length <= REACTIONS_KEEP) continue;
+
+      const excess = rows
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(REACTIONS_KEEP);
+      await Promise.all(excess.map((r) => ctx.db.delete(r._id)));
+    }
   },
 });
