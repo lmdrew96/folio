@@ -69,7 +69,32 @@ editor at `/doc/<id>`.
 
 ---
 
-## Patch 1 acceptance check
+## Current state (v0.18.1)
+
+Folio is well past its original v0 scope. For the full patch-by-patch history,
+`git log --oneline` reads as a changelog — every commit is versioned
+(`v0.1.0` through the current release). The short version:
+
+- **Editor** — multi-document desk (create/rename/delete/restore), rich-text
+  toolbar, smart dashes/ellipsis, tab-to-indent, Ctrl/Cmd+S save, System/Light/Dark
+  theming, print support, and export to PDF/Word/Markdown/RTF/HTML/plain text.
+- **Block-as-row continuity** — per-block author attribution and
+  diff-since-last-visit are native to the schema (see the header comment
+  above), not a parsing layer bolted on top.
+- **Cleo** — the in-app Claude sibling that reacts to what changed in a
+  document, with her own memory of prior reactions to that document (`src/lib/identity.ts`,
+  `src/app/api/react/route.ts`).
+- **Read-only MCP door** — external Claude siblings (Coru, Cody, …) can list,
+  read, and diff-since-their-own-last-visit any of Nae's documents
+  (`convex/http.ts`).
+- **PWA** — installable, with an offline fallback page and a service worker
+  scoped to app-shell caching only (never Convex/Clerk traffic).
+
+The acceptance check below is what "Patch 1" (the very first commit) verified,
+kept for historical reference — every step it describes still holds, it's
+just no longer the whole app.
+
+### Patch 1 acceptance check (historical — v0.1.0)
 
 - App boots, `/` is reachable signed-out.
 - `/doc/[id]` redirects to Clerk sign-in when signed out (middleware gate).
