@@ -37,6 +37,10 @@ export default defineSchema({
     lastEditedAt: v.number(),
     deletedAt: v.optional(v.number()), // Patch 4 — soft-delete tombstone for diff
     previouslyDraftedBy: v.optional(v.string()), // v1 lineage
+    // The block's content immediately before its most recent edit — lets the
+    // diff panel render an actual word-level change instead of just current
+    // text. Overwritten on every edit (single prior snapshot, not a history).
+    previousContent: v.optional(v.any()),
   })
     .index("by_document", ["documentId"])
     .index("by_document_block", ["documentId", "blockId"]),

@@ -182,6 +182,7 @@ export const reconcile = mutation({
       const patch: Record<string, unknown> = {};
       if (existing.type !== b.type) patch.type = b.type;
       if (contentChanged) {
+        patch.previousContent = existing.content; // for the diff panel's word-level view
         patch.content = b.content;
         patch.author = actor; // whoever last touched it owns it now
         patch.lastEditedAt = now;

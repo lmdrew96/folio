@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { diffWords } from "diff";
 
 /** Full plain text of a ProseMirror block's JSON. */
 function blockText(content: unknown): string {
@@ -20,10 +21,32 @@ function textPreview(content: unknown, max = 100): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
+type DiffPart = { value: string; added?: boolean; removed?: boolean };
+
+// Chars of unchanged context to keep on either side of a change, mirroring
+// textPreview's cap so one edit inside a long paragraph doesn't render the
+// whole block back into the panel.
+const DIFF_CONTEXT = 60;
+
+/** Word-level change between a block's prior and current text, with long
+ *  unchanged runs elided to a bounded context window around the edit. */
+function editDiff(oldContent: unknown, newContent: unknown): DiffPart[] {
+  const parts = diffWords(blockText(oldContent), blockText(newContent));
+  return parts.map((part, i): DiffPart => {
+    if (part.added || part.removed) return part;
+    if (part.value.length <= DIFF_CONTEXT * 2) return part;
+    const head = i === 0 ? "" : part.value.slice(0, DIFF_CONTEXT);
+    const tail = i === parts.length - 1 ? "" : part.value.slice(-DIFF_CONTEXT);
+    const value = i === 0 ? `…${tail}` : i === parts.length - 1 ? `${head}…` : `${head}…${tail}`;
+    return { value };
+  });
+}
+
 type DiffItem = {
   blockId: string;
   type: string;
   preview: string;
+  diff?: DiffPart[]; // edited items only, when a prior snapshot exists
   author?: string;
   at: number; // the timestamp relevant to the bucket (created / edited / deleted)
 };
@@ -83,7 +106,11 @@ export const diffSince = query({
       } else if (b.createdAt > since) {
         added.push({ ...base, at: b.createdAt });
       } else if (b.lastEditedAt > since) {
-        edited.push({ ...base, at: b.lastEditedAt });
+        edited.push({
+          ...base,
+          at: b.lastEditedAt,
+          diff: b.previousContent !== undefined ? editDiff(b.previousContent, b.content) : undefined,
+        });
       }
     }
 

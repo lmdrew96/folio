@@ -9,10 +9,13 @@ import { relativeTime } from "@/lib/time";
 // v0 tracks one human watermark; Patch 5 adds the "claude" watermark.
 const USER = "nae";
 
+type DiffPart = { value: string; added?: boolean; removed?: boolean };
+
 type Item = {
   blockId: string;
   type: string;
   preview: string;
+  diff?: DiffPart[];
   author?: string;
   at: number;
 };
@@ -22,6 +25,29 @@ const KINDS = {
   edited: { label: "Edited", className: "bg-[#DFA649]/20 text-[#8a6512]" },
   deleted: { label: "Deleted", className: "bg-[#88739E]/20 text-[#6b577f]" },
 } as const;
+
+// Word-level before/after for an edited block — removed spans strike through
+// in the same mauve used for the "Deleted" badge, added spans highlight in
+// the same olive used for "Added", so the diff reuses the panel's own palette.
+function DiffText({ parts }: { parts: DiffPart[] }) {
+  return (
+    <p className="line-clamp-3 text-sm text-black/70 dark:text-white/70">
+      {parts.map((part, i) =>
+        part.removed ? (
+          <span key={i} className="text-[#88739E] line-through dark:text-[#c9a9e0]">
+            {part.value}
+          </span>
+        ) : part.added ? (
+          <span key={i} className="bg-[#849440]/20 text-[#5e6a2d] dark:bg-[#849440]/25 dark:text-[#c3d6a0]">
+            {part.value}
+          </span>
+        ) : (
+          <span key={i}>{part.value}</span>
+        ),
+      )}
+    </p>
+  );
+}
 
 function Row({ item, kind }: { item: Item; kind: keyof typeof KINDS }) {
   const k = KINDS[kind];
@@ -37,9 +63,13 @@ function Row({ item, kind }: { item: Item; kind: keyof typeof KINDS }) {
           {item.author ?? "nae"} · {relativeTime(item.at)}
         </span>
       </div>
-      <p className="line-clamp-2 text-sm text-black/70 dark:text-white/70">
-        {item.preview || <span className="italic opacity-60">({item.type})</span>}
-      </p>
+      {item.diff && item.diff.length > 0 ? (
+        <DiffText parts={item.diff} />
+      ) : (
+        <p className="line-clamp-2 text-sm text-black/70 dark:text-white/70">
+          {item.preview || <span className="italic opacity-60">({item.type})</span>}
+        </p>
+      )}
     </li>
   );
 }

@@ -9,6 +9,7 @@
  */
 
 import type * as blocks from "../blocks.js";
+import type * as crons from "../crons.js";
 import type * as diff from "../diff.js";
 import type * as documents from "../documents.js";
 import type * as http from "../http.js";
@@ -23,6 +24,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   blocks: typeof blocks;
+  crons: typeof crons;
   diff: typeof diff;
   documents: typeof documents;
   http: typeof http;
