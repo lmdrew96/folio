@@ -128,6 +128,7 @@ function UndoToast({
 export function DocList() {
   const docs = useQuery(api.documents.list);
   const restore = useMutation(api.documents.restore);
+  const [query, setQuery] = useState("");
   const [pendingUndo, setPendingUndo] = useState<{
     documentId: Id<"documents">;
     title: string;
@@ -188,39 +189,63 @@ export function DocList() {
     );
   }
 
+  const trimmedQuery = query.trim().toLowerCase();
+  const filtered = trimmedQuery
+    ? docs.filter((doc) =>
+        (doc.title || "Untitled").toLowerCase().includes(trimmedQuery),
+      )
+    : docs;
+
   return (
     <>
       <div className="mx-auto w-full max-w-5xl px-6 py-10">
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex items-center justify-between gap-4">
           <h2 className="font-serif text-2xl text-foreground">
             Your documents
           </h2>
           <NewDocButton />
         </div>
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {docs.map((doc) => (
-            <li key={doc._id} className="relative">
-              <Link
-                href={`/doc/${doc._id}`}
-                className="folio-card-link block focus:outline-none"
-              >
-                <div className="folio-card flex min-h-32 flex-col justify-between p-5 focus-visible:ring-2 focus-visible:ring-[var(--folio-attr-sibling)]">
-                  <h3 className="line-clamp-2 pr-6 font-serif text-lg text-foreground">
-                    {doc.title || "Untitled"}
-                  </h3>
-                  <p className="mt-3 text-sm text-foreground/50">
-                    edited {relativeTime(doc.updatedAt)}
-                  </p>
-                </div>
-              </Link>
-              <DeleteControl
-                documentId={doc._id}
-                title={doc.title || "Untitled"}
-                onDeleted={handleDeleted}
-              />
-            </li>
-          ))}
-        </ul>
+        <label className="sr-only" htmlFor="folio-doc-search">
+          Search documents
+        </label>
+        <input
+          id="folio-doc-search"
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search documents…"
+          className="mb-6 w-full max-w-xs rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-4 py-2 text-sm text-foreground outline-none transition placeholder:text-foreground/40 focus:ring-2 focus:ring-[var(--folio-attr-sibling)]"
+        />
+        {filtered.length === 0 ? (
+          <p className="py-10 text-center text-foreground/50">
+            No documents match &ldquo;{query.trim()}&rdquo;.
+          </p>
+        ) : (
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((doc) => (
+              <li key={doc._id} className="relative">
+                <Link
+                  href={`/doc/${doc._id}`}
+                  className="folio-card-link block focus:outline-none"
+                >
+                  <div className="folio-card flex min-h-32 flex-col justify-between p-5 focus-visible:ring-2 focus-visible:ring-[var(--folio-attr-sibling)]">
+                    <h3 className="line-clamp-2 pr-6 font-serif text-lg text-foreground">
+                      {doc.title || "Untitled"}
+                    </h3>
+                    <p className="mt-3 text-sm text-foreground/50">
+                      edited {relativeTime(doc.updatedAt)}
+                    </p>
+                  </div>
+                </Link>
+                <DeleteControl
+                  documentId={doc._id}
+                  title={doc.title || "Untitled"}
+                  onDeleted={handleDeleted}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
       {toast}
     </>
