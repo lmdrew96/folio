@@ -17,6 +17,11 @@ export default defineSchema({
     title: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
+    // Soft-delete tombstone — lets the client offer an "Undo" toast instead of
+    // an irreversible delete. The daily purge cron (convex/crons.ts) hard-deletes
+    // documents (and cascades to their blocks/visits/reactions) once this is
+    // older than the retention window.
+    deletedAt: v.optional(v.number()),
   }).index("by_owner", ["ownerId"]),
 
   blocks: defineTable({

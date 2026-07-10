@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
@@ -8,13 +8,17 @@ import type { Id } from "@convex/_generated/dataModel";
 import { relativeTime } from "@/lib/time";
 import { NewDocButton } from "./NewDocButton";
 
+const UNDO_MS = 8000;
+
 /** Per-card delete with a calm two-step inline confirm (no scary modal). */
 function DeleteControl({
   documentId,
   title,
+  onDeleted,
 }: {
   documentId: Id<"documents">;
   title: string;
+  onDeleted: (documentId: Id<"documents">, title: string) => void;
 }) {
   const remove = useMutation(api.documents.remove);
   const [confirming, setConfirming] = useState(false);
@@ -24,7 +28,9 @@ function DeleteControl({
     setBusy(true);
     try {
       await remove({ documentId });
-      // The row vanishes from the reactive list query on success.
+      // The row vanishes from the reactive list query on success (soft-deleted
+      // server-side — DocList surfaces an Undo toast for the retention window).
+      onDeleted(documentId, title);
     } catch {
       setBusy(false);
       setConfirming(false);
@@ -77,58 +83,146 @@ function DeleteControl({
   );
 }
 
+/** Bottom-docked confirmation for a just-deleted document, with a real Undo —
+ *  the delete already soft-deleted server-side, so Undo just clears the
+ *  tombstone before the retention window ends. */
+function UndoToast({
+  title,
+  onUndo,
+  onDismiss,
+}: {
+  title: string;
+  onUndo: () => void;
+  onDismiss: () => void;
+}) {
+  const [undoing, setUndoing] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(onDismiss, UNDO_MS);
+    return () => clearTimeout(timer);
+  }, [onDismiss]);
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-3 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-4 py-2 text-sm text-foreground shadow-md"
+    >
+      <span className="max-w-[50vw] truncate">
+        Deleted <span className="font-medium">{title}</span>
+      </span>
+      <button
+        onClick={() => {
+          setUndoing(true);
+          onUndo();
+        }}
+        disabled={undoing}
+        className="shrink-0 font-medium underline-offset-2 hover:underline disabled:opacity-50"
+      >
+        {undoing ? "…" : "Undo"}
+      </button>
+    </div>
+  );
+}
+
 export function DocList() {
   const docs = useQuery(api.documents.list);
+  const restore = useMutation(api.documents.restore);
+  const [pendingUndo, setPendingUndo] = useState<{
+    documentId: Id<"documents">;
+    title: string;
+  } | null>(null);
+
+  const handleDeleted = useCallback(
+    (documentId: Id<"documents">, title: string) => {
+      setPendingUndo({ documentId, title });
+    },
+    [],
+  );
+
+  const handleUndo = useCallback(async () => {
+    if (!pendingUndo) return;
+    try {
+      await restore({ documentId: pendingUndo.documentId });
+    } catch (e) {
+      console.error("Folio: restore failed", e);
+    } finally {
+      setPendingUndo(null);
+    }
+  }, [pendingUndo, restore]);
+
+  const toast = pendingUndo && (
+    <UndoToast
+      title={pendingUndo.title}
+      onUndo={handleUndo}
+      onDismiss={() => setPendingUndo(null)}
+    />
+  );
 
   if (docs === undefined) {
     return (
-      <p className="px-6 py-16 text-center text-foreground/50">Loading…</p>
+      <>
+        <p className="px-6 py-16 text-center text-foreground/50">Loading…</p>
+        {toast}
+      </>
     );
   }
 
   if (docs.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-16 text-center">
-        <div className="space-y-2">
-          <h2 className="font-serif text-2xl text-foreground">
-            Nothing on the desk yet
-          </h2>
-          <p className="max-w-sm text-balance text-foreground/60">
-            Start your first document — Folio will track what changes each time
-            you come back to it.
-          </p>
+      <>
+        <div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-16 text-center">
+          <div className="space-y-2">
+            <h2 className="font-serif text-2xl text-foreground">
+              Nothing on the desk yet
+            </h2>
+            <p className="max-w-sm text-balance text-foreground/60">
+              Start your first document — Folio will track what changes each
+              time you come back to it.
+            </p>
+          </div>
+          <NewDocButton />
         </div>
-        <NewDocButton />
-      </div>
+        {toast}
+      </>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 py-10">
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="font-serif text-2xl text-foreground">Your documents</h2>
-        <NewDocButton />
+    <>
+      <div className="mx-auto w-full max-w-5xl px-6 py-10">
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="font-serif text-2xl text-foreground">
+            Your documents
+          </h2>
+          <NewDocButton />
+        </div>
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {docs.map((doc) => (
+            <li key={doc._id} className="relative">
+              <Link
+                href={`/doc/${doc._id}`}
+                className="folio-card-link block focus:outline-none"
+              >
+                <div className="folio-card flex min-h-32 flex-col justify-between p-5 focus-visible:ring-2 focus-visible:ring-[var(--folio-attr-sibling)]">
+                  <h3 className="line-clamp-2 pr-6 font-serif text-lg text-foreground">
+                    {doc.title || "Untitled"}
+                  </h3>
+                  <p className="mt-3 text-sm text-foreground/50">
+                    edited {relativeTime(doc.updatedAt)}
+                  </p>
+                </div>
+              </Link>
+              <DeleteControl
+                documentId={doc._id}
+                title={doc.title || "Untitled"}
+                onDeleted={handleDeleted}
+              />
+            </li>
+          ))}
+        </ul>
       </div>
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {docs.map((doc) => (
-          <li key={doc._id} className="relative">
-            <Link
-              href={`/doc/${doc._id}`}
-              className="folio-card-link block focus:outline-none"
-            >
-              <div className="folio-card flex min-h-32 flex-col justify-between p-5 focus-visible:ring-2 focus-visible:ring-[var(--folio-attr-sibling)]">
-                <h3 className="line-clamp-2 pr-6 font-serif text-lg text-foreground">
-                  {doc.title || "Untitled"}
-                </h3>
-                <p className="mt-3 text-sm text-foreground/50">
-                  edited {relativeTime(doc.updatedAt)}
-                </p>
-              </div>
-            </Link>
-            <DeleteControl documentId={doc._id} title={doc.title || "Untitled"} />
-          </li>
-        ))}
-      </ul>
-    </div>
+      {toast}
+    </>
   );
 }
