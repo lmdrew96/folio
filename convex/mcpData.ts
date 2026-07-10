@@ -41,7 +41,7 @@ function blockText(content: unknown): string {
 type PMNode = {
   type?: string;
   text?: string;
-  marks?: { type: string }[];
+  marks?: { type: string; attrs?: Record<string, unknown> }[];
   attrs?: Record<string, unknown>;
   content?: PMNode[];
 };
@@ -50,16 +50,30 @@ const hasMark = (marks: PMNode["marks"], type: string) =>
   marks?.some((m) => m.type === type) ?? false;
 
 /** Inline run (a paragraph/heading's `content`) → markdown text, applying
- *  bold/italic marks. Concatenated directly — these are genuinely adjacent
- *  text runs within one line, not separate items. */
+ *  bold/italic/strike/underline/code/link marks. Concatenated directly —
+ *  these are genuinely adjacent text runs within one line, not separate
+ *  items. Link href wraps around the already-formatted text (Tiptap's Link
+ *  mark, attrs.href — see @tiptap/extension-link), matching the
+ *  `[**text**](href)` convention so the URL survives the round trip to the
+ *  MCP client instead of vanishing. `code` short-circuits the rest: Tiptap's
+ *  Code mark sets `excludes: '_'`, so a code run never carries any other
+ *  mark — backticks would otherwise collide with `**`/`~~`/`<u>` wrapping. */
 function mdInline(nodes: PMNode[] | undefined): string {
   if (!nodes) return "";
   let out = "";
   for (const n of nodes) {
     if (typeof n.text !== "string") continue;
+    if (hasMark(n.marks, "code")) {
+      out += `\`${n.text}\``;
+      continue;
+    }
     let t = n.text;
     if (hasMark(n.marks, "bold")) t = `**${t}**`;
     if (hasMark(n.marks, "italic")) t = `*${t}*`;
+    if (hasMark(n.marks, "strike")) t = `~~${t}~~`;
+    if (hasMark(n.marks, "underline")) t = `<u>${t}</u>`;
+    const href = n.marks?.find((m) => m.type === "link")?.attrs?.href;
+    if (typeof href === "string" && href) t = `[${t}](${href})`;
     out += t;
   }
   return out;
