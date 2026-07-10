@@ -17,6 +17,11 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
+  // Deliberately no clients.claim() here: claiming already-open tabs mid-
+  // session races with in-flight requests on that page (e.g. Clerk's lazily-
+  // imported clerk-js chunk) and can fail them outright. A newly-activated
+  // worker only starts controlling a page on its *next* full navigation,
+  // which is the safe default.
   event.waitUntil(
     caches
       .keys()
@@ -26,8 +31,7 @@ self.addEventListener("activate", (event) => {
             .filter((key) => key !== CACHE_VERSION)
             .map((key) => caches.delete(key)),
         ),
-      )
-      .then(() => self.clients.claim()),
+      ),
   );
 });
 
@@ -44,20 +48,32 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Next's hashed static assets are immutable — safe to cache-first.
+  // Next's hashed static assets are immutable — safe to cache-first. Any
+  // Cache API hiccup falls back to a plain network fetch rather than letting
+  // event.respondWith reject, which the browser reports as the resource
+  // itself failing to load.
   const url = new URL(request.url);
   if (url.origin === self.location.origin && url.pathname.startsWith("/_next/static/")) {
     event.respondWith(
-      caches.match(request).then(
-        (cached) =>
-          cached ??
-          fetch(request).then((response) => {
-            const copy = response.clone();
-            caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
-            return response;
-          }),
-      ),
+      caches
+        .match(request)
+        .then(
+          (cached) =>
+            cached ??
+            fetch(request).then((response) => {
+              if (response.ok) {
+                const copy = response.clone();
+                caches
+                  .open(CACHE_VERSION)
+                  .then((cache) => cache.put(request, copy))
+                  .catch(() => {});
+              }
+              return response;
+            }),
+        )
+        .catch(() => fetch(request)),
     );
+    return;
   }
 
   // Everything else (Convex, Clerk, API routes, non-static GETs) passes
