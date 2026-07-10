@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, Space_Grotesk, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import ConvexClientProvider from "@/components/ConvexClientProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { PWA } from "@/components/PWA";
 
 // Folio's writing surface is the serif. Fraunces is Nae's brand display face;
 // here it carries the prose body. SOFT/WONK axes give the brand's optical look.
@@ -30,6 +31,17 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Folio",
   description: "A writing space that knows what changed since you last looked.",
+  appleWebApp: {
+    title: "Folio",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f5fa" },
+    { media: "(prefers-color-scheme: dark)", color: "#1e1830" },
+  ],
 };
 
 export default function RootLayout({
@@ -47,6 +59,7 @@ export default function RootLayout({
         <body className="min-h-full flex flex-col">
           <ThemeProvider>
             <ConvexClientProvider>{children}</ConvexClientProvider>
+            <PWA />
           </ThemeProvider>
         </body>
       </html>
