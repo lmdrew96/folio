@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { Id } from "@convex/_generated/dataModel";
 import { DiffPanel } from "@/components/DiffPanel";
@@ -49,6 +49,16 @@ export function ResizableDock({ documentId }: { documentId: Id<"documents"> }) {
   );
   const [dragging, setDragging] = useState(false);
   const columnRef = useRef<HTMLDivElement>(null);
+
+  // A width persisted from a wider window shouldn't overflow the panel's own
+  // 60%-of-viewport cap if the browser is later made narrower.
+  useEffect(() => {
+    const onResize = () => {
+      setWidth((w) => clamp(w, MIN_WIDTH, maxWidth()));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const startWidthDrag = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
