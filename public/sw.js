@@ -48,12 +48,17 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Next's hashed static assets are immutable — safe to cache-first. Any
-  // Cache API hiccup falls back to a plain network fetch rather than letting
-  // event.respondWith reject, which the browser reports as the resource
-  // itself failing to load.
+  // Next's hashed static assets are immutable in production — safe to
+  // cache-first. That assumption doesn't hold in dev (Turbopack dev-mode
+  // chunk URLs aren't guaranteed to change across recompiles the way a real
+  // build's content hashes do), so skip the optimization on localhost —
+  // otherwise a dev session can keep running stale cached JS indefinitely.
+  // Any Cache API hiccup falls back to a plain network fetch rather than
+  // letting event.respondWith reject, which the browser reports as the
+  // resource itself failing to load.
   const url = new URL(request.url);
-  if (url.origin === self.location.origin && url.pathname.startsWith("/_next/static/")) {
+  const isLocalDev = self.location.hostname === "localhost" || self.location.hostname === "127.0.0.1";
+  if (!isLocalDev && url.origin === self.location.origin && url.pathname.startsWith("/_next/static/")) {
     event.respondWith(
       caches
         .match(request)

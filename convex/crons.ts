@@ -29,4 +29,14 @@ crons.interval(
   {},
 );
 
+// reactions is frozen (superseded by messages) but its own cap cron stays
+// running harmlessly on the empty-going-forward table; messages needs the
+// same cap since it's now the table that grows.
+crons.interval(
+  "cap stored messages per document",
+  { hours: 24 * 7 },
+  internal.messages.purgeOld,
+  {},
+);
+
 export default crons;

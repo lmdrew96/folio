@@ -111,9 +111,9 @@ export const restore = mutation({
 
 /**
  * Hard-delete documents whose soft-delete tombstone is older than the
- * retention window, cascading to their blocks/visits/reactions. Called only
- * by the daily cron in convex/crons.ts — never exposed to the client, so a
- * restore is impossible to race once this runs.
+ * retention window, cascading to their blocks/visits/reactions/messages.
+ * Called only by the daily cron in convex/crons.ts — never exposed to the
+ * client, so a restore is impossible to race once this runs.
  */
 export const purgeDeleted = internalMutation({
   args: {},
@@ -127,7 +127,7 @@ export const purgeDeleted = internalMutation({
     for (const doc of docs) {
       if (doc.deletedAt === undefined || doc.deletedAt > cutoff) continue;
 
-      const [blocks, visits, reactions] = await Promise.all([
+      const [blocks, visits, reactions, messages] = await Promise.all([
         ctx.db
           .query("blocks")
           .withIndex("by_document", (q) => q.eq("documentId", doc._id))
@@ -140,12 +140,17 @@ export const purgeDeleted = internalMutation({
           .query("reactions")
           .withIndex("by_document", (q) => q.eq("documentId", doc._id))
           .collect(),
+        ctx.db
+          .query("messages")
+          .withIndex("by_document", (q) => q.eq("documentId", doc._id))
+          .collect(),
       ]);
 
       await Promise.all([
         ...blocks.map((b) => ctx.db.delete(b._id)),
         ...visits.map((visit) => ctx.db.delete(visit._id)),
         ...reactions.map((r) => ctx.db.delete(r._id)),
+        ...messages.map((m) => ctx.db.delete(m._id)),
         ctx.db.delete(doc._id),
       ]);
     }

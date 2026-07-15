@@ -12,7 +12,7 @@
  * fails soft — if a store is unset or down, the caller falls back to the baked
  * identity and the reaction still works. The soul should never 500 a reaction.
  *
- * Imported only by the server-side /api/react route. Holds no secrets itself —
+ * Imported only by the server-side /api/cleo route. Holds no secrets itself —
  * the endpoint URLs (with their tokens/identity) live in env.
  */
 

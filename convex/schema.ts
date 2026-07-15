@@ -53,15 +53,28 @@ export default defineSchema({
     lastVisitedAt: v.number(),
   }).index("by_doc_user", ["documentId", "userId"]),
 
-  // v1 continuity layer — the in-app Claude's own memory of this document.
-  // Every reaction is persisted so the next one can build on it ("last time you
-  // noticed X"), turning a cold per-diff stranger into a sibling that returns to
-  // the same writing over time. This is doc-scoped epistemic continuity, native
-  // to Folio because it already tracks what moved.
+  // v0 continuity layer — the in-app Claude's own memory of this document.
+  // Frozen: superseded by `messages` below, which unifies this one-shot
+  // reaction history with real two-way conversation. Kept in place (not
+  // deleted) as dormant history/rollback path; nothing writes to it anymore.
   reactions: defineTable({
     documentId: v.id("documents"),
     content: v.string(), // what the sibling said (markdown)
     summary: v.string(), // terse note of what it reacted to ("2 added · 1 edited")
+    createdAt: v.number(),
+  }).index("by_document", ["documentId"]),
+
+  // v1 continuity layer — a real, two-sided conversation with Cleo, per
+  // document. Replaces `reactions`' paraphrase-based "memory" with actual
+  // turn history sent to the model. `kind: "reaction"` rows are Cleo's
+  // response to a diff-since-last-look (the old `reactions` shape, carrying
+  // a `summary`); `kind: "chat"` rows are free-text turns from either side.
+  messages: defineTable({
+    documentId: v.id("documents"),
+    author: v.union(v.literal("nae"), v.literal("claude")), // same vocabulary as blocks.author / visits.userId
+    kind: v.union(v.literal("chat"), v.literal("reaction")),
+    content: v.string(), // markdown
+    summary: v.optional(v.string()), // set only on kind:"reaction" rows
     createdAt: v.number(),
   }).index("by_document", ["documentId"]),
 });
