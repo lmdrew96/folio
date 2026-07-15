@@ -7,22 +7,23 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ── Folio's own look: calm, paper-forward, distinct from the Lab Notebook
-   dashboards. Leans on the ADHDesigns palette but defines a small Folio set. ── */
+   dashboards. Warm palette — Valiant Poppy / Mecca Orange / Usugaki / Dried
+   Herbs / Kachi Indigo / Dulcet Violet — a small Folio-only set. ── */
 :root {
-  --background: #f7f5fa; /* brand surface — soft paper, never #fff */
-  --foreground: #1e1830; /* brand ink — soft near-black, never #000 */
+  --background: #f9f1eb; /* brand surface — warm cream paper, never #fff */
+  --foreground: #20161e; /* brand ink — soft near-black plum, never #000 */
 
-  /* The desk + the page. Backdrop is a soft lavender desk; the sheet sits
+  /* The desk + the page. Backdrop is a soft warm-taupe desk; the sheet sits
      brighter on top of it so you can see where the paper ends. */
-  --folio-backdrop: #eae6f1; /* soft lavender desk */
-  --folio-paper: #fcfbfd; /* the sheet — bright, near-white */
-  --folio-paper-edge: rgba(30, 24, 48, 0.06); /* hairline page edge */
+  --folio-backdrop: #d9d7d1; /* soft warm-taupe desk */
+  --folio-paper: #fff6f2; /* the sheet — bright, near-white peach */
+  --folio-paper-edge: rgba(32, 22, 30, 0.06); /* hairline page edge */
   --folio-paper-shadow:
-    0 1px 2px rgba(30, 24, 48, 0.04), 0 14px 40px -16px rgba(30, 24, 48, 0.18);
+    0 1px 2px rgba(32, 22, 30, 0.04), 0 14px 40px -16px rgba(32, 22, 30, 0.18);
 
   /* Attribution author colors — brand-fixed, legible on both themes. */
-  --folio-attr-nae: #849440; /* olive  — Nae */
-  --folio-attr-sibling: #88739e; /* mauve — Claude siblings (Cleo, Coru, …) */
+  --folio-attr-nae: #cf4a4d; /* valiant poppy — Nae */
+  --folio-attr-sibling: #4e4c5e; /* kachi indigo — Claude siblings (Cleo, Coru, …) */
 }
 
 @theme inline {
@@ -34,17 +35,22 @@
 }
 
 .dark {
-  /* Low-contrast dark: deep brand-purple canvas, lavender ink — not white. */
-  --background: #1e1830;
-  --foreground: #dbd5e2;
+  /* Low-contrast dark: deep plum canvas, warm dusty ink — not white. */
+  --background: #20161e;
+  --foreground: #ddd7dc;
 
   /* In the dark the sheet is *lifted* above the desk (lighter, not shadowed)
      so the page edge still reads without harsh contrast. */
-  --folio-backdrop: #14101c; /* deep desk */
-  --folio-paper: #221b33; /* sheet, a step lighter than the desk */
+  --folio-backdrop: #1a1218; /* deep desk */
+  --folio-paper: #362d35; /* sheet, a step lighter than the desk */
   --folio-paper-edge: rgba(255, 255, 255, 0.06);
   --folio-paper-shadow:
     0 1px 2px rgba(0, 0, 0, 0.3), 0 18px 44px -18px rgba(0, 0, 0, 0.6);
+
+  /* Lighten the attribution accents for dark paper — the raw brand hexes are
+     too deep to read as a thin tick mark once the desk itself goes dark. */
+  --folio-attr-nae: #e9aeaf;
+  --folio-attr-sibling: #afaeb7;
 }
 
 body {
@@ -83,29 +89,29 @@ body {
   font-family: var(--font-serif), Georgia, serif;
   font-variation-settings: "SOFT" 0, "WONK" 1;
 
-  --tw-prose-body: #2b2540;
-  --tw-prose-headings: #1e1830;
-  --tw-prose-bold: #1e1830;
-  --tw-prose-links: #244952;
-  --tw-prose-quotes: #244952;
-  --tw-prose-quote-borders: #dbd5e2;
-  --tw-prose-hr: #e4dfec;
-  --tw-prose-code: #244952;
-  --tw-prose-bullets: #88739e;
-  --tw-prose-counters: #88739e;
+  --tw-prose-body: #443b42;
+  --tw-prose-headings: #20161e;
+  --tw-prose-bold: #20161e;
+  --tw-prose-links: #572f48;
+  --tw-prose-quotes: #572f48;
+  --tw-prose-quote-borders: #e6e4e0;
+  --tw-prose-hr: #efeeeb;
+  --tw-prose-code: #572f48;
+  --tw-prose-bullets: #4e4c5e;
+  --tw-prose-counters: #4e4c5e;
 }
 
 .dark .ProseMirror {
-  --tw-prose-body: #d6cfe1;
-  --tw-prose-headings: #f1ecf7;
-  --tw-prose-bold: #f1ecf7;
-  --tw-prose-links: #8cbdb9;
-  --tw-prose-quotes: #8cbdb9;
-  --tw-prose-quote-borders: #3a3350;
-  --tw-prose-hr: #2e2742;
-  --tw-prose-code: #8cbdb9;
-  --tw-prose-bullets: #88739e;
-  --tw-prose-counters: #88739e;
+  --tw-prose-body: #d0cacf;
+  --tw-prose-headings: #f1eff1;
+  --tw-prose-bold: #f1eff1;
+  --tw-prose-links: #b8a8b2;
+  --tw-prose-quotes: #b8a8b2;
+  --tw-prose-quote-borders: #3f373e;
+  --tw-prose-hr: #1d141b;
+  --tw-prose-code: #b8a8b2;
+  --tw-prose-bullets: #afaeb7;
+  --tw-prose-counters: #afaeb7;
 }
 
 /* Theme-aware highlights. The mark carries a semantic name (data-highlight);
@@ -120,36 +126,36 @@ body {
   color: inherit;
 }
 .ProseMirror mark[data-highlight="amber"] {
-  background-color: #f4e3be;
-  color: #1e1830;
+  background-color: #ffd7c3;
+  color: #20161e;
 }
 .ProseMirror mark[data-highlight="green"] {
-  background-color: #d6ebc8;
-  color: #1e1830;
+  background-color: #c6c3ba;
+  color: #20161e;
 }
 .ProseMirror mark[data-highlight="mint"] {
-  background-color: #cfe6e2;
-  color: #1e1830;
+  background-color: #c6c6cb;
+  color: #20161e;
 }
 .ProseMirror mark[data-highlight="lavender"] {
-  background-color: #e5dfee;
-  color: #1e1830;
+  background-color: #cdc1c8;
+  color: #20161e;
 }
 .dark .ProseMirror mark[data-highlight="amber"] {
-  background-color: #5a4a24;
-  color: #f1e6cb;
+  background-color: #734b37;
+  color: #fff2eb;
 }
 .dark .ProseMirror mark[data-highlight="green"] {
-  background-color: #3e4a2c;
-  color: #e6f0d8;
+  background-color: #474338;
+  color: #ecebe8;
 }
 .dark .ProseMirror mark[data-highlight="mint"] {
-  background-color: #2c4a47;
-  color: #d6ece8;
+  background-color: #3e3948;
+  color: #e4e4e7;
 }
 .dark .ProseMirror mark[data-highlight="lavender"] {
-  background-color: #443a5e;
-  color: #e9e3f3;
+  background-color: #49293e;
+  color: #e6e0e4;
 }
 
 /* Headings sit snug above the next line — prose-lg's default leaves an H1 with
@@ -255,21 +261,21 @@ body {
 
   /* Highlights stay meaningful — light tint + dark ink, even from dark mode. */
   .ProseMirror mark[data-highlight] {
-    color: #1e1830 !important;
+    color: #20161e !important;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
   .ProseMirror mark[data-highlight="amber"] {
-    background-color: #f4e3be !important;
+    background-color: #ffd7c3 !important;
   }
   .ProseMirror mark[data-highlight="green"] {
-    background-color: #d6ebc8 !important;
+    background-color: #c6c3ba !important;
   }
   .ProseMirror mark[data-highlight="mint"] {
-    background-color: #cfe6e2 !important;
+    background-color: #c6c6cb !important;
   }
   .ProseMirror mark[data-highlight="lavender"] {
-    background-color: #e5dfee !important;
+    background-color: #cdc1c8 !important;
   }
 
   /* Attribution ticks are an editing aid, not part of the document. */

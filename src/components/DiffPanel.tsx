@@ -21,24 +21,24 @@ type Item = {
 };
 
 const KINDS = {
-  added: { label: "Added", className: "bg-[#849440]/15 text-[#5e6a2d]" },
-  edited: { label: "Edited", className: "bg-[#DFA649]/20 text-[#8a6512]" },
-  deleted: { label: "Deleted", className: "bg-[#88739E]/20 text-[#6b577f]" },
+  added: { label: "Added", className: "bg-[#CF4A4D]/15 text-[#72292a]" },
+  edited: { label: "Edited", className: "bg-[#DC7668]/20 text-[#794139]" },
+  deleted: { label: "Deleted", className: "bg-[#4E4C5E]/20 text-[#424150]" },
 } as const;
 
 // Word-level before/after for an edited block — removed spans strike through
-// in the same mauve used for the "Deleted" badge, added spans highlight in
-// the same olive used for "Added", so the diff reuses the panel's own palette.
+// in the same indigo used for the "Deleted" badge, added spans highlight in
+// the same poppy used for "Added", so the diff reuses the panel's own palette.
 function DiffText({ parts }: { parts: DiffPart[] }) {
   return (
     <p className="line-clamp-3 text-sm text-black/70 dark:text-white/70">
       {parts.map((part, i) =>
         part.removed ? (
-          <span key={i} className="text-[#88739E] line-through dark:text-[#c9a9e0]">
+          <span key={i} className="text-[#4E4C5E] line-through dark:text-[#afaeb7]">
             {part.value}
           </span>
         ) : part.added ? (
-          <span key={i} className="bg-[#849440]/20 text-[#5e6a2d] dark:bg-[#849440]/25 dark:text-[#c3d6a0]">
+          <span key={i} className="bg-[#CF4A4D]/20 text-[#72292a] dark:bg-[#CF4A4D]/25 dark:text-[#e9aeaf]">
             {part.value}
           </span>
         ) : (

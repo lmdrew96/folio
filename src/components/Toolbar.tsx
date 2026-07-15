@@ -9,21 +9,23 @@ import {
 } from "@/lib/export";
 
 // Curated highlights. `value` is the semantic name stored on the mark (themed
-// in CSS); `display` is the light-mode tint shown in the swatch.
+// in CSS); `display` is the light-mode tint shown in the swatch. The stored
+// values (amber/green/mint/lavender) stay put even as the palette moves on,
+// so highlights already saved in a document keep resolving to a CSS rule.
 const HIGHLIGHTS = [
-  { name: "Amber", value: "amber", display: "#f4e3be" },
-  { name: "Green", value: "green", display: "#d6ebc8" },
-  { name: "Mint", value: "mint", display: "#cfe6e2" },
-  { name: "Lavender", value: "lavender", display: "#e5dfee" },
+  { name: "Amber", value: "amber", display: "#ffd7c3" },
+  { name: "Sage", value: "green", display: "#c6c3ba" },
+  { name: "Slate", value: "mint", display: "#c6c6cb" },
+  { name: "Plum", value: "lavender", display: "#cdc1c8" },
 ];
 
 // Curated accent text colors — mid-tone brand hues that stay legible on both
 // the light paper and the dark sheet (deep colors would vanish in dark mode).
 const TEXT_COLORS = [
-  { name: "Olive", value: "#849440", display: "#849440" },
-  { name: "Gold", value: "#dfa649", display: "#dfa649" },
-  { name: "Teal", value: "#8cbdb9", display: "#8cbdb9" },
-  { name: "Mauve", value: "#88739e", display: "#88739e" },
+  { name: "Poppy", value: "#CF4A4D", display: "#CF4A4D" },
+  { name: "Mecca", value: "#DC7668", display: "#DC7668" },
+  { name: "Usugaki", value: "#FFA67A", display: "#FFA67A" },
+  { name: "Herbs", value: "#817965", display: "#817965" },
 ];
 
 const LINE_SPACINGS = [
@@ -478,7 +480,7 @@ export function Toolbar({
       />
       <SwatchPopover
         label="Highlight"
-        trigger={<span className="rounded-sm bg-[#f4e3be] px-1 text-[#1e1830]">H</span>}
+        trigger={<span className="rounded-sm bg-[#ffd7c3] px-1 text-[#20161e]">H</span>}
         swatches={HIGHLIGHTS}
         onPick={(color) =>
           editor.chain().focus().setHighlight({ color }).run()

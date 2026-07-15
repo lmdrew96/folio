@@ -157,7 +157,7 @@ export function ClaudeReaction({ documentId }: { documentId: Id<"documents"> }) 
         {streaming && (
           <article className="rounded-md border border-black/5 bg-white/40 p-3 dark:border-white/10 dark:bg-white/5">
             <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-black/40 dark:text-white/40">
-              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#849440]" />
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#CF4A4D]" />
               <span className="font-medium">{label} is replying…</span>
             </div>
             {streaming.text ? (
