@@ -1,6 +1,39 @@
 import { internalMutation } from "./_generated/server";
 
 /**
+ * ONE-TIME: sharing (v0.20.0) moved the diff/Cleo-reaction watermark from the
+ * literal userId "nae" to the real Clerk subject, so pre-sharing `visits`
+ * rows keyed "nae" are now orphaned — no query ever looks them up again, but
+ * they still count toward purgeOldTombstones' `Math.min` over a document's
+ * watermarks, permanently pinning what that cron can purge. Deletes them.
+ * Run once via
+ *   npx convex run migrations:deleteStaleNaeVisits
+ * Idempotent — a re-run just finds nothing.
+ */
+export const deleteStaleNaeVisits = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const documents = await ctx.db.query("documents").collect();
+    let deleted = 0;
+
+    for (const doc of documents) {
+      const visits = await ctx.db
+        .query("visits")
+        .withIndex("by_doc_user", (q) =>
+          q.eq("documentId", doc._id).eq("userId", "nae"),
+        )
+        .collect();
+      for (const v of visits) {
+        await ctx.db.delete(v._id);
+        deleted++;
+      }
+    }
+
+    return { deleted };
+  },
+});
+
+/**
  * ONE-TIME: copy existing `reactions` rows into `messages` as claude-authored,
  * kind:"reaction" rows, so the new unified conversation view opens with Cleo's
  * prior commentary instead of a blank thread. Run once via

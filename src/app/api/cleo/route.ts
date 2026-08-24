@@ -36,7 +36,7 @@ type ReactionPayload = {
   edited: ReactionItem[];
   deleted: DeletedItem[];
 };
-type MessageRow = { author: "nae" | "claude"; content: string };
+type MessageRow = { author: string; authorName?: string; content: string };
 
 /** The ephemeral instruction turn for "reaction" mode — never persisted as a row. */
 function buildPrompt(p: ReactionPayload): string {
@@ -142,12 +142,15 @@ function summarize(p: ReactionPayload): string {
 function toAnthropicMessages(rows: MessageRow[]): Anthropic.MessageParam[] {
   const merged: Anthropic.MessageParam[] = [];
   for (const m of rows) {
-    const role: "user" | "assistant" = m.author === "nae" ? "user" : "assistant";
+    const role: "user" | "assistant" = m.author === "claude" ? "assistant" : "user";
+    // A shared thread can have more than one human — prefix so Cleo always
+    // knows who's talking, not just that "someone" is.
+    const content = role === "user" && m.authorName ? `[${m.authorName}]: ${m.content}` : m.content;
     const last = merged[merged.length - 1];
     if (last && last.role === role && typeof last.content === "string") {
-      last.content = `${last.content}\n\n${m.content}`;
+      last.content = `${last.content}\n\n${content}`;
     } else {
-      merged.push({ role, content: m.content });
+      merged.push({ role, content });
     }
   }
   return merged;
@@ -210,18 +213,39 @@ export async function POST(req: Request) {
 
   const systemBase = composeSystemPrompt({ naeContext, folioCanon });
   const ambient = mode === "chat" ? buildDiffReference(payload) : null;
-  const system = ambient ? `${systemBase}\n\n${ambient}` : systemBase;
+
+  // Prompt caching: the persona + live-edges block is stable across a
+  // session and carries the cache breakpoint; the per-request diff reference
+  // rides after it uncached, so its per-minute changes never bust the cached
+  // prefix. Matters more now that a shared thread can have several
+  // collaborators' turns accumulating in `history` below.
+  const systemBlocks: Array<{
+    type: "text";
+    text: string;
+    cache_control?: { type: "ephemeral" };
+  }> = [{ type: "text", text: systemBase, cache_control: { type: "ephemeral" } }];
+  if (ambient) systemBlocks.push({ type: "text", text: ambient });
 
   const anthropicMessages =
     mode === "reaction"
       ? toAnthropicMessages([...history, { author: "nae", content: buildPrompt(payload) }])
       : toAnthropicMessages(history);
 
+  // Cache the growing conversation prefix too: mark the last message this
+  // call sends, so the next call's identical prefix (this call's messages,
+  // plus 1-2 new turns) is a cache read instead of a full reprocess.
+  const lastMessage = anthropicMessages[anthropicMessages.length - 1];
+  if (lastMessage && typeof lastMessage.content === "string") {
+    lastMessage.content = [
+      { type: "text", text: lastMessage.content, cache_control: { type: "ephemeral" } },
+    ];
+  }
+
   const anthropic = new Anthropic();
   const llm = anthropic.messages.stream({
     model: "claude-sonnet-4-6",
     max_tokens: 2048,
-    system,
+    system: systemBlocks,
     messages: anthropicMessages,
   });
 
@@ -239,6 +263,14 @@ export async function POST(req: Request) {
             controller.enqueue(encoder.encode(event.delta.text));
           }
         }
+        // Cheap, ongoing visibility into whether prompt caching is actually
+        // landing — no dedicated usage table for this (see Cha(t)os's
+        // tokenUsage) since Folio is single-app-scale; a log line is enough.
+        const usage = (await llm.finalMessage()).usage;
+        console.log(
+          `Folio: Cleo usage — cache_read=${usage.cache_read_input_tokens ?? 0} cache_write=${usage.cache_creation_input_tokens ?? 0} input=${usage.input_tokens} output=${usage.output_tokens}`,
+        );
+
         // Persist the reply and, for a reaction, advance Claude's watermark —
         // both only after a successful stream.
         await convex.mutation(api.messages.recordReply, {

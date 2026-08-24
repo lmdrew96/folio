@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -8,12 +9,25 @@ import { Markdown } from "@/components/Markdown";
 import { folioClaudeLabel } from "@/lib/identity";
 import { relativeTime } from "@/lib/time";
 
+/** Who a shared thread turn reads as: Cleo, "You" (the viewer), or another
+ *  collaborator by their denormalized display name. */
+function speakerLabel(
+  m: { author: string; authorName?: string },
+  cleoLabel: string,
+  myUserId: string | null | undefined,
+): string {
+  if (m.author === "claude") return cleoLabel;
+  if (myUserId && m.author === myUserId) return "You";
+  return m.authorName ?? "Collaborator";
+}
+
 type Mode = "reaction" | "chat";
 
 const TEXTAREA_MAX_PX = 112; // ~4 lines
 
 export function ClaudeReaction({ documentId }: { documentId: Id<"documents"> }) {
   const label = folioClaudeLabel();
+  const { userId } = useAuth();
 
   // Reactive — a freshly-sent message or streamed reply lands here the moment
   // it's persisted, for either side of the conversation.
@@ -145,7 +159,7 @@ export function ClaudeReaction({ documentId }: { documentId: Id<"documents"> }) 
           >
             <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] text-black/40 dark:text-white/40">
               <span className="truncate">
-                {m.author === "nae" ? "Nae" : label}
+                {speakerLabel(m, label, userId)}
                 {m.kind === "reaction" && m.summary ? ` · reacted to ${m.summary}` : ""}
               </span>
               <span className="shrink-0">{relativeTime(m.createdAt)}</span>

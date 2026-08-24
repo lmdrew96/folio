@@ -229,19 +229,28 @@ export function DocList() {
                   className="folio-card-link block focus:outline-none"
                 >
                   <div className="folio-card flex min-h-32 flex-col justify-between p-5 focus-visible:ring-2 focus-visible:ring-[var(--folio-attr-sibling)]">
-                    <h3 className="line-clamp-2 pr-6 font-serif text-lg text-foreground">
-                      {doc.title || "Untitled"}
-                    </h3>
+                    <div className="flex items-start justify-between gap-2 pr-6">
+                      <h3 className="line-clamp-2 font-serif text-lg text-foreground">
+                        {doc.title || "Untitled"}
+                      </h3>
+                      {doc.role === "editor" && (
+                        <span className="shrink-0 rounded-full bg-[var(--folio-attr-sibling)]/15 px-2 py-0.5 text-[11px] font-medium text-[var(--folio-attr-sibling)]">
+                          Shared
+                        </span>
+                      )}
+                    </div>
                     <p className="mt-3 text-sm text-foreground/50">
                       edited {relativeTime(doc.updatedAt)}
                     </p>
                   </div>
                 </Link>
-                <DeleteControl
-                  documentId={doc._id}
-                  title={doc.title || "Untitled"}
-                  onDeleted={handleDeleted}
-                />
+                {doc.role === "owner" && (
+                  <DeleteControl
+                    documentId={doc._id}
+                    title={doc.title || "Untitled"}
+                    onDeleted={handleDeleted}
+                  />
+                )}
               </li>
             ))}
           </ul>

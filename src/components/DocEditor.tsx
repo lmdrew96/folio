@@ -7,6 +7,8 @@ import {
   type Editor as TiptapEditor,
   type JSONContent,
 } from "@tiptap/react";
+import { Fragment, type Node as PMNode } from "@tiptap/pm/model";
+import { TextSelection } from "@tiptap/pm/state";
 import { StarterKit } from "@tiptap/starter-kit";
 import { UniqueID } from "@tiptap/extension-unique-id";
 import { TextAlign } from "@tiptap/extension-text-align";
@@ -39,9 +41,6 @@ const BLOCK_TYPES = [
 
 const DEBOUNCE_MS = 600;
 
-// v0 has a single human author; Patch 5's AI path writes blocks as "claude".
-const ACTOR = "nae";
-
 type DesiredBlock = { blockId: string; type: string; content: JSONContent };
 
 /**
@@ -65,6 +64,202 @@ function buildDesired(editor: TiptapEditor): DesiredBlock[] | null {
   return desired;
 }
 
+/** Order-independent deep equality — mirrors convex/blocks.ts's deepEqual.
+ *  ProseMirror node JSON round-tripped through Convex can come back with
+ *  reordered object keys, so plain JSON.stringify comparison isn't safe:
+ *  it would read identical content as "changed," permanently pin a block as
+ *  locally dirty, and silently stop accepting a collaborator's edits to it. */
+function deepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === null || b === null || typeof a !== "object" || typeof b !== "object") {
+    return false;
+  }
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqual(a[i], b[i])) return false;
+    }
+    return true;
+  }
+  const ao = a as Record<string, unknown>;
+  const bo = b as Record<string, unknown>;
+  const ak = Object.keys(ao);
+  const bk = Object.keys(bo);
+  if (ak.length !== bk.length) return false;
+  for (const k of ak) {
+    if (!Object.prototype.hasOwnProperty.call(bo, k)) return false;
+    if (!deepEqual(ao[k], bo[k])) return false;
+  }
+  return true;
+}
+
+/**
+ * Merge a collaborator's changes into the live editor without clobbering
+ * whatever the local person is mid-typing. Without this, `reconcile`'s
+ * full-snapshot model meant two people with the same document open would
+ * silently tombstone each other's work — whoever's debounced flush landed
+ * last "won."
+ *
+ * Per block, compared against `synced` (the content this client last knew
+ * client and server to agree on):
+ *   - new on the server, missing locally, never synced here → adopt it
+ *   - missing locally but WAS synced here → we deleted it and the flush just
+ *     hasn't landed; don't resurrect it, let the flush tombstone it
+ *   - local already matches the server              → nothing to do (this is
+ *     also how our own edit lands once it round-trips back through the
+ *     reactive query)
+ *   - local still matches `synced` but the server moved on → safe to take
+ *     the server's version (no local edit in flight here)
+ *   - local has diverged from `synced` *and* differs from the server → a
+ *     real conflict on this exact block; local wins for now and will
+ *     overwrite the server on its own next flush
+ *   - present locally but missing from the server (deleted elsewhere)  →
+ *     drop it, unless local has an unsynced edit on it, in which case keep
+ *     it (the next flush revives it — `reconcile` already supports that for
+ *     undo, so a delete/edit race resolves the same way).
+ *
+ * Bails out entirely if any top-level node is still missing its UniqueID —
+ * the same window `buildDesired` guards against (right after Enter/split/
+ * paste) — rather than reading a not-yet-tagged node as absent and deleting it.
+ */
+function mergeRemoteChanges(
+  editor: TiptapEditor,
+  serverBlocks: { blockId: string; content: JSONContent }[],
+  synced: Map<string, JSONContent>,
+): void {
+  const { state } = editor;
+  const { schema } = state;
+
+  const localOrder: string[] = [];
+  const localById = new Map<string, PMNode>();
+  const localOffsetById = new Map<string, number>();
+  let hasUntaggedNode = false;
+  state.doc.forEach((node, offset) => {
+    const id = node.attrs?.id as string | undefined;
+    if (!id) {
+      hasUntaggedNode = true;
+      return;
+    }
+    localOrder.push(id);
+    localById.set(id, node);
+    localOffsetById.set(id, offset);
+  });
+  if (hasUntaggedNode) return; // ids still settling — retry on the next tick
+
+  // Capture the cursor's block + offset-within-block now, before the doc
+  // changes underneath it — replaceWith spans the whole document as one
+  // step, so ProseMirror's own position mapping doesn't track this per node.
+  const sel = state.selection;
+  let selBlockId: string | null = null;
+  let selOffset = 0;
+  for (const id of localOrder) {
+    const node = localById.get(id)!;
+    const offset = localOffsetById.get(id)!;
+    // Strictly interior — sel.head === offset + node.nodeSize is the
+    // position just *after* this node, which is also the next node's
+    // offset. Matching it here would attribute a cursor at the start of
+    // block N+1 to the end of block N instead.
+    if (sel.head > offset && sel.head < offset + node.nodeSize) {
+      selBlockId = id;
+      selOffset = sel.head - (offset + 1);
+      break;
+    }
+  }
+
+  const targetIds = serverBlocks.map((b) => b.blockId);
+  const targetIdSet = new Set(targetIds);
+  const serverById = new Map(serverBlocks.map((b) => [b.blockId, b.content]));
+
+  const finalById = new Map<string, PMNode>();
+  for (const id of targetIds) {
+    const serverContent = serverById.get(id)!;
+    const localNode = localById.get(id);
+    if (!localNode) {
+      if (synced.has(id)) continue; // locally deleted, flush pending — don't resurrect
+      finalById.set(id, schema.nodeFromJSON(serverContent));
+      synced.set(id, serverContent);
+      continue;
+    }
+    const localJSON = localNode.toJSON();
+    if (deepEqual(localJSON, serverContent)) {
+      finalById.set(id, localNode);
+      synced.set(id, serverContent);
+      continue;
+    }
+    const baseline = synced.get(id);
+    if (baseline !== undefined && deepEqual(localJSON, baseline)) {
+      finalById.set(id, schema.nodeFromJSON(serverContent));
+      synced.set(id, serverContent);
+    } else {
+      finalById.set(id, localNode); // unsynced local edit — don't overwrite it
+    }
+  }
+
+  // Local-only ids: either a brand-new block we haven't flushed yet, or one
+  // a collaborator just deleted while we had an unsynced edit on it. Both
+  // get the same treatment — keep it, spliced back in near its old neighbor.
+  const orphanIds: string[] = [];
+  for (const id of localOrder) {
+    if (targetIdSet.has(id)) continue;
+    const baseline = synced.get(id);
+    const localJSON = localById.get(id)!.toJSON();
+    if (baseline !== undefined && deepEqual(localJSON, baseline)) {
+      synced.delete(id); // confirmed clean delete — drop the bookkeeping too
+      continue;
+    }
+    orphanIds.push(id);
+    finalById.set(id, localById.get(id)!);
+  }
+
+  // finalOrder tracks only ids we actually decided to keep — targetIds minus
+  // any skipped as "locally deleted, flush pending" above.
+  const finalOrder = targetIds.filter((id) => finalById.has(id));
+  for (const id of orphanIds) {
+    const localIdx = localOrder.indexOf(id);
+    let anchor = -1;
+    for (let i = localIdx - 1; i >= 0; i--) {
+      const idx = finalOrder.indexOf(localOrder[i]);
+      if (idx !== -1) {
+        anchor = idx;
+        break;
+      }
+    }
+    finalOrder.splice(anchor + 1, 0, id);
+  }
+
+  if (finalOrder.length === 0) return; // never force the doc empty via merge
+
+  const changed =
+    finalOrder.length !== localOrder.length ||
+    finalOrder.some((id, i) => id !== localOrder[i] || finalById.get(id) !== localById.get(id));
+  if (!changed) return;
+
+  const fragment = Fragment.fromArray(finalOrder.map((id) => finalById.get(id)!));
+  const tr = state.tr.replaceWith(0, state.doc.content.size, fragment);
+  tr.setMeta("addToHistory", false); // a collaborator's edit isn't local undo history
+
+  // Restore the cursor into the same block by explicit position, not
+  // ProseMirror's mapping (which collapses across a whole-doc replace).
+  if (selBlockId && finalById.has(selBlockId)) {
+    let newOffset = 0;
+    for (const id of finalOrder) {
+      const node = finalById.get(id)!;
+      if (id === selBlockId) {
+        const clamped = Math.max(0, Math.min(selOffset, node.content.size));
+        const pos = Math.max(0, Math.min(newOffset + 1 + clamped, tr.doc.content.size));
+        // .near, not .create — a block type without text content (e.g.
+        // horizontalRule) at exactly this position would make .create throw
+        // mid-effect; .near snaps to the closest valid text selection instead.
+        tr.setSelection(TextSelection.near(tr.doc.resolve(pos)));
+        break;
+      }
+      newOffset += node.nodeSize;
+    }
+  }
+
+  editor.view.dispatch(tr);
+}
+
 export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
   const blocks = useQuery(api.blocks.list, { documentId });
   const doc = useQuery(api.documents.get, { documentId });
@@ -76,6 +271,10 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
   // Hash of the last desired-state we successfully synced; lets us skip
   // reconcile calls that wouldn't change anything.
   const lastSyncedHashRef = useRef<string | null>(null);
+  // Per-block "last content client and server agreed on" — mergeRemoteChanges'
+  // baseline for deciding whether a block is safe to overwrite with a
+  // collaborator's version or has an unsynced local edit in flight.
+  const syncedContentRef = useRef<Map<string, JSONContent>>(new Map());
   // Transient "Saved" confirmation for the explicit Ctrl/Cmd+S save.
   const savedHideRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
@@ -87,7 +286,7 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
     if (desired === null) return; // duplicate ids — let UniqueID settle
     const hash = JSON.stringify(desired);
     if (hash === lastSyncedHashRef.current) return; // nothing changed
-    void reconcile({ documentId, actor: ACTOR, blocks: desired })
+    void reconcile({ documentId, blocks: desired })
       .then(() => {
         lastSyncedHashRef.current = hash;
       })
@@ -106,7 +305,7 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
     if (hash !== lastSyncedHashRef.current) {
       setSaveStatus("saving");
       try {
-        await reconcile({ documentId, actor: ACTOR, blocks: desired });
+        await reconcile({ documentId, blocks: desired });
         lastSyncedHashRef.current = hash;
       } catch (e) {
         console.error("Folio: manual save failed", e);
@@ -181,8 +380,23 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
         { emitUpdate: false },
       );
     }
+    for (const b of blocks) {
+      syncedContentRef.current.set(b.blockId, b.content as JSONContent);
+    }
     const desired = buildDesired(editor);
     lastSyncedHashRef.current = desired ? JSON.stringify(desired) : null;
+  }, [editor, blocks]);
+
+  // Every subsequent update (ours echoing back, or a collaborator's) merges
+  // in rather than reloading — see mergeRemoteChanges for why a full reload
+  // here would silently clobber whoever's debounced flush lands second.
+  useEffect(() => {
+    if (!editor || !loadedRef.current || blocks === undefined) return;
+    mergeRemoteChanges(
+      editor,
+      blocks.map((b) => ({ blockId: b.blockId, content: b.content as JSONContent })),
+      syncedContentRef.current,
+    );
   }, [editor, blocks]);
 
   // Push live attribution (author + lastEditedAt per block) into the editor so
@@ -192,7 +406,11 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
     if (!editor || blocks === undefined) return;
     const map = new Map<string, AttrInfo>();
     for (const b of blocks) {
-      map.set(b.blockId, { author: b.author, lastEditedAt: b.lastEditedAt });
+      map.set(b.blockId, {
+        author: b.author,
+        authorName: b.authorName,
+        lastEditedAt: b.lastEditedAt,
+      });
     }
     editor.view.dispatch(editor.state.tr.setMeta(attributionPluginKey, map));
   }, [editor, blocks]);

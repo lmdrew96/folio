@@ -1,18 +1,20 @@
 import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { resolveAccess } from "./access";
 
 // Floor on how long a soft-deleted block's tombstone is kept, regardless of
 // watermark state — see purgeOldTombstones below.
 const TOMBSTONE_RETENTION_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 
-/** All blocks for a document the caller owns, ordered. Reactive. */
+/** All blocks for a document the caller owns or has editor access to,
+ *  ordered. Reactive. */
 export const list = query({
   args: { documentId: v.id("documents") },
   handler: async (ctx, { documentId }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
-    const doc = await ctx.db.get(documentId);
-    if (!doc || doc.ownerId !== identity.subject) return [];
+    const access = await resolveAccess(ctx, documentId, identity);
+    if (!access) return [];
 
     const blocks = await ctx.db
       .query("blocks")
@@ -105,15 +107,15 @@ function computeOrders(
  *   - row whose blockId vanished     → delete
  * Idempotent: re-running with the same desired state writes nothing.
  *
- * `actor` is who's writing — "nae" from the human editor, "claude" from the AI
- * path in Patch 5. Threaded through so attribution is correct per block.
+ * Attribution (`author`) is derived server-side from the caller's own
+ * identity, never accepted as an argument — a collaborator can't forge
+ * another person's name on a block they didn't write.
  * Removed blocks are soft-deleted (deletedAt tombstone) so diff-since-visit
  * (Patch 4) can still see them; a returning blockId (undo) is revived.
  */
 export const reconcile = mutation({
   args: {
     documentId: v.id("documents"),
-    actor: v.string(), // who is making these edits ("nae" | "claude")
     // Desired top-level blocks, in document order (array index = position).
     blocks: v.array(
       v.object({
@@ -123,11 +125,18 @@ export const reconcile = mutation({
       }),
     ),
   },
-  handler: async (ctx, { documentId, actor, blocks }) => {
+  handler: async (ctx, { documentId, blocks }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-    const doc = await ctx.db.get(documentId);
-    if (!doc || doc.ownerId !== identity.subject) throw new Error("Not found");
+    const access = await resolveAccess(ctx, documentId, identity);
+    if (!access) throw new Error("Not found");
+
+    const actor = identity.subject;
+    const account = await ctx.db
+      .query("users")
+      .withIndex("by_user", (q) => q.eq("userId", actor))
+      .unique();
+    const actorName = account?.displayName;
 
     const existingRows = await ctx.db
       .query("blocks")
@@ -153,6 +162,7 @@ export const reconcile = mutation({
           type: b.type,
           content: b.content,
           author: actor,
+          authorName: actorName,
           createdAt: now,
           lastEditedAt: now,
         });
@@ -167,6 +177,7 @@ export const reconcile = mutation({
           type: b.type,
           order,
           author: actor,
+          authorName: actorName,
           lastEditedAt: now,
           deletedAt: undefined, // clear the tombstone
         });
@@ -185,6 +196,7 @@ export const reconcile = mutation({
         patch.previousContent = existing.content; // for the diff panel's word-level view
         patch.content = b.content;
         patch.author = actor; // whoever last touched it owns it now
+        patch.authorName = actorName;
         patch.lastEditedAt = now;
       }
       if (orderChanged) patch.order = order; // reordering is not editing — no bump

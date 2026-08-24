@@ -33,6 +33,7 @@ export default defineSchema({
 
     // --- metadata slots: exist now, populated in later patches (no migration) ---
     author: v.optional(v.string()), // Patch 3 — who wrote/last touched it
+    authorName: v.optional(v.string()), // display name snapshotted at write time (see users table)
     createdAt: v.number(),
     lastEditedAt: v.number(),
     deletedAt: v.optional(v.number()), // Patch 4 — soft-delete tombstone for diff
@@ -71,10 +72,42 @@ export default defineSchema({
   // a `summary`); `kind: "chat"` rows are free-text turns from either side.
   messages: defineTable({
     documentId: v.id("documents"),
-    author: v.union(v.literal("nae"), v.literal("claude")), // same vocabulary as blocks.author / visits.userId
+    // Human turns store identity.subject; Cleo's own turns store "claude".
+    // Was a v.union(v.literal("nae"), v.literal("claude")) before sharing —
+    // widened so any collaborator, not just Nae, can be a turn's author.
+    author: v.string(),
+    authorName: v.optional(v.string()), // display name snapshotted at write time
     kind: v.union(v.literal("chat"), v.literal("reaction")),
     content: v.string(), // markdown
     summary: v.optional(v.string()), // set only on kind:"reaction" rows
     createdAt: v.number(),
   }).index("by_document", ["documentId"]),
+
+  // Durable, Clerk-independent profile row — kept current by a client-side
+  // sync effect (UserSync) rather than a webhook. Exists so attribution and
+  // invite-by-email have a real displayName/email to resolve against instead
+  // of depending on what the Clerk JWT template happens to carry.
+  users: defineTable({
+    userId: v.string(), // identity.subject — same field documents.ownerId uses
+    email: v.string(), // lowercased; sourced client-side from Clerk's useUser()
+    displayName: v.string(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_email", ["email"]),
+
+  // One row per (document, invited email) — the sharing grant. An accepted
+  // row (userId + acceptedAt set) is editor access to the document; no
+  // separate `role` field yet since editor is the only non-owner role (v1).
+  documentShares: defineTable({
+    documentId: v.id("documents"),
+    invitedEmail: v.string(), // lowercased at write time
+    userId: v.optional(v.string()), // identity.subject, filled once resolved
+    displayName: v.optional(v.string()), // snapshotted at resolution time
+    invitedAt: v.number(),
+    acceptedAt: v.optional(v.number()),
+  })
+    .index("by_document", ["documentId"])
+    .index("by_document_and_user", ["documentId", "userId"])
+    .index("by_email", ["invitedEmail"])
+    .index("by_user", ["userId"]),
 });

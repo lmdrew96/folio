@@ -1,32 +1,41 @@
 import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { resolveAccess } from "./access";
 
 /**
  * v1 continuity layer. A real, two-sided conversation with Cleo per document —
  * replaces `reactions`' one-shot, paraphrase-based "memory" (see identity.ts's
- * old priorSection) with actual turn history sent to the model. `send` is
- * Nae's free-text turn; `recordReply` is Cleo's, either a `"chat"` answer or a
- * `"reaction"` to a diff-since-last-look (same shape `reactions` rows had).
+ * old priorSection) with actual turn history sent to the model. `send` is a
+ * collaborator's free-text turn; `recordReply` is Cleo's, either a `"chat"`
+ * answer or a `"reaction"` to a diff-since-last-look (same shape `reactions`
+ * rows had). One shared thread per document — every collaborator with access
+ * sees and adds to the same conversation.
  */
 
 // How many messages per document `purgeOld` keeps.
 const MESSAGES_KEEP = 200;
 
-/** Nae's free-text turn. Owner-gated like everything else here. */
+/** A collaborator's free-text turn. Owner-or-editor gated. */
 export const send = mutation({
   args: { documentId: v.id("documents"), content: v.string() },
   handler: async (ctx, { documentId, content }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-    const doc = await ctx.db.get(documentId);
-    if (!doc || doc.ownerId !== identity.subject) throw new Error("Not found");
+    const access = await resolveAccess(ctx, documentId, identity);
+    if (!access) throw new Error("Not found");
 
     const trimmed = content.trim();
     if (!trimmed) throw new Error("Message is empty");
 
+    const account = await ctx.db
+      .query("users")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .unique();
+
     return await ctx.db.insert("messages", {
       documentId,
-      author: "nae",
+      author: identity.subject,
+      authorName: account?.displayName,
       kind: "chat",
       content: trimmed,
       createdAt: Date.now(),
@@ -49,8 +58,8 @@ export const recordReply = mutation({
   handler: async (ctx, { documentId, content, kind, summary }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-    const doc = await ctx.db.get(documentId);
-    if (!doc || doc.ownerId !== identity.subject) throw new Error("Not found");
+    const access = await resolveAccess(ctx, documentId, identity);
+    if (!access) throw new Error("Not found");
 
     // Don't persist empty/whitespace-only replies (e.g. a stream that errored
     // out before producing text) — they'd pollute the conversation history.
@@ -77,8 +86,8 @@ export const history = query({
   handler: async (ctx, { documentId, limit }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return [];
-    const doc = await ctx.db.get(documentId);
-    if (!doc || doc.ownerId !== identity.subject) return [];
+    const access = await resolveAccess(ctx, documentId, identity);
+    if (!access) return [];
 
     const rows = await ctx.db
       .query("messages")
@@ -91,6 +100,7 @@ export const history = query({
       .map((m) => ({
         id: m._id,
         author: m.author,
+        authorName: m.authorName,
         kind: m.kind,
         content: m.content,
         summary: m.summary,

@@ -3,7 +3,7 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { relativeTime } from "@/lib/time";
 
-export type AttrInfo = { author?: string; lastEditedAt: number };
+export type AttrInfo = { author?: string; authorName?: string; lastEditedAt: number };
 
 /**
  * Carries the live blockId → attribution map into the editor. The map is pushed
@@ -42,12 +42,18 @@ export const Attribution = Extension.create({
               if (!id) return;
               const info = map.get(id);
               if (!info) return;
-              const author = info.author ?? "nae";
+              // data-author only needs to distinguish Cleo from a human for
+              // CSS (see globals.css) — anything but "claude" reads as human,
+              // so a missing author (pre-attribution block) safely falls
+              // through as human rather than misattributing to Cleo. The
+              // tooltip prefers the display name.
+              const author = info.author ?? "";
+              const label = author === "claude" ? "Cleo" : (info.authorName ?? "Nae");
               decorations.push(
                 Decoration.node(offset, offset + node.nodeSize, {
                   class: "folio-attr",
                   "data-author": author,
-                  title: `${author} · edited ${relativeTime(info.lastEditedAt)}`,
+                  title: `${label} · edited ${relativeTime(info.lastEditedAt)}`,
                 }),
               );
             });

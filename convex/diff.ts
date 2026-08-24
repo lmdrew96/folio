@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { diffWords } from "diff";
+import { resolveAccess } from "./access";
 
 /** Full plain text of a ProseMirror block's JSON. */
 function blockText(content: unknown): string {
@@ -48,6 +49,7 @@ type DiffItem = {
   preview: string;
   diff?: DiffPart[]; // edited items only, when a prior snapshot exists
   author?: string;
+  authorName?: string;
   at: number; // the timestamp relevant to the bucket (created / edited / deleted)
 };
 
@@ -73,8 +75,8 @@ export const diffSince = query({
 
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return empty;
-    const doc = await ctx.db.get(documentId);
-    if (!doc || doc.ownerId !== identity.subject) return empty;
+    const access = await resolveAccess(ctx, documentId, identity);
+    if (!access) return empty;
 
     const visit = await ctx.db
       .query("visits")
@@ -100,6 +102,7 @@ export const diffSince = query({
         type: b.type,
         preview: textPreview(b.content),
         author: b.author,
+        authorName: b.authorName,
       };
       if (b.deletedAt !== undefined) {
         if (b.deletedAt > since) deleted.push({ ...base, at: b.deletedAt });
@@ -129,8 +132,8 @@ export const markVisited = mutation({
   handler: async (ctx, { documentId, userId }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-    const doc = await ctx.db.get(documentId);
-    if (!doc || doc.ownerId !== identity.subject) throw new Error("Not found");
+    const access = await resolveAccess(ctx, documentId, identity);
+    if (!access) throw new Error("Not found");
 
     const now = Date.now();
     const existing = await ctx.db
@@ -188,8 +191,8 @@ export const reactionPayload = query({
 
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return empty;
-    const doc = await ctx.db.get(documentId);
-    if (!doc || doc.ownerId !== identity.subject) return empty;
+    const access = await resolveAccess(ctx, documentId, identity);
+    if (!access) return empty;
 
     const rows = await ctx.db
       .query("blocks")
@@ -207,7 +210,7 @@ export const reactionPayload = query({
       return {
         blockId: r.blockId,
         type: r.type,
-        author: r.author ?? "nae",
+        author: r.authorName ?? r.author ?? "Nae",
         text: blockText(r.content),
         prevText: i > 0 ? blockText(live[i - 1].content) : null,
         nextText: i < live.length - 1 ? blockText(live[i + 1].content) : null,
@@ -245,7 +248,7 @@ export const reactionPayload = query({
           deleted.push({
             blockId: r.blockId,
             type: r.type,
-            author: r.author ?? "nae",
+            author: r.authorName ?? r.author ?? "Nae",
             text: blockText(r.content),
           });
         }

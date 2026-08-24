@@ -1,13 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { relativeTime } from "@/lib/time";
-
-// v0 tracks one human watermark; Patch 5 adds the "claude" watermark.
-const USER = "nae";
 
 type DiffPart = { value: string; added?: boolean; removed?: boolean };
 
@@ -17,6 +15,7 @@ type Item = {
   preview: string;
   diff?: DiffPart[];
   author?: string;
+  authorName?: string;
   at: number;
 };
 
@@ -60,7 +59,8 @@ function Row({ item, kind }: { item: Item; kind: keyof typeof KINDS }) {
           {k.label}
         </span>
         <span className="text-[11px] text-black/40 dark:text-white/40">
-          {item.author ?? "nae"} · {relativeTime(item.at)}
+          {item.authorName ?? (item.author ? "Collaborator" : "Nae")} ·{" "}
+          {relativeTime(item.at)}
         </span>
       </div>
       {item.diff && item.diff.length > 0 ? (
@@ -75,7 +75,14 @@ function Row({ item, kind }: { item: Item; kind: keyof typeof KINDS }) {
 }
 
 export function DiffPanel({ documentId }: { documentId: Id<"documents"> }) {
-  const diff = useQuery(api.diff.diffSince, { documentId, userId: USER });
+  // Each collaborator gets their own watermark — visits is keyed
+  // (documentId, userId), so this must be the caller's own Clerk id, not a
+  // shared "nae" literal (that would collapse everyone onto one watermark).
+  const { userId } = useAuth();
+  const diff = useQuery(
+    api.diff.diffSince,
+    userId ? { documentId, userId } : "skip",
+  );
   const markVisited = useMutation(api.diff.markVisited);
   const [marking, setMarking] = useState(false);
 
@@ -84,9 +91,10 @@ export function DiffPanel({ documentId }: { documentId: Id<"documents"> }) {
     : 0;
 
   const caughtUp = async () => {
+    if (!userId) return;
     setMarking(true);
     try {
-      await markVisited({ documentId, userId: USER });
+      await markVisited({ documentId, userId });
     } finally {
       setMarking(false);
     }

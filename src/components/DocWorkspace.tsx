@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Authenticated, AuthLoading, useMutation, useQuery } from "convex/react";
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useAuth } from "@clerk/nextjs";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { DocEditor } from "@/components/DocEditor";
@@ -11,7 +11,29 @@ import { DiffPanel } from "@/components/DiffPanel";
 import { ClaudeReaction } from "@/components/ClaudeReaction";
 import { ResizableDock } from "@/components/ResizableDock";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ShareDialog } from "@/components/ShareDialog";
 import { folioClaudeLabel } from "@/lib/identity";
+
+/** Owner-only "Share" entry point in the header — hidden entirely for an
+ *  editor viewing a shared document. */
+function ShareControl({ documentId }: { documentId: Id<"documents"> }) {
+  const doc = useQuery(api.documents.get, { documentId });
+  const [open, setOpen] = useState(false);
+
+  if (doc?.role !== "owner") return null;
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="rounded-full px-3 py-1.5 text-sm font-medium text-foreground/70 transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+      >
+        Share
+      </button>
+      {open && <ShareDialog documentId={documentId} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
 
 function DocTitleEditor({ documentId }: { documentId: Id<"documents"> }) {
   const doc = useQuery(api.documents.get, { documentId });
@@ -32,6 +54,16 @@ function DocTitleEditor({ documentId }: { documentId: Id<"documents"> }) {
     return <span className="text-sm text-foreground/40">Loading…</span>;
   }
   if (doc === null) return null;
+
+  // rename is owner-only server-side — an editor gets a static title instead
+  // of an input that looks editable but silently fails to save on blur.
+  if (doc.role !== "owner") {
+    return (
+      <span className="w-48 max-w-[40vw] truncate px-1.5 py-0.5 text-sm text-foreground/70">
+        {doc.title || "Untitled"}
+      </span>
+    );
+  }
 
   const commit = () => {
     const next = draft.trim();
@@ -77,7 +109,11 @@ function PanelToggle({
   documentId: Id<"documents">;
   onClick: () => void;
 }) {
-  const diff = useQuery(api.diff.diffSince, { documentId, userId: "nae" });
+  const { userId } = useAuth();
+  const diff = useQuery(
+    api.diff.diffSince,
+    userId ? { documentId, userId } : "skip",
+  );
   const total = diff
     ? diff.added.length + diff.edited.length + diff.deleted.length
     : 0;
@@ -159,6 +195,7 @@ export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
         </div>
         <div className="flex items-center gap-1">
           <Authenticated>
+            <ShareControl documentId={documentId} />
             <PanelToggle
               documentId={documentId}
               onClick={() => setPanelOpen(true)}
