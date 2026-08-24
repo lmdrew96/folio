@@ -13,6 +13,7 @@ import { ResizableDock } from "@/components/ResizableDock";
 import { SplitStack } from "@/components/SplitStack";
 import { SPLIT_KEY, DEFAULT_SPLIT } from "@/lib/dockLayout";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { OnboardingExplainer } from "@/components/OnboardingExplainer";
 import { ShareDialog } from "@/components/ShareDialog";
 import { PresenceBadge } from "@/components/PresenceBadge";
 import { folioClaudeLabel } from "@/lib/identity";
@@ -263,6 +264,7 @@ export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
                   </svg>
                 </button>
               </div>
+              <OnboardingExplainer documentId={documentId} />
               <SplitStack
                 top={<DiffPanel documentId={documentId} />}
                 bottom={<ClaudeReaction documentId={documentId} />}

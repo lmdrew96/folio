@@ -5,6 +5,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import type { Id } from "@convex/_generated/dataModel";
 import { DiffPanel } from "@/components/DiffPanel";
 import { ClaudeReaction } from "@/components/ClaudeReaction";
+import { OnboardingExplainer } from "@/components/OnboardingExplainer";
 import { SplitStack } from "@/components/SplitStack";
 import { SPLIT_KEY, DEFAULT_SPLIT } from "@/lib/dockLayout";
 
@@ -103,6 +104,7 @@ export function ResizableDock({ documentId }: { documentId: Id<"documents"> }) {
       </div>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col border-l border-black/10 dark:border-white/10">
+        <OnboardingExplainer documentId={documentId} />
         <SplitStack
           top={<DiffPanel documentId={documentId} />}
           bottom={<ClaudeReaction documentId={documentId} />}
