@@ -102,7 +102,7 @@ export function ResizableDock({ documentId }: { documentId: Id<"documents"> }) {
         <div className="mx-auto h-full w-px bg-black/10 transition group-hover:bg-foreground/30 dark:bg-white/10" />
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col border-l border-black/10 dark:border-white/10">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col border-l border-black/10 dark:border-white/10">
         <SplitStack
           top={<DiffPanel documentId={documentId} />}
           bottom={<ClaudeReaction documentId={documentId} />}

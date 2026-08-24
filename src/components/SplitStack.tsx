@@ -71,8 +71,11 @@ export function SplitStack({
   }, [storageKey, defaultSplit]);
 
   return (
-    <div ref={columnRef} className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 overflow-hidden" style={{ height: `${split * 100}%` }}>
+    <div ref={columnRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div
+        className="min-h-0 min-w-0 overflow-hidden"
+        style={{ height: `${split * 100}%` }}
+      >
         {top}
       </div>
 
@@ -87,7 +90,7 @@ export function SplitStack({
         <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-black/10 transition group-hover:bg-foreground/30 dark:bg-white/10" />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-hidden">{bottom}</div>
+      <div className="min-h-0 min-w-0 flex-1 overflow-hidden">{bottom}</div>
     </div>
   );
 }

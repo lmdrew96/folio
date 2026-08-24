@@ -134,7 +134,7 @@ export function ClaudeReaction({ documentId }: { documentId: Id<"documents"> }) 
   const empty = !busy && !error && history.length === 0;
 
   return (
-    <section className="flex h-full min-h-0 flex-col">
+    <section className="flex h-full min-h-0 min-w-0 flex-col">
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold">{label}</h2>
@@ -151,14 +151,14 @@ export function ClaudeReaction({ documentId }: { documentId: Id<"documents"> }) 
         </button>
       </div>
 
-      <div ref={listRef} className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4">
+      <div ref={listRef} className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4">
         {history.map((m) => (
           <article
             key={m.id}
-            className="rounded-md border border-black/5 bg-white/30 p-3 dark:border-white/10 dark:bg-white/[0.03]"
+            className="min-w-0 rounded-md border border-black/5 bg-white/30 p-3 dark:border-white/10 dark:bg-white/[0.03]"
           >
             <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] text-black/40 dark:text-white/40">
-              <span className="truncate">
+              <span className="min-w-0 truncate">
                 {speakerLabel(m, label, userId)}
                 {m.kind === "reaction" && m.summary ? ` · reacted to ${m.summary}` : ""}
               </span>
@@ -169,7 +169,7 @@ export function ClaudeReaction({ documentId }: { documentId: Id<"documents"> }) 
         ))}
 
         {streaming && (
-          <article className="rounded-md border border-black/5 bg-white/40 p-3 dark:border-white/10 dark:bg-white/5">
+          <article className="min-w-0 rounded-md border border-black/5 bg-white/40 p-3 dark:border-white/10 dark:bg-white/5">
             <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-black/40 dark:text-white/40">
               <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#CF4A4D]" />
               <span className="font-medium">{label} is replying…</span>
@@ -185,8 +185,8 @@ export function ClaudeReaction({ documentId }: { documentId: Id<"documents"> }) 
         )}
 
         {error && (
-          <div className="flex items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
-            <span>{error.message}</span>
+          <div className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-300">
+            <span className="min-w-0 break-words">{error.message}</span>
             <button
               onClick={retry}
               className="shrink-0 rounded-full border border-red-300 px-2.5 py-1 text-xs font-medium hover:bg-red-100 dark:border-red-800 dark:hover:bg-red-900/40"

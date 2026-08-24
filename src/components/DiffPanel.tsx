@@ -30,7 +30,7 @@ const KINDS = {
 // the same poppy used for "Added", so the diff reuses the panel's own palette.
 function DiffText({ parts }: { parts: DiffPart[] }) {
   return (
-    <p className="line-clamp-3 text-sm text-black/70 dark:text-white/70">
+    <p className="line-clamp-3 break-words text-sm text-black/70 dark:text-white/70">
       {parts.map((part, i) =>
         part.removed ? (
           <span key={i} className="text-[#4E4C5E] line-through dark:text-[#afaeb7]">
@@ -54,11 +54,11 @@ function Row({ item, kind }: { item: Item; kind: keyof typeof KINDS }) {
     <li className="flex flex-col gap-1 rounded-md border border-black/5 bg-white/40 p-2.5 dark:border-white/10 dark:bg-white/5">
       <div className="flex items-center justify-between gap-2">
         <span
-          className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${k.className}`}
+          className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${k.className}`}
         >
           {k.label}
         </span>
-        <span className="text-[11px] text-black/40 dark:text-white/40">
+        <span className="min-w-0 truncate text-[11px] text-black/40 dark:text-white/40">
           {item.authorName ?? (item.author ? "Collaborator" : "Nae")} ·{" "}
           {relativeTime(item.at)}
         </span>
@@ -66,7 +66,7 @@ function Row({ item, kind }: { item: Item; kind: keyof typeof KINDS }) {
       {item.diff && item.diff.length > 0 ? (
         <DiffText parts={item.diff} />
       ) : (
-        <p className="line-clamp-2 text-sm text-black/70 dark:text-white/70">
+        <p className="line-clamp-2 break-words text-sm text-black/70 dark:text-white/70">
           {item.preview || <span className="italic opacity-60">({item.type})</span>}
         </p>
       )}
@@ -101,7 +101,7 @@ export function DiffPanel({ documentId }: { documentId: Id<"documents"> }) {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 min-w-0 flex-col">
       <div className="flex items-center justify-between border-b border-black/10 px-4 py-3 dark:border-white/10">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">Since you last looked</h2>
