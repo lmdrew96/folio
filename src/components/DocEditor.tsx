@@ -40,6 +40,12 @@ const BLOCK_TYPES = [
 ];
 
 const DEBOUNCE_MS = 600;
+const WORD_COUNT_KEY = "folio:wordCount:visible";
+
+const countWords = (text: string): number => {
+  const trimmed = text.trim();
+  return trimmed.length === 0 ? 0 : trimmed.split(/\s+/).length;
+};
 
 type DesiredBlock = { blockId: string; type: string; content: JSONContent };
 
@@ -280,6 +286,21 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
     "idle",
   );
+  const [wordCount, setWordCount] = useState(0);
+  // Persisted so the toggle stays put across visits, like the dock's own
+  // sizing preferences. Read lazily so there's no SSR markup to mismatch —
+  // this component only mounts client-side.
+  const [wordCountVisible, setWordCountVisible] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(WORD_COUNT_KEY) === "true";
+  });
+  const toggleWordCount = () => {
+    setWordCountVisible((prev) => {
+      const next = !prev;
+      window.localStorage.setItem(WORD_COUNT_KEY, String(next));
+      return next;
+    });
+  };
 
   const flush = (editor: TiptapEditor) => {
     const desired = buildDesired(editor);
@@ -359,6 +380,7 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
       },
     },
     onUpdate: ({ editor }) => {
+      setWordCount(countWords(editor.getText()));
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => flush(editor), DEBOUNCE_MS);
     },
@@ -385,6 +407,7 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
     }
     const desired = buildDesired(editor);
     lastSyncedHashRef.current = desired ? JSON.stringify(desired) : null;
+    setWordCount(countWords(editor.getText()));
   }, [editor, blocks]);
 
   // Every subsequent update (ours echoing back, or a collaborator's) merges
@@ -480,6 +503,14 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
       >
         {saveStatus === "saving" ? "Saving…" : "Saved"}
       </div>
+      <button
+        onClick={toggleWordCount}
+        aria-pressed={wordCountVisible}
+        title={wordCountVisible ? "Hide word count" : "Show word count"}
+        className="fixed bottom-5 left-5 z-20 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-foreground/60 shadow-sm transition hover:text-foreground"
+      >
+        {wordCountVisible ? `${wordCount.toLocaleString()} words` : "Word count"}
+      </button>
     </div>
   );
 }
