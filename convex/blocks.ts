@@ -28,6 +28,38 @@ export const list = query({
 
 // --- reconciliation helpers (module-private) ---
 
+// Marks/attrs that only change how text looks, not what it says — stripped
+// before deciding whether a block's edit is worth surfacing in a diff. A
+// document-wide font/size/color pass touches every block's marks/attrs
+// without touching a single word, and shouldn't read as hundreds of edits.
+const STYLE_MARK_TYPES = new Set(["bold", "italic", "underline", "strike", "textStyle", "highlight"]);
+const STYLE_ATTR_KEYS = ["textAlign", "fontSize", "lineHeight", "indent"];
+
+/** Strip purely-visual marks/attrs from a ProseMirror node (recursively), so
+ *  comparing two stripped trees only reflects on-page-meaning changes. */
+function stripStyle(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(stripStyle);
+  if (!node || typeof node !== "object") return node;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+    if (key === "marks" && Array.isArray(value)) {
+      const kept = (value as { type?: string }[]).filter(
+        (m) => !STYLE_MARK_TYPES.has(m.type ?? ""),
+      );
+      if (kept.length) out.marks = kept;
+      continue;
+    }
+    if (key === "attrs" && value && typeof value === "object") {
+      const attrs = { ...(value as Record<string, unknown>) };
+      for (const k of STYLE_ATTR_KEYS) delete attrs[k];
+      if (Object.keys(attrs).length) out.attrs = attrs;
+      continue;
+    }
+    out[key] = key === "content" ? stripStyle(value) : value;
+  }
+  return out;
+}
+
 /** Order-independent deep equality. ProseMirror node JSON round-tripped through
  *  Convex may come back with reordered object keys, so JSON.stringify isn't safe. */
 function deepEqual(a: unknown, b: unknown): boolean {
@@ -185,19 +217,27 @@ export const reconcile = mutation({
         continue;
       }
 
-      const contentChanged =
-        existing.type !== b.type || !deepEqual(existing.content, b.content);
+      const typeChanged = existing.type !== b.type;
+      const contentChanged = typeChanged || !deepEqual(existing.content, b.content);
       const orderChanged = existing.order !== order;
       if (!contentChanged && !orderChanged) continue;
 
+      // Style-only changes (font/size/color/etc.) still update the stored
+      // content so rendering stays correct, but don't count as an "edit" for
+      // diff/attribution purposes — only a meaning change does.
+      const meaningfulChanged =
+        typeChanged || !deepEqual(stripStyle(existing.content), stripStyle(b.content));
+
       const patch: Record<string, unknown> = {};
-      if (existing.type !== b.type) patch.type = b.type;
+      if (typeChanged) patch.type = b.type;
       if (contentChanged) {
-        patch.previousContent = existing.content; // for the diff panel's word-level view
         patch.content = b.content;
-        patch.author = actor; // whoever last touched it owns it now
-        patch.authorName = actorName;
-        patch.lastEditedAt = now;
+        if (meaningfulChanged) {
+          patch.previousContent = existing.content; // for the diff panel's word-level view
+          patch.author = actor; // whoever last touched it owns it now
+          patch.authorName = actorName;
+          patch.lastEditedAt = now;
+        }
       }
       if (orderChanged) patch.order = order; // reordering is not editing — no bump
       await ctx.db.patch(existing._id, patch);
