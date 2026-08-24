@@ -146,6 +146,26 @@ export const setFontFamily = mutation({
   },
 });
 
+/** Set (or clear, with null) the document's word-count goal — any
+ *  collaborator can set it, same as font family. */
+export const setWordGoal = mutation({
+  args: { documentId: v.id("documents"), wordGoal: v.union(v.number(), v.null()) },
+  handler: async (ctx, { documentId, wordGoal }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const access = await resolveAccess(ctx, documentId, identity);
+    if (!access) throw new Error("Not found");
+    if (wordGoal !== null && (!Number.isFinite(wordGoal) || wordGoal <= 0)) {
+      throw new Error("Word goal must be a positive number");
+    }
+
+    await ctx.db.patch(documentId, {
+      wordGoal: wordGoal ?? undefined,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
 /**
  * Invite someone onto a document by email — owner-only. If they already
  * have a Folio account (a `users` row for that email), the share resolves

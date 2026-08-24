@@ -25,6 +25,9 @@ export default defineSchema({
     // Prose column font — a key from the curated list in src/lib/fonts.ts.
     // Unset/unknown falls back to the default (Fraunces) client-side.
     fontFamily: v.optional(v.string()),
+    // Optional target word count — shows progress instead of a raw tally in
+    // the editor's word-count toggle. Unset = no goal.
+    wordGoal: v.optional(v.number()),
   }).index("by_owner", ["ownerId"]),
 
   blocks: defineTable({

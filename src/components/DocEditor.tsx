@@ -278,6 +278,7 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
   const doc = useQuery(api.documents.get, { documentId });
   const reconcile = useMutation(api.blocks.reconcile);
   const setFontFamily = useMutation(api.documents.setFontFamily);
+  const setWordGoal = useMutation(api.documents.setWordGoal);
   const title = doc?.title?.trim() || "Untitled";
 
   const loadedRef = useRef(false);
@@ -308,6 +309,24 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
       window.localStorage.setItem(WORD_COUNT_KEY, String(next));
       return next;
     });
+  };
+
+  // Reuses the native-prompt pattern Toolbar's link button already uses
+  // rather than a new dialog — a blank/cleared input clears the goal.
+  const editWordGoal = () => {
+    const input = window.prompt(
+      "Word count goal (blank to clear)",
+      doc?.wordGoal ? String(doc.wordGoal) : "",
+    );
+    if (input === null) return; // cancelled
+    const trimmed = input.trim();
+    if (trimmed === "") {
+      void setWordGoal({ documentId, wordGoal: null });
+      return;
+    }
+    const n = Number(trimmed);
+    if (!Number.isFinite(n) || n <= 0) return; // ignore invalid input
+    void setWordGoal({ documentId, wordGoal: Math.round(n) });
   };
 
   const flush = (editor: TiptapEditor) => {
@@ -533,8 +552,21 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
           title={wordCountVisible ? "Hide word count" : "Show word count"}
           className="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-foreground/60 shadow-sm transition hover:text-foreground"
         >
-          {wordCountVisible ? `${wordCount.toLocaleString()} words` : "Word count"}
+          {wordCountVisible
+            ? doc?.wordGoal
+              ? `${wordCount.toLocaleString()} / ${doc.wordGoal.toLocaleString()} words`
+              : `${wordCount.toLocaleString()} words`
+            : "Word count"}
         </button>
+        {wordCountVisible && (
+          <button
+            onClick={editWordGoal}
+            title={doc?.wordGoal ? "Edit word goal" : "Set a word goal"}
+            className="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-2 py-1 text-xs text-foreground/40 shadow-sm transition hover:text-foreground"
+          >
+            {doc?.wordGoal ? "Edit goal" : "Set goal"}
+          </button>
+        )}
       </div>
     </div>
   );
