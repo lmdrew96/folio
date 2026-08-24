@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
@@ -30,6 +30,19 @@ export function PresenceBadge({ documentId }: { documentId: Id<"documents"> }) {
   // Forces a re-render every few seconds so a row that's gone stale (no new
   // write, so no fresh query push) still fades out on schedule.
   const [now, setNow] = useState(() => Date.now());
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // The `title` tooltip that reveals names never fires on touch — tapping
+  // the stack opens the same names as a small list instead.
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
 
   useEffect(() => {
     void heartbeat({ documentId });
@@ -51,16 +64,31 @@ export function PresenceBadge({ documentId }: { documentId: Id<"documents"> }) {
   if (others.length === 0) return null;
 
   return (
-    <div className="flex items-center -space-x-2" aria-label="Also viewing this document">
-      {others.map((r) => (
-        <div
-          key={r.userId}
-          title={r.displayName}
-          className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[var(--folio-backdrop)] bg-[var(--folio-attr-nae)] text-[11px] font-medium text-white"
-        >
-          {initials(r.displayName)}
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-label={`Also viewing this document: ${others.map((r) => r.displayName).join(", ")}`}
+        className="flex items-center -space-x-2"
+      >
+        {others.map((r) => (
+          <span
+            key={r.userId}
+            title={r.displayName}
+            className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[var(--folio-backdrop)] bg-[var(--folio-attr-nae)] text-[11px] font-medium text-white"
+          >
+            {initials(r.displayName)}
+          </span>
+        ))}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-9 z-30 flex flex-col gap-1 whitespace-nowrap rounded-lg border border-foreground/10 bg-[var(--folio-paper)] px-3 py-2 text-sm text-foreground/80 shadow-md">
+          {others.map((r) => (
+            <span key={r.userId}>{r.displayName}</span>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }
