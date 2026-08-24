@@ -69,6 +69,10 @@ function mdInline(nodes: Node[] | undefined): string {
       out += "  \n";
       continue;
     }
+    if (n.type === "footnoteRef") {
+      out += `[${typeof n.attrs?.n === "number" ? n.attrs.n : ""}]`;
+      continue;
+    }
     if (n.type !== "text" || typeof n.text !== "string") continue;
     const href = linkHref(n.marks);
     if (hasMark(n.marks, "code")) {
@@ -186,6 +190,10 @@ function rtfInline(nodes: Node[] | undefined): string {
   for (const n of nodes) {
     if (n.type === "hardBreak") {
       out += "\\line ";
+      continue;
+    }
+    if (n.type === "footnoteRef") {
+      out += `[${typeof n.attrs?.n === "number" ? n.attrs.n : ""}]`;
       continue;
     }
     if (n.type !== "text" || typeof n.text !== "string") continue;
@@ -352,6 +360,11 @@ async function toDocxBlob(doc: Node, title: string): Promise<Blob> {
     for (const n of nodes) {
       if (n.type === "hardBreak") {
         out.push(new TextRun({ break: 1 }));
+        continue;
+      }
+      if (n.type === "footnoteRef") {
+        const num = typeof n.attrs?.n === "number" ? n.attrs.n : "";
+        out.push(new TextRun({ text: String(num), superScript: true }));
         continue;
       }
       if (n.type !== "text" || typeof n.text !== "string") continue;

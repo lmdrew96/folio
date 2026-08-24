@@ -34,6 +34,12 @@ export const FootnoteReference = Node.create({
   renderHTML({ HTMLAttributes }) {
     return ["sup", mergeAttributes(HTMLAttributes, { class: "folio-footnote-ref" })];
   },
+
+  // Powers editor.getText() (the txt export) — without this the atom node
+  // contributes no text at all and the reference silently disappears.
+  renderText({ node }) {
+    return `[${node.attrs.n}]`;
+  },
 });
 
 /** The reference-list entry, appended at the end of the document. A regular
