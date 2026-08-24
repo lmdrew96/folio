@@ -1,0 +1,52 @@
+[
+  {
+    "hash": "0de82da",
+    "date": "2026-08-23",
+    "subject": "feat: public change log in app"
+  },
+  {
+    "hash": "7ff19c4",
+    "date": "2026-08-23",
+    "subject": "v0.29.1: font-size range should be 6-160px per patch spec"
+  },
+  {
+    "hash": "a71adfe",
+    "date": "2026-08-23",
+    "subject": "v0.29.0: free font and text-size selection"
+  },
+  {
+    "hash": "426fc9c",
+    "date": "2026-08-23",
+    "subject": "v0.28.0: word count"
+  },
+  {
+    "hash": "32df16d",
+    "date": "2026-08-23",
+    "subject": "v0.27.0: implement friends system"
+  },
+  {
+    "hash": "087065b",
+    "date": "2026-08-23",
+    "subject": "v0.26.1: fix Cleo's panel overflows viewport when narrowed"
+  },
+  {
+    "hash": "f2517ab",
+    "date": "2026-08-23",
+    "subject": "v0.26.0: side panel vertical resize on mobile"
+  },
+  {
+    "hash": "a38f34c",
+    "date": "2026-08-23",
+    "subject": "v0.25.0: show a presence badge for others viewing the same document"
+  },
+  {
+    "hash": "da2789f",
+    "date": "2026-08-23",
+    "subject": "v0.24.0: invite collaborators onto shared documents"
+  },
+  {
+    "hash": "343c5d6",
+    "date": "2026-07-15",
+    "subject": "v0.23.1: reskin UI with a warm 6-color palette from moodboard image"
+  }
+]
