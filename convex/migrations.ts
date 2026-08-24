@@ -72,3 +72,48 @@ export const backfillReactionsToMessages = internalMutation({
     return { total: reactions.length, inserted };
   },
 });
+
+/**
+ * ONE-TIME: clear a stray content.attrs.fontSize left over from before the
+ * font-size/heading fixes (v0.37.x) — it silently locks a block's rendered
+ * size at whatever it was when set, regardless of its paragraph/heading
+ * style, which is why converting a block to a heading (or clearing/resizing
+ * it) looked like it "didn't work." Confirmed via manual audit that this is
+ * isolated to Rainbridge (121 of its 123 paragraph/heading blocks), most
+ * likely from an old whole-document size-set that predates the fixes. Skips
+ * blocks whose fontSize is already unset. Run once via
+ *   npx convex run migrations:clearStrayFontSizes
+ * Idempotent — a re-run just finds nothing left to clear. Deliberately a
+ * direct content.attrs patch (not reconcile()) so it doesn't bump
+ * lastEditedAt/previousContent/author — a pure style fix, not an edit.
+ */
+export const clearStrayFontSizes = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const documents = await ctx.db.query("documents").collect();
+    let cleared = 0;
+
+    for (const doc of documents) {
+      const blocks = await ctx.db
+        .query("blocks")
+        .withIndex("by_document", (q) => q.eq("documentId", doc._id))
+        .collect();
+
+      for (const b of blocks) {
+        if (b.deletedAt !== undefined) continue;
+        if (b.type !== "paragraph" && b.type !== "heading") continue;
+
+        const content = b.content as { attrs?: Record<string, unknown> } | undefined;
+        const fontSize = content?.attrs?.fontSize;
+        if (typeof fontSize !== "string" || fontSize.length === 0) continue;
+
+        await ctx.db.patch(b._id, {
+          content: { ...content, attrs: { ...content!.attrs, fontSize: null } },
+        });
+        cleared++;
+      }
+    }
+
+    return { cleared };
+  },
+});
