@@ -1,52 +1,52 @@
 [
   {
-    "hash": "6b17b8d",
+    "hash": "df8acd4",
     "date": "2026-08-23",
-    "subject": "v0.30.0: public change log in app"
+    "subject": "v0.36.0: one-time explainer for freshly-invited collaborators"
   },
   {
-    "hash": "7ff19c4",
+    "hash": "7d469aa",
     "date": "2026-08-23",
-    "subject": "v0.29.1: font-size range should be 6-160px per patch spec"
+    "subject": "v0.35.0: shared accessible-menu primitive for the toolbar's dropdowns"
   },
   {
-    "hash": "a71adfe",
+    "hash": "5eb3f0b",
     "date": "2026-08-23",
-    "subject": "v0.29.0: free font and text-size selection"
+    "subject": "v0.34.0: word-count goals"
   },
   {
-    "hash": "426fc9c",
+    "hash": "9e1a057",
     "date": "2026-08-23",
-    "subject": "v0.28.0: word count"
+    "subject": "v0.33.0: footnotes"
   },
   {
-    "hash": "32df16d",
+    "hash": "690d797",
     "date": "2026-08-23",
-    "subject": "v0.27.0: implement friends system"
+    "subject": "v0.32.2: show friend suggestions on focus, not just once typing starts"
   },
   {
-    "hash": "087065b",
+    "hash": "8524fd8",
     "date": "2026-08-23",
-    "subject": "v0.26.1: fix Cleo's panel overflows viewport when narrowed"
+    "subject": "v0.32.1: auto-reload the offline page once the network returns"
   },
   {
-    "hash": "f2517ab",
+    "hash": "3815153",
     "date": "2026-08-23",
-    "subject": "v0.26.0: side panel vertical resize on mobile"
+    "subject": "v0.32.0: find & replace (Cmd/Ctrl+F)"
   },
   {
-    "hash": "a38f34c",
+    "hash": "5792d7e",
     "date": "2026-08-23",
-    "subject": "v0.25.0: show a presence badge for others viewing the same document"
+    "subject": "v0.31.0: outline panel for quick-jump navigation on long documents"
   },
   {
-    "hash": "da2789f",
+    "hash": "2cfb5e3",
     "date": "2026-08-23",
-    "subject": "v0.24.0: invite collaborators onto shared documents"
+    "subject": "v0.30.4: close ShareDialog and ChangeLog on Escape"
   },
   {
-    "hash": "343c5d6",
-    "date": "2026-07-15",
-    "subject": "v0.23.1: reskin UI with a warm 6-color palette from moodboard image"
+    "hash": "cc6bcdb",
+    "date": "2026-08-23",
+    "subject": "v0.30.3: tap-to-reveal names on PresenceBadge for touch devices"
   }
 ]
