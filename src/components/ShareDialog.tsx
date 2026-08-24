@@ -15,6 +15,7 @@ export function ShareDialog({
   onClose: () => void;
 }) {
   const collaborators = useQuery(api.documents.listCollaborators, { documentId });
+  const friends = useQuery(api.friends.list) ?? [];
   const invite = useMutation(api.documents.invite);
   const revokeShare = useMutation(api.documents.revokeShare);
 
@@ -22,9 +23,8 @@ export function ShareDialog({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = email.trim();
+  const doInvite = async (targetEmail: string) => {
+    const trimmed = targetEmail.trim();
     if (!trimmed) return;
     setSending(true);
     setError(null);
@@ -38,6 +38,23 @@ export function ShareDialog({
       setSending(false);
     }
   };
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void doInvite(email);
+  };
+
+  // Friends already on this doc don't need to show up as suggestions again.
+  const invitedEmails = new Set((collaborators ?? []).map((c) => c.invitedEmail));
+  const query = email.trim().toLowerCase();
+  const matches =
+    query.length === 0
+      ? []
+      : friends.filter(
+          (f) =>
+            !invitedEmails.has(f.email) &&
+            (f.email.includes(query) || f.displayName?.toLowerCase().includes(query)),
+        );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -95,6 +112,29 @@ export function ShareDialog({
             {sending ? "…" : "Invite"}
           </button>
         </form>
+
+        {matches.length > 0 && (
+          <ul className="-mt-2 flex flex-col gap-1">
+            {matches.map((f) => (
+              <li key={f._id}>
+                <button
+                  type="button"
+                  disabled={sending}
+                  onClick={() => void doInvite(f.email)}
+                  className="flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-foreground/80 transition hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/10"
+                >
+                  <span className="min-w-0 truncate">{f.displayName ?? f.email}</span>
+                  {f.displayName && (
+                    <span className="shrink-0 truncate text-xs text-foreground/40">
+                      {f.email}
+                    </span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
         {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
 
         <ul className="flex flex-col gap-2">

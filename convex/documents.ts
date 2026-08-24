@@ -1,6 +1,7 @@
 import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { resolveAccess } from "./access";
+import { rememberFriend } from "./friends";
 import type { Doc } from "./_generated/dataModel";
 
 // How long a soft-deleted document stays recoverable before the daily purge
@@ -168,6 +169,13 @@ export const invite = mutation({
       invitedAt: now,
       acceptedAt: account ? now : undefined,
     });
+
+    await rememberFriend(
+      ctx,
+      identity.subject,
+      normalizedEmail,
+      account ? { userId: account.userId, displayName: account.displayName } : null,
+    );
   },
 });
 

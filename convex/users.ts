@@ -1,5 +1,6 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { resolveFriendsForEmail } from "./friends";
 
 /**
  * Durable profile sync — called once client-side on every sign-in (see
@@ -46,5 +47,7 @@ export const upsertUser = mutation({
         displayName,
       });
     }
+
+    await resolveFriendsForEmail(ctx, normalizedEmail, identity.subject, displayName);
   },
 });

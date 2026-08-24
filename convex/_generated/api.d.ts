@@ -13,6 +13,7 @@ import type * as blocks from "../blocks.js";
 import type * as crons from "../crons.js";
 import type * as diff from "../diff.js";
 import type * as documents from "../documents.js";
+import type * as friends from "../friends.js";
 import type * as http from "../http.js";
 import type * as mcpData from "../mcpData.js";
 import type * as messages from "../messages.js";
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   diff: typeof diff;
   documents: typeof documents;
+  friends: typeof friends;
   http: typeof http;
   mcpData: typeof mcpData;
   messages: typeof messages;

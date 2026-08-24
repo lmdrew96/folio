@@ -123,4 +123,21 @@ export default defineSchema({
     .index("by_document_and_user", ["documentId", "userId"])
     .index("by_email", ["invitedEmail"])
     .index("by_user", ["userId"]),
+
+  // A lightweight personal contacts list — remembered collaborators you can
+  // pick from instead of retyping an email every time you share a document.
+  // One-directional (your own list, not a mutual "friend request"):
+  // populated automatically whenever you invite someone via
+  // documents.invite, and grants no access by itself, so it never needs the
+  // other person's consent.
+  friends: defineTable({
+    ownerId: v.string(), // identity.subject of whoever saved this contact
+    friendEmail: v.string(), // lowercased
+    friendUserId: v.optional(v.string()), // resolved once they have a Folio account
+    friendDisplayName: v.optional(v.string()), // kept current by users.upsertUser
+    addedAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_owner_and_email", ["ownerId", "friendEmail"])
+    .index("by_friend_email", ["friendEmail"]),
 });
