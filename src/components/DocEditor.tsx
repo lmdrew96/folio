@@ -19,6 +19,7 @@ import { LineHeight } from "./extensions/line-height";
 import { FontSize } from "./extensions/font-size";
 import { Indent } from "./extensions/indent";
 import { FindReplace as FindReplaceExtension } from "./extensions/find-replace";
+import { FootnoteReference, Footnote, FootnoteSync } from "./extensions/footnote";
 import { fontCssValue } from "@/lib/fonts";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
@@ -42,6 +43,7 @@ const BLOCK_TYPES = [
   "bulletList",
   "orderedList",
   "horizontalRule",
+  "footnote",
 ];
 
 const DEBOUNCE_MS = 600;
@@ -367,6 +369,9 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
       FontSize,
       Indent,
       FindReplaceExtension,
+      FootnoteReference,
+      Footnote,
+      FootnoteSync,
     ],
     editorProps: {
       attributes: {

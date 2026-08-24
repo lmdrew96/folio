@@ -8,6 +8,7 @@ import {
   type ExportFormat,
 } from "@/lib/export";
 import { FONT_OPTIONS, fontOption, type FontOption } from "@/lib/fonts";
+import { insertFootnote } from "./extensions/footnote";
 
 // Curated highlights. `value` is the semantic name stored on the mark (themed
 // in CSS); `display` is the light-mode tint shown in the swatch. The stored
@@ -109,6 +110,12 @@ const LinkIcon = (
   <Icon>
     <path d="M10 13a5 5 0 0 0 7 0l1-1a5 5 0 0 0-7-7l-1 1" />
     <path d="M14 11a5 5 0 0 0-7 0l-1 1a5 5 0 0 0 7 7l1-1" />
+  </Icon>
+);
+const FootnoteIcon = (
+  <Icon>
+    <path d="M6 5v10M6 5l3 2M6 5l-3 2" />
+    <path d="M13 19h6M13 19l1.8-1.8a1.8 1.8 0 1 0-1.8-1.8" />
   </Icon>
 );
 const AlignLeftIcon = (
@@ -682,6 +689,9 @@ export function Toolbar({
       </ToolButton>
       <ToolButton label={s.link ? "Remove link" : "Add link"} active={s.link} onClick={onLink}>
         {LinkIcon}
+      </ToolButton>
+      <ToolButton label="Insert footnote" onClick={() => insertFootnote(editor)}>
+        {FootnoteIcon}
       </ToolButton>
 
       <Divider />

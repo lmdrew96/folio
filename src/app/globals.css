@@ -222,6 +222,31 @@ body {
   background: rgba(255, 152, 0, 0.65);
 }
 
+/* Footnotes — the number is a real node attribute (see extensions/footnote.ts),
+   not a live-only decoration, so it round-trips through export. */
+.ProseMirror .folio-footnote-ref {
+  cursor: pointer;
+  color: var(--folio-attr-nae);
+}
+.ProseMirror .folio-footnote-ref::after {
+  content: attr(data-n);
+}
+.ProseMirror .folio-footnote {
+  cursor: pointer;
+  font-size: 0.85em;
+  opacity: 0.7;
+}
+.ProseMirror .folio-footnote::before {
+  content: attr(data-n) ". ";
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+.ProseMirror .folio-footnote[data-n="1"] {
+  margin-top: 2rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--folio-paper-edge);
+}
+
 /* ── Print: put just the paper on the page ────────────────────────────────────
    Cmd/Ctrl+P prints the document sheet alone. We hide the desk chrome (header,
    the changes/Cleo sidebar + drawer, the editor toolbar, the floating save
