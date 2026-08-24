@@ -370,7 +370,7 @@ function FontSizeControl({ editor, current }: { editor: Editor; current: string 
       setDraft(currentPx); // invalid — revert to the current value
       return;
     }
-    const clamped = Math.min(200, Math.max(8, Math.round(n)));
+    const clamped = Math.min(160, Math.max(6, Math.round(n)));
     setDraft(String(clamped));
     editor.chain().focus().setFontSize(`${clamped}px`).run();
   };
@@ -379,8 +379,8 @@ function FontSizeControl({ editor, current }: { editor: Editor; current: string 
     <input
       type="number"
       inputMode="numeric"
-      min={8}
-      max={200}
+      min={6}
+      max={160}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onFocus={() => setFocused(true)}
