@@ -382,7 +382,12 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
       SmartTypography,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       ThemeHighlight.configure({ multicolor: true }),
-      TextStyle,
+      // TextStyle ships with priority 101 (vs. everything else's default 100),
+      // which put its color span OUTSIDE bold/italic/etc. in the rendered DOM —
+      // so `.prose strong`'s own color rule won the text's computed color
+      // instead of the span's inline one. Lowering it puts color innermost,
+      // closest to the text, so it always wins.
+      TextStyle.extend({ priority: 50 }),
       Color,
       LineHeight,
       FontSize,
