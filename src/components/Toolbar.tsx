@@ -31,12 +31,15 @@ const TEXT_COLORS = [
   { name: "Herbs", value: "#817965", display: "#817965" },
 ];
 
+// Standard word-processor multiples (Single/1.15/1.5/Double), not vague
+// relative labels — matches what Word/Docs call these so the number you pick
+// is the number you get, not a guess at what "Relaxed" means in px.
 const LINE_SPACINGS = [
   { label: "Default", value: "" },
-  { label: "Tight", value: "1.25" },
-  { label: "Normal", value: "1.5" },
-  { label: "Relaxed", value: "1.75" },
-  { label: "Loose", value: "2" },
+  { label: "Single", value: "1" },
+  { label: "1.15", value: "1.15" },
+  { label: "1.5", value: "1.5" },
+  { label: "Double", value: "2" },
 ];
 
 const BTN =
