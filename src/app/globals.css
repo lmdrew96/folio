@@ -213,6 +213,15 @@ body {
   }
 }
 
+/* Find & replace — the search bar paints its match set as decorations. */
+.ProseMirror .folio-find-match {
+  background: rgba(255, 193, 87, 0.4);
+  border-radius: 2px;
+}
+.ProseMirror .folio-find-match-active {
+  background: rgba(255, 152, 0, 0.65);
+}
+
 /* ── Print: put just the paper on the page ────────────────────────────────────
    Cmd/Ctrl+P prints the document sheet alone. We hide the desk chrome (header,
    the changes/Cleo sidebar + drawer, the editor toolbar, the floating save

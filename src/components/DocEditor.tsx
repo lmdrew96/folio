@@ -18,6 +18,7 @@ import { ThemeHighlight } from "./extensions/theme-highlight";
 import { LineHeight } from "./extensions/line-height";
 import { FontSize } from "./extensions/font-size";
 import { Indent } from "./extensions/indent";
+import { FindReplace as FindReplaceExtension } from "./extensions/find-replace";
 import { fontCssValue } from "@/lib/fonts";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
@@ -30,6 +31,7 @@ import {
 import { SmartTypography } from "./extensions/typography";
 import { Toolbar } from "./Toolbar";
 import { Outline } from "./Outline";
+import { FindReplace } from "./FindReplace";
 
 // Top-level block node types that get a stable UniqueID (and thus a Convex row).
 const BLOCK_TYPES = [
@@ -364,6 +366,7 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
       LineHeight,
       FontSize,
       Indent,
+      FindReplaceExtension,
     ],
     editorProps: {
       attributes: {
@@ -484,6 +487,7 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {editor && <FindReplace editor={editor} />}
       {editor ? (
         <Toolbar
           editor={editor}
