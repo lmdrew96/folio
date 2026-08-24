@@ -39,4 +39,13 @@ crons.interval(
   {},
 );
 
+// Presence rows a crashed/closed tab never got to clean up itself — see the
+// doc comment on purgeStale for why the cutoff is safe.
+crons.interval(
+  "purge stale presence rows",
+  { minutes: 5 },
+  internal.presence.purgeStale,
+  {},
+);
+
 export default crons;

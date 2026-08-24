@@ -12,6 +12,7 @@ import { ClaudeReaction } from "@/components/ClaudeReaction";
 import { ResizableDock } from "@/components/ResizableDock";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ShareDialog } from "@/components/ShareDialog";
+import { PresenceBadge } from "@/components/PresenceBadge";
 import { folioClaudeLabel } from "@/lib/identity";
 
 /** Owner-only "Share" entry point in the header — hidden entirely for an
@@ -195,6 +196,7 @@ export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
         </div>
         <div className="flex items-center gap-1">
           <Authenticated>
+            <PresenceBadge documentId={documentId} />
             <ShareControl documentId={documentId} />
             <PanelToggle
               documentId={documentId}

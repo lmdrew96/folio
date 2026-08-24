@@ -95,6 +95,19 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_email", ["email"]),
 
+  // One row per (document, viewer) — "who's here right now." Upserted by a
+  // client-side heartbeat while a document is open and deleted on a clean
+  // unmount; the stale-purge cron (convex/crons.ts) clears rows a crashed or
+  // closed tab never got to clean up itself.
+  presence: defineTable({
+    documentId: v.id("documents"),
+    userId: v.string(), // identity.subject
+    displayName: v.string(),
+    lastSeenAt: v.number(),
+  })
+    .index("by_document", ["documentId"])
+    .index("by_doc_user", ["documentId", "userId"]),
+
   // One row per (document, invited email) — the sharing grant. An accepted
   // row (userId + acceptedAt set) is editor access to the document; no
   // separate `role` field yet since editor is the only non-owner role (v1).
