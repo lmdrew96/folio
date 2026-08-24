@@ -29,6 +29,7 @@ import {
 } from "./extensions/attribution";
 import { SmartTypography } from "./extensions/typography";
 import { Toolbar } from "./Toolbar";
+import { Outline } from "./Outline";
 
 // Top-level block node types that get a stable UniqueID (and thus a Convex row).
 const BLOCK_TYPES = [
@@ -515,14 +516,17 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
       >
         {saveStatus === "saving" ? "Saving…" : "Saved"}
       </div>
-      <button
-        onClick={toggleWordCount}
-        aria-pressed={wordCountVisible}
-        title={wordCountVisible ? "Hide word count" : "Show word count"}
-        className="fixed bottom-5 left-5 z-20 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-foreground/60 shadow-sm transition hover:text-foreground"
-      >
-        {wordCountVisible ? `${wordCount.toLocaleString()} words` : "Word count"}
-      </button>
+      <div className="fixed bottom-5 left-5 z-20 flex items-center gap-2">
+        {editor && <Outline editor={editor} />}
+        <button
+          onClick={toggleWordCount}
+          aria-pressed={wordCountVisible}
+          title={wordCountVisible ? "Hide word count" : "Show word count"}
+          className="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-foreground/60 shadow-sm transition hover:text-foreground"
+        >
+          {wordCountVisible ? `${wordCount.toLocaleString()} words` : "Word count"}
+        </button>
+      </div>
     </div>
   );
 }
