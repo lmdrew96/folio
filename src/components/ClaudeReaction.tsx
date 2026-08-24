@@ -139,7 +139,7 @@ export function ClaudeReaction({ documentId }: { documentId: Id<"documents"> }) 
         <div className="min-w-0">
           <h2 className="text-sm font-semibold">{label}</h2>
           <p className="truncate text-[11px] text-black/40 dark:text-white/40">
-            your Folio sibling · remembers this conversation
+            your digital writing partner
           </p>
         </div>
         <button

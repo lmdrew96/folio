@@ -136,6 +136,11 @@ const ExportIcon = (
     <path d="M12 3v12M8 11l4 4 4-4M5 21h14" />
   </Icon>
 );
+const MoreIcon = (
+  <Icon>
+    <path d="M5 12h.01M12 12h.01M19 12h.01" />
+  </Icon>
+);
 
 function SwatchPopover({
   label,
@@ -468,6 +473,73 @@ function ExportMenu({ editor, title }: { editor: Editor; title: string }) {
   );
 }
 
+// Font family/size, line spacing, and export are the toolbar's "secondary"
+// controls — below `sm` they'd otherwise push the row to 2-3 lines above the
+// page, so they collapse here and reappear inline at `sm` and up.
+function MoreMenu({
+  editor,
+  title,
+  fontFamily,
+  onFontFamilyChange,
+  fontSize,
+  lineHeight,
+}: {
+  editor: Editor;
+  title: string;
+  fontFamily: string | undefined;
+  onFontFamilyChange: (key: string) => void;
+  fontSize: string;
+  lineHeight: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative sm:hidden">
+      <button
+        type="button"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setOpen((o) => !o)}
+        aria-label="More formatting options"
+        aria-expanded={open}
+        title="More"
+        className={`${BTN} ${open ? BTN_ACTIVE : ""}`}
+      >
+        {MoreIcon}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-9 z-30 flex w-56 flex-col gap-2 rounded-lg border border-foreground/10 bg-[var(--folio-paper)] p-2 shadow-md">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-foreground/50">Font</span>
+            <FontFamilyControl value={fontFamily} onChange={onFontFamilyChange} />
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-foreground/50">Size</span>
+            <FontSizeControl editor={editor} current={fontSize} />
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-foreground/50">Line spacing</span>
+            <LineSpacingControl editor={editor} current={lineHeight} />
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-foreground/50">Export</span>
+            <ExportMenu editor={editor} title={title} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Toolbar({
   editor,
   title,
@@ -565,8 +637,10 @@ export function Toolbar({
         <option value="h3">Heading 3</option>
       </select>
 
-      <FontFamilyControl value={fontFamily} onChange={onFontFamilyChange} />
-      <FontSizeControl editor={editor} current={s.fontSize} />
+      <div className="hidden items-center gap-0.5 sm:flex">
+        <FontFamilyControl value={fontFamily} onChange={onFontFamilyChange} />
+        <FontSizeControl editor={editor} current={s.fontSize} />
+      </div>
 
       <Divider />
 
@@ -693,15 +767,26 @@ export function Toolbar({
         {AlignRightIcon}
       </ToolButton>
 
-      <Divider />
+      <div className="hidden items-center gap-0.5 sm:flex">
+        <Divider />
 
-      {/* Line spacing */}
-      <LineSpacingControl editor={editor} current={s.lineHeight} />
+        {/* Line spacing */}
+        <LineSpacingControl editor={editor} current={s.lineHeight} />
 
-      <Divider />
+        <Divider />
 
-      {/* Export */}
-      <ExportMenu editor={editor} title={title} />
+        {/* Export */}
+        <ExportMenu editor={editor} title={title} />
+      </div>
+
+      <MoreMenu
+        editor={editor}
+        title={title}
+        fontFamily={fontFamily}
+        onFontFamilyChange={onFontFamilyChange}
+        fontSize={s.fontSize}
+        lineHeight={s.lineHeight}
+      />
     </div>
   );
 }
