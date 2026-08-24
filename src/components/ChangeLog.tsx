@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import changelog from "@/generated/changelog.json";
 
 const VERSION_RE = /^v(\d+\.\d+\.\d+):\s*(.+)$/;
@@ -10,6 +10,15 @@ const VERSION_RE = /^v(\d+\.\d+\.\d+):\s*(.+)$/;
  *  scripts/generate-changelog.mjs) rather than hitting git at runtime. */
 export function ChangeLog() {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   return (
     <>
