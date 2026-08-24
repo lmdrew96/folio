@@ -315,7 +315,7 @@ const toHtml = (editor: Editor, title: string) =>
 <style>
   body { font-family: Georgia, "Times New Roman", serif; line-height: 1.6;
          max-width: 42rem; margin: 3rem auto; padding: 0 1.25rem; color: #1a1a1a; }
-  h1, h2, h3 { line-height: 1.25; }
+  h1, h2, h3, h4 { line-height: 1.25; }
   blockquote { border-left: 3px solid #ccc; margin-left: 0; padding-left: 1rem; color: #444; }
   pre { background: #f5f5f5; padding: .75rem 1rem; border-radius: 6px; overflow: auto; }
   code { font-family: Consolas, ui-monospace, monospace; }

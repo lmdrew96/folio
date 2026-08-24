@@ -573,6 +573,7 @@ export function Toolbar({
       h1: e.isActive("heading", { level: 1 }),
       h2: e.isActive("heading", { level: 2 }),
       h3: e.isActive("heading", { level: 3 }),
+      h4: e.isActive("heading", { level: 4 }),
       bulletList: e.isActive("bulletList"),
       orderedList: e.isActive("orderedList"),
       blockquote: e.isActive("blockquote"),
@@ -600,7 +601,9 @@ export function Toolbar({
       ? "h2"
       : s.h3
         ? "h3"
-        : "paragraph";
+        : s.h4
+          ? "h4"
+          : "paragraph";
   const alignValue = s.alignCenter ? "center" : s.alignRight ? "right" : "left";
 
   const setBlock = (value: string) => {
@@ -608,6 +611,7 @@ export function Toolbar({
     if (value === "h1") chain.setHeading({ level: 1 }).run();
     else if (value === "h2") chain.setHeading({ level: 2 }).run();
     else if (value === "h3") chain.setHeading({ level: 3 }).run();
+    else if (value === "h4") chain.setHeading({ level: 4 }).run();
     else chain.setParagraph().run();
   };
 
@@ -648,6 +652,7 @@ export function Toolbar({
         <option value="h1">Heading 1</option>
         <option value="h2">Heading 2</option>
         <option value="h3">Heading 3</option>
+        <option value="h4">Heading 4</option>
       </select>
 
       <div className="hidden items-center gap-0.5 sm:flex">
