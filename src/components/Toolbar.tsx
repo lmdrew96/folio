@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
 import { useDropdownMenu } from "@/lib/useDropdownMenu";
 import {
@@ -496,33 +496,31 @@ function MoreMenu({
   fontSize: string;
   lineHeight: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
+  const { open, setOpen, rootRef, triggerRef, onTriggerKeyDown, onPanelKeyDown } =
+    useDropdownMenu();
 
   return (
-    <div ref={ref} className="relative sm:hidden">
+    <div ref={rootRef} className="relative sm:hidden">
       <button
+        ref={triggerRef}
         type="button"
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => setOpen((o) => !o)}
+        onKeyDown={onTriggerKeyDown}
         aria-label="More formatting options"
         aria-expanded={open}
+        aria-haspopup="menu"
         title="More"
         className={`${BTN} ${open ? BTN_ACTIVE : ""}`}
       >
         {MoreIcon}
       </button>
       {open && (
-        <div className="absolute right-0 top-9 z-30 flex w-56 flex-col gap-2 rounded-lg border border-foreground/10 bg-[var(--folio-paper)] p-2 shadow-md">
+        <div
+          role="menu"
+          onKeyDown={onPanelKeyDown}
+          className="absolute right-0 top-9 z-30 flex w-56 flex-col gap-2 rounded-lg border border-foreground/10 bg-[var(--folio-paper)] p-2 shadow-md"
+        >
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-foreground/50">Font</span>
             <FontFamilyControl value={fontFamily} onChange={onFontFamilyChange} />

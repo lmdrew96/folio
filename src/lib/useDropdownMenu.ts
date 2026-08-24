@@ -16,12 +16,16 @@ export function useDropdownMenu() {
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
+  // Scoped to this hook's own panel — stops at a nested `[role="menu"]`
+  // boundary so a dropdown nested inside another (e.g. MoreMenu's popovers)
+  // only roves its own items, never a further-nested submenu's.
   const panelItems = (): HTMLButtonElement[] => {
     const root = rootRef.current;
     if (!root) return [];
+    const panel = root.querySelector<HTMLElement>(':scope > [role="menu"]') ?? root;
     return Array.from(
-      root.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
-    ).filter((el) => el !== triggerRef.current);
+      panel.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
+    ).filter((el) => el !== triggerRef.current && el.closest('[role="menu"]') === panel);
   };
 
   useEffect(() => {
@@ -48,6 +52,7 @@ export function useDropdownMenu() {
   const onTriggerKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
     if (!open && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
       e.preventDefault();
+      e.stopPropagation();
       setOpen(true);
     }
   };
@@ -55,6 +60,7 @@ export function useDropdownMenu() {
   const onPanelKeyDown = (e: KeyboardEvent<HTMLElement>) => {
     if (e.key === "Escape") {
       e.preventDefault();
+      e.stopPropagation();
       close();
       return;
     }
@@ -64,6 +70,7 @@ export function useDropdownMenu() {
     const items = panelItems();
     if (items.length === 0) return;
     e.preventDefault();
+    e.stopPropagation();
     const current = items.indexOf(document.activeElement as HTMLButtonElement);
     let next: number;
     if (e.key === "Home") next = 0;
