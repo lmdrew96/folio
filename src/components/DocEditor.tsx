@@ -14,6 +14,8 @@ import { UniqueID } from "@tiptap/extension-unique-id";
 import { TextAlign } from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
+import { Underline } from "@tiptap/extension-underline";
+import { Strike } from "@tiptap/extension-strike";
 import { ThemeHighlight } from "./extensions/theme-highlight";
 import { LineHeight } from "./extensions/line-height";
 import { FontSize } from "./extensions/font-size";
@@ -376,6 +378,10 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
           autolink: true,
           defaultProtocol: "https",
         },
+        // Underline/Strike are pulled out below with their own priority —
+        // see the comment there for why.
+        underline: false,
+        strike: false,
       }),
       UniqueID.configure({ types: BLOCK_TYPES }),
       Attribution,
@@ -389,6 +395,14 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
       // closest to the text, so it always wins.
       TextStyle.extend({ priority: 50 }),
       Color,
+      // Underline/Strike need the OPPOSITE nesting from strong/em/code/a:
+      // `.prose u`/`.prose s` have no explicit color rule to fight, and a
+      // decoration line's color is fixed to whatever the establishing
+      // element's own `color` is — a descendant span can't override it.
+      // So these must stay OUTSIDE the TextStyle color span (priority below
+      // TextStyle's 50), the opposite of strong/em/code/a above.
+      Underline.extend({ priority: 10 }),
+      Strike.extend({ priority: 10 }),
       LineHeight,
       FontSize,
       Indent,
