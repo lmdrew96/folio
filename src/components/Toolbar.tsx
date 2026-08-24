@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
+import { useDropdownMenu } from "@/lib/useDropdownMenu";
 import {
   exportDocument,
   EXPORT_FORMATS,
@@ -164,41 +165,40 @@ function SwatchPopover({
   onClear: () => void;
   clearLabel: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
+  const { open, setOpen, close, rootRef, triggerRef, onTriggerKeyDown, onPanelKeyDown } =
+    useDropdownMenu();
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={rootRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => setOpen((o) => !o)}
+        onKeyDown={onTriggerKeyDown}
         aria-label={label}
         aria-expanded={open}
+        aria-haspopup="menu"
         title={label}
         className={`${BTN} ${open ? BTN_ACTIVE : ""}`}
       >
         {trigger}
       </button>
       {open && (
-        <div className="absolute left-0 top-9 z-30 flex items-center gap-1 rounded-lg border border-foreground/10 bg-[var(--folio-paper)] p-1.5 shadow-md">
+        <div
+          role="menu"
+          onKeyDown={onPanelKeyDown}
+          className="absolute left-0 top-9 z-30 flex items-center gap-1 rounded-lg border border-foreground/10 bg-[var(--folio-paper)] p-1.5 shadow-md"
+        >
           {swatches.map((s) => (
             <button
               key={s.value}
               type="button"
+              role="menuitem"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 onPick(s.value);
-                setOpen(false);
+                close();
               }}
               aria-label={s.name}
               title={s.name}
@@ -208,10 +208,11 @@ function SwatchPopover({
           ))}
           <button
             type="button"
+            role="menuitem"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
               onClear();
-              setOpen(false);
+              close();
             }}
             className="ml-1 flex h-5 items-center rounded px-1.5 text-xs text-foreground/60 transition hover:text-foreground"
           >
@@ -230,43 +231,42 @@ function LineSpacingControl({
   editor: Editor;
   current: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
+  const { open, setOpen, close, rootRef, triggerRef, onTriggerKeyDown, onPanelKeyDown } =
+    useDropdownMenu();
 
   const apply = (value: string) => {
     if (value) editor.chain().focus().setLineHeight(value).run();
     else editor.chain().focus().unsetLineHeight().run();
-    setOpen(false);
+    close();
   };
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={rootRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => setOpen((o) => !o)}
+        onKeyDown={onTriggerKeyDown}
         aria-label="Line spacing"
         aria-expanded={open}
+        aria-haspopup="menu"
         title="Line spacing"
         className={`${BTN} ${open ? BTN_ACTIVE : ""}`}
       >
         {LineSpacingIcon}
       </button>
       {open && (
-        <div className="absolute right-0 top-9 z-30 w-32 overflow-hidden rounded-lg border border-foreground/10 bg-[var(--folio-paper)] py-1 shadow-md">
+        <div
+          role="menu"
+          onKeyDown={onPanelKeyDown}
+          className="absolute right-0 top-9 z-30 w-32 overflow-hidden rounded-lg border border-foreground/10 bg-[var(--folio-paper)] py-1 shadow-md"
+        >
           {LINE_SPACINGS.map((o) => (
             <button
               key={o.value}
               type="button"
+              role="menuitem"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => apply(o.value)}
               className={`flex w-full items-center justify-between px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/10 ${
@@ -296,35 +296,33 @@ function FontFamilyControl({
   value: string | undefined;
   onChange: (key: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
+  const { open, setOpen, close, rootRef, triggerRef, onTriggerKeyDown, onPanelKeyDown } =
+    useDropdownMenu();
 
   const current = fontOption(value);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={rootRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => setOpen((o) => !o)}
+        onKeyDown={onTriggerKeyDown}
         aria-label="Font"
         aria-expanded={open}
+        aria-haspopup="menu"
         title="Font"
         className={`${BTN} w-auto px-2 text-xs ${open ? BTN_ACTIVE : ""}`}
       >
         {current.label}
       </button>
       {open && (
-        <div className="absolute left-0 top-9 z-30 w-48 overflow-hidden rounded-lg border border-foreground/10 bg-[var(--folio-paper)] py-1 shadow-md">
+        <div
+          role="menu"
+          onKeyDown={onPanelKeyDown}
+          className="absolute left-0 top-9 z-30 w-48 overflow-hidden rounded-lg border border-foreground/10 bg-[var(--folio-paper)] py-1 shadow-md"
+        >
           {FONT_GROUPS.map((group) => (
             <div key={group.category}>
               <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-medium uppercase tracking-wide text-foreground/35">
@@ -334,10 +332,11 @@ function FontFamilyControl({
                 <button
                   key={f.key}
                   type="button"
+                  role="menuitem"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     onChange(f.key);
-                    setOpen(false);
+                    close();
                   }}
                   style={{ fontFamily: `var(${f.variable}), ${f.fallback}` }}
                   className={`flex w-full items-center justify-between px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/10 ${
@@ -419,21 +418,12 @@ function FontSizeControl({ editor, current }: { editor: Editor; current: string 
 }
 
 function ExportMenu({ editor, title }: { editor: Editor; title: string }) {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, close, rootRef, triggerRef, onTriggerKeyDown, onPanelKeyDown } =
+    useDropdownMenu();
   const [busy, setBusy] = useState<ExportFormat | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
 
   const pick = async (format: ExportFormat) => {
-    setOpen(false);
+    close();
     setBusy(format);
     try {
       await exportDocument(editor, title, format);
@@ -445,24 +435,32 @@ function ExportMenu({ editor, title }: { editor: Editor; title: string }) {
   };
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={rootRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => setOpen((o) => !o)}
+        onKeyDown={onTriggerKeyDown}
         aria-label="Export document"
         aria-expanded={open}
+        aria-haspopup="menu"
         title="Export document"
         className={`${BTN} ${open ? BTN_ACTIVE : ""}`}
       >
         {ExportIcon}
       </button>
       {open && (
-        <div className="absolute right-0 top-9 z-30 w-40 overflow-hidden rounded-lg border border-foreground/10 bg-[var(--folio-paper)] py-1 shadow-md">
+        <div
+          role="menu"
+          onKeyDown={onPanelKeyDown}
+          className="absolute right-0 top-9 z-30 w-40 overflow-hidden rounded-lg border border-foreground/10 bg-[var(--folio-paper)] py-1 shadow-md"
+        >
           {EXPORT_FORMATS.map((f) => (
             <button
               key={f.id}
               type="button"
+              role="menuitem"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => pick(f.id)}
               disabled={busy !== null}

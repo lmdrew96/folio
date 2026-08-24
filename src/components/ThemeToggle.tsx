@@ -1,13 +1,8 @@
 "use client";
 
-import {
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { useTheme } from "next-themes";
+import { useDropdownMenu } from "@/lib/useDropdownMenu";
 
 function Icon({ children }: { children: ReactNode }) {
   return (
@@ -67,8 +62,8 @@ const OPTIONS = [
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const { open, setOpen, close, rootRef, triggerRef, onTriggerKeyDown, onPanelKeyDown } =
+    useDropdownMenu();
 
   // next-themes only knows the theme after mount — gate on this to avoid a
   // hydration mismatch on the active icon/checkmark. useSyncExternalStore gives
@@ -80,36 +75,35 @@ export function ThemeToggle() {
     () => false,
   );
 
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-
   const current = OPTIONS.find((o) => o.value === theme) ?? OPTIONS[0];
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={rootRef} className="relative">
       <button
+        ref={triggerRef}
         onClick={() => setOpen((o) => !o)}
+        onKeyDown={onTriggerKeyDown}
         aria-label="Theme"
         aria-expanded={open}
+        aria-haspopup="menu"
         title="Theme"
         className="flex h-8 w-8 items-center justify-center rounded-md text-foreground/60 transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
       >
         {mounted ? current.icon : MonitorIcon}
       </button>
       {open && (
-        <div className="absolute right-0 top-9 z-40 w-36 overflow-hidden rounded-lg border border-foreground/10 bg-[var(--folio-paper)] py-1 shadow-md">
+        <div
+          role="menu"
+          onKeyDown={onPanelKeyDown}
+          className="absolute right-0 top-9 z-40 w-36 overflow-hidden rounded-lg border border-foreground/10 bg-[var(--folio-paper)] py-1 shadow-md"
+        >
           {OPTIONS.map((o) => (
             <button
               key={o.value}
+              role="menuitem"
               onClick={() => {
                 setTheme(o.value);
-                setOpen(false);
+                close();
               }}
               className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/10 ${
                 mounted && theme === o.value
