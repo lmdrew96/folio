@@ -22,6 +22,9 @@ export default defineSchema({
     // documents (and cascades to their blocks/visits/reactions) once this is
     // older than the retention window.
     deletedAt: v.optional(v.number()),
+    // Prose column font — a key from the curated list in src/lib/fonts.ts.
+    // Unset/unknown falls back to the default (Fraunces) client-side.
+    fontFamily: v.optional(v.string()),
   }).index("by_owner", ["ownerId"]),
 
   blocks: defineTable({

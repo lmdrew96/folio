@@ -24,6 +24,10 @@
   /* Attribution author colors — brand-fixed, legible on both themes. */
   --folio-attr-nae: #cf4a4d; /* valiant poppy — any human writer (Nae or a collaborator) */
   --folio-attr-sibling: #4e4c5e; /* kachi indigo — Claude siblings (Cleo, Coru, …) */
+
+  /* The prose column's font — defaults to the brand serif, overridden inline
+     per-document (see DocEditor.tsx) from the curated list in src/lib/fonts.ts. */
+  --folio-prose-font: var(--font-serif);
 }
 
 @theme inline {
@@ -86,7 +90,7 @@ body {
 /* ── The writing surface IS the serif — Fraunces at a longform reading rhythm.
    Color vars override the typography plugin's grays with calm, on-brand ink. ── */
 .ProseMirror {
-  font-family: var(--font-serif), Georgia, serif;
+  font-family: var(--folio-prose-font), Georgia, serif;
   font-variation-settings: "SOFT" 0, "WONK" 1;
 
   --tw-prose-body: #443b42;

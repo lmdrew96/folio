@@ -1,5 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Space_Grotesk, Geist_Mono } from "next/font/google";
+import {
+  Fraunces,
+  Space_Grotesk,
+  Geist_Mono,
+  Newsreader,
+  Lora,
+  Source_Serif_4,
+  Inter,
+  Work_Sans,
+  Manrope,
+  JetBrains_Mono,
+} from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import ConvexClientProvider from "@/components/ConvexClientProvider";
@@ -29,6 +40,17 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// The rest of the curated prose-font list (src/lib/fonts.ts) — 3 more serif,
+// 3 more sans, 1 more mono, loaded up front so picking one is just a CSS
+// variable swap (--folio-prose-font) instead of a runtime font fetch.
+const newsreader = Newsreader({ variable: "--font-newsreader", subsets: ["latin"], display: "swap" });
+const lora = Lora({ variable: "--font-lora", subsets: ["latin"], display: "swap" });
+const sourceSerif = Source_Serif_4({ variable: "--font-source-serif", subsets: ["latin"], display: "swap" });
+const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
+const workSans = Work_Sans({ variable: "--font-work-sans", subsets: ["latin"], display: "swap" });
+const manrope = Manrope({ variable: "--font-manrope", subsets: ["latin"], display: "swap" });
+const jetbrainsMono = JetBrains_Mono({ variable: "--font-jetbrains-mono", subsets: ["latin"], display: "swap" });
+
 export const metadata: Metadata = {
   title: "Folio",
   description: "A writing space that knows what changed since you last looked.",
@@ -55,7 +77,7 @@ export default function RootLayout({
       <html
         lang="en"
         suppressHydrationWarning
-        className={`${fraunces.variable} ${spaceGrotesk.variable} ${geistMono.variable} h-full antialiased`}
+        className={`${fraunces.variable} ${spaceGrotesk.variable} ${geistMono.variable} ${newsreader.variable} ${lora.variable} ${sourceSerif.variable} ${inter.variable} ${workSans.variable} ${manrope.variable} ${jetbrainsMono.variable} h-full antialiased`}
       >
         <body className="min-h-full flex flex-col">
           <ThemeProvider>

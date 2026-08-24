@@ -7,6 +7,7 @@ import {
   EXPORT_FORMATS,
   type ExportFormat,
 } from "@/lib/export";
+import { FONT_OPTIONS, fontOption, type FontOption } from "@/lib/fonts";
 
 // Curated highlights. `value` is the semantic name stored on the mark (themed
 // in CSS); `display` is the light-mode tint shown in the swatch. The stored
@@ -270,6 +271,141 @@ function LineSpacingControl({
   );
 }
 
+const FONT_GROUPS: { label: string; category: FontOption["category"] }[] = [
+  { label: "Serif", category: "serif" },
+  { label: "Sans", category: "sans" },
+  { label: "Mono", category: "mono" },
+];
+
+function FontFamilyControl({
+  value,
+  onChange,
+}: {
+  value: string | undefined;
+  onChange: (key: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const current = fontOption(value);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Font"
+        aria-expanded={open}
+        title="Font"
+        className={`${BTN} w-auto px-2 text-xs ${open ? BTN_ACTIVE : ""}`}
+      >
+        {current.label}
+      </button>
+      {open && (
+        <div className="absolute left-0 top-9 z-30 w-48 overflow-hidden rounded-lg border border-foreground/10 bg-[var(--folio-paper)] py-1 shadow-md">
+          {FONT_GROUPS.map((group) => (
+            <div key={group.category}>
+              <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-medium uppercase tracking-wide text-foreground/35">
+                {group.label}
+              </p>
+              {FONT_OPTIONS.filter((f) => f.category === group.category).map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    onChange(f.key);
+                    setOpen(false);
+                  }}
+                  style={{ fontFamily: `var(${f.variable}), ${f.fallback}` }}
+                  className={`flex w-full items-center justify-between px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/10 ${
+                    current.key === f.key ? "text-foreground" : "text-foreground/60"
+                  }`}
+                >
+                  <span>{f.label}</span>
+                  {current.key === f.key && <span className="text-xs">✓</span>}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FontSizeControl({ editor, current }: { editor: Editor; current: string }) {
+  const currentPx = current.replace(/px$/, "");
+  const [draft, setDraft] = useState(currentPx);
+  const [focused, setFocused] = useState(false);
+  const [syncedPx, setSyncedPx] = useState(currentPx);
+
+  // Stay in sync with the selection's actual size (e.g. clicking into a
+  // differently-sized block) without clobbering what's still being typed —
+  // same "store the previous value, adjust during render" pattern as
+  // DocTitleEditor's title sync, not a setState-in-effect.
+  if (!focused && currentPx !== syncedPx) {
+    setSyncedPx(currentPx);
+    setDraft(currentPx);
+  }
+
+  const commit = () => {
+    const trimmed = draft.trim();
+    if (!trimmed) {
+      editor.chain().focus().unsetFontSize().run();
+      return;
+    }
+    const n = Number(trimmed);
+    if (!Number.isFinite(n) || n <= 0) {
+      setDraft(currentPx); // invalid — revert to the current value
+      return;
+    }
+    const clamped = Math.min(200, Math.max(8, Math.round(n)));
+    setDraft(String(clamped));
+    editor.chain().focus().setFontSize(`${clamped}px`).run();
+  };
+
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      min={8}
+      max={200}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        setFocused(false);
+        commit();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+          e.currentTarget.blur();
+        } else if (e.key === "Escape") {
+          setDraft(currentPx);
+          e.currentTarget.blur();
+        }
+      }}
+      placeholder="Size"
+      aria-label="Font size in pixels"
+      title="Font size (px) — Default when empty"
+      className="h-8 w-14 rounded-md bg-transparent px-1.5 text-sm text-foreground/80 outline-none transition placeholder:text-foreground/40 hover:bg-black/5 focus:bg-black/5 dark:hover:bg-white/10 dark:focus:bg-white/10"
+    />
+  );
+}
+
 function ExportMenu({ editor, title }: { editor: Editor; title: string }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<ExportFormat | null>(null);
@@ -335,9 +471,13 @@ function ExportMenu({ editor, title }: { editor: Editor; title: string }) {
 export function Toolbar({
   editor,
   title,
+  fontFamily,
+  onFontFamilyChange,
 }: {
   editor: Editor;
   title: string;
+  fontFamily: string | undefined;
+  onFontFamilyChange: (key: string) => void;
 }) {
   const s = useEditorState({
     editor,
@@ -361,6 +501,10 @@ export function Toolbar({
       lineHeight:
         e.getAttributes("paragraph").lineHeight ||
         e.getAttributes("heading").lineHeight ||
+        "",
+      fontSize:
+        e.getAttributes("paragraph").fontSize ||
+        e.getAttributes("heading").fontSize ||
         "",
     }),
   });
@@ -420,6 +564,9 @@ export function Toolbar({
         <option value="h2">Heading 2</option>
         <option value="h3">Heading 3</option>
       </select>
+
+      <FontFamilyControl value={fontFamily} onChange={onFontFamilyChange} />
+      <FontSizeControl editor={editor} current={s.fontSize} />
 
       <Divider />
 

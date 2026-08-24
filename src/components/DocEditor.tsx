@@ -16,7 +16,9 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
 import { ThemeHighlight } from "./extensions/theme-highlight";
 import { LineHeight } from "./extensions/line-height";
+import { FontSize } from "./extensions/font-size";
 import { Indent } from "./extensions/indent";
+import { fontCssValue } from "@/lib/fonts";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -270,6 +272,7 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
   const blocks = useQuery(api.blocks.list, { documentId });
   const doc = useQuery(api.documents.get, { documentId });
   const reconcile = useMutation(api.blocks.reconcile);
+  const setFontFamily = useMutation(api.documents.setFontFamily);
   const title = doc?.title?.trim() || "Untitled";
 
   const loadedRef = useRef(false);
@@ -358,6 +361,7 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
       TextStyle,
       Color,
       LineHeight,
+      FontSize,
       Indent,
     ],
     editorProps: {
@@ -480,13 +484,21 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {editor ? (
-        <Toolbar editor={editor} title={title} />
+        <Toolbar
+          editor={editor}
+          title={title}
+          fontFamily={doc?.fontFamily}
+          onFontFamilyChange={(key) => void setFontFamily({ documentId, fontFamily: key })}
+        />
       ) : (
         <div className="h-11 shrink-0 border-b border-foreground/10 bg-[var(--folio-backdrop)]" />
       )}
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
-          <div className="folio-paper">
+          <div
+            className="folio-paper"
+            style={{ "--folio-prose-font": fontCssValue(doc?.fontFamily) } as React.CSSProperties}
+          >
             {editor ? (
               <EditorContent editor={editor} />
             ) : (

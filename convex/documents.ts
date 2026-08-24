@@ -132,6 +132,20 @@ export const restore = mutation({
   },
 });
 
+/** Set the document's prose font — any collaborator (owner or editor) can
+ *  change it, same as any other in-editor formatting choice. */
+export const setFontFamily = mutation({
+  args: { documentId: v.id("documents"), fontFamily: v.string() },
+  handler: async (ctx, { documentId, fontFamily }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const access = await resolveAccess(ctx, documentId, identity);
+    if (!access) throw new Error("Not found");
+
+    await ctx.db.patch(documentId, { fontFamily, updatedAt: Date.now() });
+  },
+});
+
 /**
  * Invite someone onto a document by email — owner-only. If they already
  * have a Folio account (a `users` row for that email), the share resolves
