@@ -41,18 +41,24 @@ export const FontSize = Extension.create({
 
   addCommands() {
     return {
+      // .map(...).some(Boolean) instead of .every(...): the selection is only
+      // ever inside ONE of these types at a time, and .every() stops at the
+      // first false — so with "paragraph" listed before "heading", applying
+      // this from inside a heading (where the paragraph check always fails)
+      // never even reached the heading check. .map() always visits every
+      // type; .some() just asks whether any of them actually applied.
       setFontSize:
         (fontSize: string) =>
         ({ commands }) =>
-          this.options.types.every((type: string) =>
-            commands.updateAttributes(type, { fontSize }),
-          ),
+          this.options.types
+            .map((type: string) => commands.updateAttributes(type, { fontSize }))
+            .some(Boolean),
       unsetFontSize:
         () =>
         ({ commands }) =>
-          this.options.types.every((type: string) =>
-            commands.resetAttributes(type, "fontSize"),
-          ),
+          this.options.types
+            .map((type: string) => commands.resetAttributes(type, "fontSize"))
+            .some(Boolean),
     };
   },
 });
