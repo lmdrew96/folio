@@ -1,19 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { Id } from "@convex/_generated/dataModel";
 import { DiffPanel } from "@/components/DiffPanel";
 import { ClaudeReaction } from "@/components/ClaudeReaction";
+import { SplitStack } from "@/components/SplitStack";
+import { SPLIT_KEY, DEFAULT_SPLIT } from "@/lib/dockLayout";
 
 // Persisted layout, with calm defaults matching the old fixed sidebar.
 const WIDTH_KEY = "folio:dock:width";
-const SPLIT_KEY = "folio:dock:split";
 const DEFAULT_WIDTH = 320; // = the previous w-80
-const DEFAULT_SPLIT = 0.6; // DiffPanel gets the top 60%, Cleo the rest
 const MIN_WIDTH = 260;
-const MIN_SPLIT = 0.2;
-const MAX_SPLIT = 0.85;
 
 // The panel hugs the right edge, so its usable max grows with the viewport but
 // never eats more than 60% of it.
@@ -44,11 +42,7 @@ export function ResizableDock({ documentId }: { documentId: Id<"documents"> }) {
   const [width, setWidth] = useState(() =>
     clamp(loadNumber(WIDTH_KEY, DEFAULT_WIDTH), MIN_WIDTH, maxWidth()),
   );
-  const [split, setSplit] = useState(() =>
-    clamp(loadNumber(SPLIT_KEY, DEFAULT_SPLIT), MIN_SPLIT, MAX_SPLIT),
-  );
   const [dragging, setDragging] = useState(false);
-  const columnRef = useRef<HTMLDivElement>(null);
 
   // A width persisted from a wider window shouldn't overflow the panel's own
   // 60%-of-viewport cap if the browser is later made narrower.
@@ -86,35 +80,9 @@ export function ResizableDock({ documentId }: { documentId: Id<"documents"> }) {
     [width],
   );
 
-  const startSplitDrag = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    const column = columnRef.current;
-    if (!column) return;
-    setDragging(true);
-
-    const compute = (clientY: number) => {
-      const rect = column.getBoundingClientRect();
-      return clamp((clientY - rect.top) / rect.height, MIN_SPLIT, MAX_SPLIT);
-    };
-    const onMove = (ev: PointerEvent) => setSplit(compute(ev.clientY));
-    const onUp = (ev: PointerEvent) => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      setDragging(false);
-      window.localStorage.setItem(SPLIT_KEY, compute(ev.clientY).toFixed(4));
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  }, []);
-
   const resetWidth = useCallback(() => {
     setWidth(DEFAULT_WIDTH);
     window.localStorage.setItem(WIDTH_KEY, String(DEFAULT_WIDTH));
-  }, []);
-  const resetSplit = useCallback(() => {
-    setSplit(DEFAULT_SPLIT);
-    window.localStorage.setItem(SPLIT_KEY, String(DEFAULT_SPLIT));
   }, []);
 
   return (
@@ -134,32 +102,14 @@ export function ResizableDock({ documentId }: { documentId: Id<"documents"> }) {
         <div className="mx-auto h-full w-px bg-black/10 transition group-hover:bg-foreground/30 dark:bg-white/10" />
       </div>
 
-      <div
-        ref={columnRef}
-        className="flex min-h-0 flex-1 flex-col border-l border-black/10 dark:border-white/10"
-      >
-        <div
-          className="min-h-0 overflow-hidden"
-          style={{ height: `${split * 100}%` }}
-        >
-          <DiffPanel documentId={documentId} />
-        </div>
-
-        {/* Split handle — divider between Changes and Cleo. */}
-        <div
-          role="separator"
-          aria-orientation="horizontal"
-          aria-label="Resize sections"
-          onPointerDown={startSplitDrag}
-          onDoubleClick={resetSplit}
-          className="group relative h-2 shrink-0 cursor-row-resize touch-none"
-        >
-          <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-black/10 transition group-hover:bg-foreground/30 dark:bg-white/10" />
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <ClaudeReaction documentId={documentId} />
-        </div>
+      <div className="flex min-h-0 flex-1 flex-col border-l border-black/10 dark:border-white/10">
+        <SplitStack
+          top={<DiffPanel documentId={documentId} />}
+          bottom={<ClaudeReaction documentId={documentId} />}
+          storageKey={SPLIT_KEY}
+          defaultSplit={DEFAULT_SPLIT}
+          onDraggingChange={setDragging}
+        />
       </div>
     </div>
   );

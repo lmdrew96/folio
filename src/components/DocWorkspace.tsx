@@ -10,6 +10,8 @@ import { DocEditor } from "@/components/DocEditor";
 import { DiffPanel } from "@/components/DiffPanel";
 import { ClaudeReaction } from "@/components/ClaudeReaction";
 import { ResizableDock } from "@/components/ResizableDock";
+import { SplitStack } from "@/components/SplitStack";
+import { SPLIT_KEY, DEFAULT_SPLIT } from "@/lib/dockLayout";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ShareDialog } from "@/components/ShareDialog";
 import { PresenceBadge } from "@/components/PresenceBadge";
@@ -261,12 +263,12 @@ export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
                   </svg>
                 </button>
               </div>
-              <div className="min-h-0 flex-1 overflow-hidden">
-                <DiffPanel documentId={documentId} />
-              </div>
-              <div className="max-h-[45%] shrink-0 overflow-hidden border-t border-black/10 dark:border-white/10">
-                <ClaudeReaction documentId={documentId} />
-              </div>
+              <SplitStack
+                top={<DiffPanel documentId={documentId} />}
+                bottom={<ClaudeReaction documentId={documentId} />}
+                storageKey={SPLIT_KEY}
+                defaultSplit={DEFAULT_SPLIT}
+              />
             </aside>
           </div>
         )}
