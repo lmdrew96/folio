@@ -34,6 +34,10 @@ const TEXT_COLORS = [
 // Standard word-processor multiples (Single/1.15/1.5/Double), not vague
 // relative labels — matches what Word/Docs call these so the number you pick
 // is the number you get, not a guess at what "Relaxed" means in px.
+// Body text's actual rendered default when no override is set — mirrors the
+// `.ProseMirror p` rule in globals.css. Keep the two in sync.
+const DEFAULT_FONT_SIZE = "12px";
+
 const LINE_SPACINGS = [
   { label: "Default", value: "" },
   { label: "Single", value: "1" },
@@ -580,10 +584,13 @@ export function Toolbar({
         e.getAttributes("paragraph").lineHeight ||
         e.getAttributes("heading").lineHeight ||
         "",
+      // Body text's real default is 12px (see .ProseMirror p in globals.css) —
+      // show it explicitly instead of leaving the dial blank. Headings keep
+      // their own size tier, so only fall back when a heading isn't active.
       fontSize:
         e.getAttributes("paragraph").fontSize ||
         e.getAttributes("heading").fontSize ||
-        "",
+        (e.isActive("heading") ? "" : DEFAULT_FONT_SIZE),
     }),
   });
 

@@ -105,6 +105,15 @@ body {
   --tw-prose-counters: #4e4c5e;
 }
 
+/* Body text's actual default size — prose-lg's own 1.125rem otherwise wins by
+   default, leaving the toolbar's size field blank with nothing honest to show.
+   A block's own explicit font-size (inline style, from the FontSize extension)
+   always overrides this regardless of source order. Keep in sync with
+   DEFAULT_FONT_SIZE in Toolbar.tsx. */
+.ProseMirror p {
+  font-size: 12px;
+}
+
 .dark .ProseMirror {
   --tw-prose-body: #d0cacf;
   --tw-prose-headings: #f1eff1;
