@@ -22,6 +22,7 @@ export function ShareDialog({
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [focused, setFocused] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -55,14 +56,17 @@ export function ShareDialog({
   // Friends already on this doc don't need to show up as suggestions again.
   const invitedEmails = new Set((collaborators ?? []).map((c) => c.invitedEmail));
   const query = email.trim().toLowerCase();
+  const available = friends.filter((f) => !invitedEmails.has(f.email));
+  // Empty query + focused shows a few saved friends up front — "share with
+  // someone I've already shared with" becomes a zero-typing action.
   const matches =
-    query.length === 0
-      ? []
-      : friends.filter(
-          (f) =>
-            !invitedEmails.has(f.email) &&
-            (f.email.includes(query) || f.displayName?.toLowerCase().includes(query)),
-        );
+    query.length > 0
+      ? available.filter(
+          (f) => f.email.includes(query) || f.displayName?.toLowerCase().includes(query),
+        )
+      : focused
+        ? available.slice(0, 5)
+        : [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -109,6 +113,8 @@ export function ShareDialog({
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             placeholder="Their email…"
             className="min-w-0 flex-1 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3.5 py-1.5 text-sm text-foreground outline-none transition placeholder:text-foreground/40 focus:ring-2 focus:ring-[var(--folio-attr-sibling)]"
           />
@@ -128,6 +134,10 @@ export function ShareDialog({
                 <button
                   type="button"
                   disabled={sending}
+                  // Preserve the click across the input's blur (which fires
+                  // first and would otherwise hide this list before the
+                  // click registers).
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => void doInvite(f.email)}
                   className="flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-foreground/80 transition hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/10"
                 >
