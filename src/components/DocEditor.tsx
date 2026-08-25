@@ -252,6 +252,11 @@ function mergeRemoteChanges(
   const fragment = Fragment.fromArray(finalOrder.map((id) => finalById.get(id)!));
   const tr = state.tr.replaceWith(0, state.doc.content.size, fragment);
   tr.setMeta("addToHistory", false); // a collaborator's edit isn't local undo history
+  // Without this, Tiptap's onUpdate fires for this transaction just like a
+  // real keystroke would — resetting the user's pending save debounce and
+  // queuing a redundant re-flush of the content we just adopted FROM the
+  // server, right back TO it.
+  tr.setMeta("preventUpdate", true);
 
   // Restore the cursor into the same block by explicit position, not
   // ProseMirror's mapping (which collapses across a whole-doc replace).
