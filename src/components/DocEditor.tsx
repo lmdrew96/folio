@@ -52,6 +52,28 @@ const BLOCK_TYPES = [
 
 const DEBOUNCE_MS = 600;
 const WORD_COUNT_KEY = "folio:wordCount:visible";
+/** Backoff for a failed save. The last step repeats for as long as the tab is
+ *  open — a save that could still land should never be quietly abandoned in a
+ *  longform editor. */
+const RETRY_BACKOFF_MS = [2000, 5000, 15000, 30000];
+/** An autosave only announces itself if the round-trip outlasts this. Folio's
+ *  page is meant to be quiet, and a pill that strobed "Saving…/Saved" on every
+ *  600ms typing pause would be the opposite of that. Failures never wait. */
+const SAVING_GRACE_MS = 350;
+const SAVED_FLASH_MS = 1600;
+
+type SaveStatus = "idle" | "saving" | "saved" | "retrying" | "error";
+
+/**
+ * Errors `reconcile` throws that retrying can never fix: the document is gone,
+ * or this account no longer has access to it. Everything else — a dropped
+ * connection, a write conflict, a Clerk token mid-refresh — is worth retrying,
+ * so the default is "retryable."
+ */
+function isTerminalSaveError(e: unknown): boolean {
+  const message = e instanceof Error ? e.message : String(e);
+  return message.includes("Not found");
+}
 
 const countWords = (text: string): number => {
   const trimmed = text.trim();
@@ -310,11 +332,20 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
   // baseline for deciding whether a block is safe to overwrite with a
   // collaborator's version or has an unsynced local edit in flight.
   const syncedContentRef = useRef<Map<string, JSONContent>>(new Map());
-  // Transient "Saved" confirmation for the explicit Ctrl/Cmd+S save.
+  // Transient "Saved" confirmation.
   const savedHideRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
-    "idle",
-  );
+  // Deferred "Saving…" for an autosave — see SAVING_GRACE_MS.
+  const savingShowRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryAttemptRef = useRef(0);
+  // Monotonic save counter: a slow response that resolves after a newer save
+  // started must not write the pill back to its own outcome.
+  const saveSeqRef = useRef(0);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  // Mirror of saveStatus readable synchronously inside the save path, which
+  // needs the current state to decide (e.g. whether the writer ever saw
+  // "Saving…") without the double-invoke hazards of a functional updater.
+  const saveStatusRef = useRef<SaveStatus>("idle");
   const [wordCount, setWordCount] = useState(0);
   const [selectedWordCount, setSelectedWordCount] = useState(0);
   // Persisted so the toggle stays put across visits, like the dock's own
@@ -350,44 +381,138 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
     void setWordGoal({ documentId, wordGoal: Math.round(n) });
   };
 
-  const flush = (editor: TiptapEditor) => {
-    const desired = buildDesired(editor);
-    if (desired === null) return; // duplicate ids — let UniqueID settle
-    const hash = JSON.stringify(desired);
-    if (hash === lastSyncedHashRef.current) return; // nothing changed
-    void reconcile({ documentId, blocks: desired })
-      .then(() => {
-        lastSyncedHashRef.current = hash;
-      })
-      .catch((e) => {
-        console.error("Folio: block reconcile failed", e);
-      });
+  const clearTimer = (ref: React.MutableRefObject<ReturnType<typeof setTimeout> | null>) => {
+    if (ref.current) {
+      clearTimeout(ref.current);
+      ref.current = null;
+    }
   };
 
-  // Explicit save (Ctrl/Cmd+S). Folio already autosaves, so this mostly exists
-  // to reassure — it flushes any pending edit now and flashes "Saved".
-  // Resolves true when everything is confirmed on the server: the update toast
-  // awaits that before it reloads the tab (see lib/pendingSave.ts).
-  const saveNow = async (editor: TiptapEditor): Promise<boolean> => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+  const applyStatus = (next: SaveStatus) => {
+    saveStatusRef.current = next;
+    setSaveStatus(next);
+  };
+
+  const cancelRetry = () => {
+    clearTimer(retryRef);
+    retryAttemptRef.current = 0;
+  };
+
+  const flashSaved = () => {
+    applyStatus("saved");
+    clearTimer(savedHideRef);
+    savedHideRef.current = setTimeout(() => {
+      savedHideRef.current = null;
+      if (saveStatusRef.current === "saved") applyStatus("idle");
+    }, SAVED_FLASH_MS);
+  };
+
+  const scheduleRetry = (editor: TiptapEditor) => {
+    const attempt = retryAttemptRef.current;
+    const delay = RETRY_BACKOFF_MS[Math.min(attempt, RETRY_BACKOFF_MS.length - 1)];
+    retryAttemptRef.current = attempt + 1;
+    clearTimer(retryRef);
+    retryRef.current = setTimeout(() => {
+      retryRef.current = null;
+      void pushSave(editor, { explicit: false });
+    }, delay);
+  };
+
+  /**
+   * The one write path: the debounced autosave, onBlur, unmount, Ctrl/Cmd+S and
+   * every retry all land here, so the save pill and the retry loop see the real
+   * state of persistence rather than only the explicit saves.
+   *
+   * Re-snapshots the editor on every call, retries included — replaying a
+   * payload captured before a collaborator's merge landed would clobber it.
+   *
+   * Resolves true only when the editor's content is confirmed on the server;
+   * the update toast awaits that before reloading the tab (lib/pendingSave.ts).
+   */
+  const pushSave = async (
+    editor: TiptapEditor,
+    { explicit }: { explicit: boolean },
+  ): Promise<boolean> => {
     const desired = buildDesired(editor);
-    if (desired === null) return false; // ids still settling — skip this beat
-    const hash = JSON.stringify(desired);
-    if (hash !== lastSyncedHashRef.current) {
-      setSaveStatus("saving");
-      try {
-        await reconcile({ documentId, blocks: desired });
-        lastSyncedHashRef.current = hash;
-      } catch (e) {
-        console.error("Folio: manual save failed", e);
-        setSaveStatus("idle");
-        return false;
-      }
+    if (desired === null) {
+      // Duplicate ids — UniqueID hasn't reassigned after a split/paste yet.
+      // A deliberate skip, not a failure, so the pill is left alone; the next
+      // edit re-attempts. There IS unflushed work though, so no caller may
+      // read this as "safe to reload."
+      return false;
     }
-    setSaveStatus("saved");
-    if (savedHideRef.current) clearTimeout(savedHideRef.current);
-    savedHideRef.current = setTimeout(() => setSaveStatus("idle"), 1600);
-    return true;
+    const hash = JSON.stringify(desired);
+    if (hash === lastSyncedHashRef.current) {
+      // Already on the server — including the case where a retry raced a
+      // successful save, so any queued retry and any stale failure are moot.
+      cancelRetry();
+      if (
+        explicit ||
+        saveStatusRef.current === "retrying" ||
+        saveStatusRef.current === "error"
+      ) {
+        flashSaved();
+      }
+      return true;
+    }
+
+    const seq = ++saveSeqRef.current;
+    clearTimer(savingShowRef);
+    // An armed retry for the same work is redundant now that a fresh attempt is
+    // starting, and letting both run would put two reconciles in flight. Keep
+    // the attempt count, so the backoff doesn't restart on every keystroke.
+    clearTimer(retryRef);
+    if (explicit) {
+      applyStatus("saving");
+    } else if (saveStatusRef.current === "idle" || saveStatusRef.current === "saved") {
+      savingShowRef.current = setTimeout(() => {
+        savingShowRef.current = null;
+        if (saveSeqRef.current === seq) applyStatus("saving");
+      }, SAVING_GRACE_MS);
+    }
+
+    try {
+      await reconcile({ documentId, blocks: desired });
+      lastSyncedHashRef.current = hash;
+      clearTimer(savingShowRef);
+      cancelRetry();
+      if (seq !== saveSeqRef.current) return true; // a newer save owns the pill
+      // Confirm out loud only if the writer asked, already saw "Saving…", or is
+      // looking at a failure that just cleared. A silent autosave stays silent.
+      if (
+        explicit ||
+        saveStatusRef.current === "saving" ||
+        saveStatusRef.current === "retrying" ||
+        saveStatusRef.current === "error"
+      ) {
+        flashSaved();
+      }
+      return true;
+    } catch (e) {
+      clearTimer(savingShowRef);
+      console.error("Folio: block reconcile failed", e);
+      if (seq !== saveSeqRef.current) return false; // a newer save owns the pill
+      if (isTerminalSaveError(e)) {
+        // Retrying can't fix this one, and an unbounded loop against a
+        // permanent rejection is worse than a visible dead end.
+        cancelRetry();
+        applyStatus("error");
+      } else {
+        applyStatus("retrying");
+        scheduleRetry(editor);
+      }
+      return false;
+    }
+  };
+
+  const flush = (editor: TiptapEditor) => {
+    void pushSave(editor, { explicit: false });
+  };
+
+  /** Explicit save (Ctrl/Cmd+S, and the pill's "Try again"). */
+  const saveNow = (editor: TiptapEditor): Promise<boolean> => {
+    clearTimer(debounceRef);
+    return pushSave(editor, { explicit: true });
   };
 
   const editor = useEditor({
@@ -566,10 +691,54 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
 
-  // Clear the "Saved" hide timer if we unmount mid-flash.
+  // Warn before leaving only when the editor's content genuinely hasn't reached
+  // the server — a pending debounce, a save in flight, or one that failed. A
+  // prompt on every close would train the writer to dismiss it on reflex.
+  useEffect(() => {
+    if (!editor) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      const desired = buildDesired(editor);
+      // null means ids are still settling, which is also unflushed work.
+      const dirty =
+        desired === null || JSON.stringify(desired) !== lastSyncedHashRef.current;
+      if (!dirty) return;
+      e.preventDefault();
+      e.returnValue = ""; // some browsers still require this to show the prompt
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [editor]);
+
+  // Don't make a failed save wait out its backoff once the tab can plainly
+  // reach the network again. `online` also resets the backoff; coming back to
+  // the tab keeps it, so repeated tab-switching can't tighten the loop.
+  useEffect(() => {
+    if (!editor) return;
+    const retryNow = (resetBackoff: boolean) => {
+      if (saveStatusRef.current !== "retrying") return;
+      if (document.visibilityState === "hidden") return;
+      clearTimer(retryRef);
+      if (resetBackoff) retryAttemptRef.current = 0;
+      void pushSave(editor, { explicit: false });
+    };
+    const onOnline = () => retryNow(true);
+    const onVisible = () => retryNow(false);
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
+
+  // Drop every save timer on unmount. Defined last so it runs after the flush
+  // effect's cleanup above, which may schedule one.
   useEffect(
     () => () => {
       if (savedHideRef.current) clearTimeout(savedHideRef.current);
+      if (savingShowRef.current) clearTimeout(savingShowRef.current);
+      if (retryRef.current) clearTimeout(retryRef.current);
     },
     [],
   );
@@ -601,13 +770,38 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
           </div>
         </div>
       </div>
+      {/* One pill for the whole save story. A failure reads as a status line,
+          not an alarm: same paper chrome, just full-strength text and an
+          affordance, because the north star is a page that stays calm. */}
       <div
-        aria-live="polite"
-        className={`pointer-events-none fixed bottom-5 left-1/2 z-20 -translate-x-1/2 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-foreground/60 shadow-sm transition-opacity duration-200 ${
-          saveStatus === "idle" ? "opacity-0" : "opacity-100"
+        className={`fixed bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs shadow-sm transition-opacity duration-200 ${
+          saveStatus === "idle" ? "pointer-events-none opacity-0" : "opacity-100"
+        } ${
+          saveStatus === "retrying" || saveStatus === "error"
+            ? "text-foreground"
+            : "pointer-events-none text-foreground/60"
         }`}
       >
-        {saveStatus === "saving" ? "Saving…" : "Saved"}
+        <span aria-live="polite">
+          {saveStatus === "saving"
+            ? "Saving…"
+            : saveStatus === "retrying"
+              ? "Not saved — retrying…"
+              : saveStatus === "error"
+                ? "Not saved"
+                : "Saved"}
+        </span>
+        {(saveStatus === "retrying" || saveStatus === "error") && editor && (
+          <button
+            onClick={() => {
+              retryAttemptRef.current = 0;
+              void saveNow(editor);
+            }}
+            className="underline decoration-foreground/30 underline-offset-2 transition hover:decoration-foreground"
+          >
+            Try again
+          </button>
+        )}
       </div>
       <div className="fixed bottom-5 left-5 z-20 flex items-center gap-2">
         {editor && <Outline editor={editor} />}
