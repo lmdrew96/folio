@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
 import { useDropdownMenu } from "@/lib/useDropdownMenu";
+import { useRovingToolbar } from "@/lib/useRovingToolbar";
 import { fontSizeToDialValue } from "@/lib/cssUnits";
 import {
   exportDocument,
@@ -82,7 +83,7 @@ function ToolButton({
 }
 
 function Divider() {
-  return <span className="mx-1 h-5 w-px self-center bg-foreground/10" />;
+  return <span aria-hidden="true" className="mx-1 h-5 w-px self-center bg-foreground/10" />;
 }
 
 // --- minimal inline icons (stroke-based, 16px) ---
@@ -569,6 +570,8 @@ export function Toolbar({
   fontFamily: string | undefined;
   onFontFamilyChange: (key: string) => void;
 }) {
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const roving = useRovingToolbar(toolbarRef);
   const s = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
@@ -648,7 +651,18 @@ export function Toolbar({
   };
 
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-0.5 border-b border-foreground/10 bg-[var(--folio-backdrop)] px-3 py-1.5 print:hidden">
+    // role="toolbar" is only honest alongside useRovingToolbar: the role promises
+    // one tab stop for the group and arrow-key movement within it, and the role
+    // without that behaviour is worse for a keyboard user than a plain div.
+    <div
+      ref={toolbarRef}
+      role="toolbar"
+      aria-label="Formatting"
+      aria-orientation="horizontal"
+      onKeyDown={roving.onKeyDown}
+      onFocus={roving.onFocus}
+      className="flex shrink-0 flex-wrap items-center gap-0.5 border-b border-foreground/10 bg-[var(--folio-backdrop)] px-3 py-1.5 print:hidden"
+    >
       {/* Block type */}
       <label className="sr-only" htmlFor="folio-block-type">
         Paragraph style

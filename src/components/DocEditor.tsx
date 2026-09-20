@@ -576,6 +576,12 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
         // max-w-none) + mx-auto centers the column as a page in calm space.
         // The attribution tick lives in the left margin now, so no pl gutter.
         class: "prose prose-lg mx-auto min-h-[60vh] focus:outline-none",
+        // Without these the contenteditable reaches assistive tech as an
+        // anonymous text box. prosemirror-view sets no role and no
+        // aria-multiline of its own, so there's nothing to double up on.
+        "aria-label": "Document body",
+        role: "textbox",
+        "aria-multiline": "true",
       },
       // Ctrl/Cmd+click opens a link in a new tab; a plain click just places the
       // cursor to edit it (Link is configured with openOnClick: false).
