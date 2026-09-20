@@ -16,6 +16,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import ConvexClientProvider from "@/components/ConvexClientProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { PWA } from "@/components/PWA";
+import { UpdateToast } from "@/components/UpdateToast";
 import { UserSync } from "@/components/UserSync";
 
 // Folio's writing surface is the serif. Fraunces is Nae's brand display face;
@@ -86,6 +87,7 @@ export default function RootLayout({
               {children}
             </ConvexClientProvider>
             <PWA />
+            <UpdateToast />
           </ThemeProvider>
         </body>
       </html>

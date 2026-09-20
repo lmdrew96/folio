@@ -24,6 +24,7 @@ import { Indent } from "./extensions/indent";
 import { FindReplace as FindReplaceExtension } from "./extensions/find-replace";
 import { FootnoteReference, Footnote, FootnoteSync } from "./extensions/footnote";
 import { fontCssValue } from "@/lib/fonts";
+import { registerPendingSaveFlush } from "@/lib/pendingSave";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -365,10 +366,12 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
 
   // Explicit save (Ctrl/Cmd+S). Folio already autosaves, so this mostly exists
   // to reassure — it flushes any pending edit now and flashes "Saved".
-  const saveNow = async (editor: TiptapEditor) => {
+  // Resolves true when everything is confirmed on the server: the update toast
+  // awaits that before it reloads the tab (see lib/pendingSave.ts).
+  const saveNow = async (editor: TiptapEditor): Promise<boolean> => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const desired = buildDesired(editor);
-    if (desired === null) return; // ids still settling — skip this beat
+    if (desired === null) return false; // ids still settling — skip this beat
     const hash = JSON.stringify(desired);
     if (hash !== lastSyncedHashRef.current) {
       setSaveStatus("saving");
@@ -378,12 +381,13 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
       } catch (e) {
         console.error("Folio: manual save failed", e);
         setSaveStatus("idle");
-        return;
+        return false;
       }
     }
     setSaveStatus("saved");
     if (savedHideRef.current) clearTimeout(savedHideRef.current);
     savedHideRef.current = setTimeout(() => setSaveStatus("idle"), 1600);
+    return true;
   };
 
   const editor = useEditor({
@@ -549,6 +553,16 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
+
+  // Let the update toast flush this editor before it reloads the tab — Folio
+  // holds longform drafts, so reloading over an in-flight block save is the
+  // one thing that must never happen. saveNow closes over stable refs and
+  // mutations, so re-registering only when the editor itself changes is right.
+  useEffect(() => {
+    if (!editor) return;
+    return registerPendingSaveFlush(() => saveNow(editor));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
 
