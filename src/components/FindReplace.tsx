@@ -259,7 +259,10 @@ export function FindReplace({ editor }: { editor: Editor }) {
       ref={rootRef}
       role="dialog"
       aria-label="Find and replace"
-      className="fixed right-4 top-14 z-30 flex w-full max-w-sm flex-col gap-1.5 rounded-lg border border-foreground/10 bg-[var(--folio-paper)] p-2 shadow-md"
+      // print:hidden explicitly: the print stylesheet hides desk chrome via
+      // `.fixed`, which used to cover this bar. Now that it's `absolute` it
+      // needs its own rule, the same way the editor toolbar carries one.
+      className="absolute right-4 top-3 z-30 flex w-[calc(100%-2rem)] max-w-sm flex-col gap-1.5 rounded-lg border border-foreground/10 bg-[var(--folio-paper)] p-2 shadow-md print:hidden"
     >
       <div className="flex items-center gap-1">
         <input

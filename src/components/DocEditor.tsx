@@ -747,7 +747,6 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {editor && <FindReplace editor={editor} />}
       {editor ? (
         <Toolbar
           editor={editor}
@@ -758,17 +757,27 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
       ) : (
         <div className="h-11 shrink-0 border-b border-foreground/10 bg-[var(--folio-backdrop)]" />
       )}
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
-          <div
-            className="folio-paper"
-            style={{ "--folio-prose-font": fontCssValue(doc?.fontFamily) } as React.CSSProperties}
-          >
-            {editor ? (
-              <EditorContent editor={editor} />
-            ) : (
-              <div className="min-h-[60vh]" />
-            )}
+      {/* The containing block for the find bar: the editor column, below the
+          toolbar. The bar used to be `fixed`, i.e. positioned against the
+          viewport, which painted it over the toolbar's right-hand controls and
+          over the changes/Cleo dock — a real in-flow element at lg and up, and
+          user-resizable. Anchored here it clears the toolbar and follows the
+          column's width as the dock is dragged, for free. It sits outside the
+          scroll area so it doesn't scroll away with the prose. */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        {editor && <FindReplace editor={editor} />}
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
+            <div
+              className="folio-paper"
+              style={{ "--folio-prose-font": fontCssValue(doc?.fontFamily) } as React.CSSProperties}
+            >
+              {editor ? (
+                <EditorContent editor={editor} />
+              ) : (
+                <div className="min-h-[60vh]" />
+              )}
+            </div>
           </div>
         </div>
       </div>
