@@ -57,6 +57,17 @@ const countWords = (text: string): number => {
   return trimmed.length === 0 ? 0 : trimmed.split(/\s+/).length;
 };
 
+/** Words inside the live selection, for the `930/1996 words` readout. Only the
+ *  selection is measured here — the document total is recomputed on edit, not
+ *  on every cursor move. */
+const countSelection = (editor: TiptapEditor): number => {
+  const { from, to, empty } = editor.state.selection;
+  if (empty) return 0;
+  // Explicit block + leaf separators: without them a selection spanning two
+  // blocks fuses the last word of one onto the first of the next and undercounts.
+  return countWords(editor.state.doc.textBetween(from, to, " ", " "));
+};
+
 type DesiredBlock = { blockId: string; type: string; content: JSONContent };
 
 /**
@@ -304,6 +315,7 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
     "idle",
   );
   const [wordCount, setWordCount] = useState(0);
+  const [selectedWordCount, setSelectedWordCount] = useState(0);
   // Persisted so the toggle stays put across visits, like the dock's own
   // sizing preferences. Read lazily so there's no SSR markup to mismatch —
   // this component only mounts client-side.
@@ -448,8 +460,12 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
     },
     onUpdate: ({ editor }) => {
       setWordCount(countWords(editor.getText()));
+      setSelectedWordCount(countSelection(editor));
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => flush(editor), DEBOUNCE_MS);
+    },
+    onSelectionUpdate: ({ editor }) => {
+      setSelectedWordCount(countSelection(editor));
     },
     onBlur: ({ editor }) => {
       // Save promptly when leaving the editor — flush the pending debounce now.
@@ -584,14 +600,24 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
         <button
           onClick={toggleWordCount}
           aria-pressed={wordCountVisible}
-          title={wordCountVisible ? "Hide word count" : "Show word count"}
+          title={
+            !wordCountVisible
+              ? "Show word count"
+              : selectedWordCount > 0
+                ? "Words in selection / in document — click to hide"
+                : "Hide word count"
+          }
           className="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-foreground/60 shadow-sm transition hover:text-foreground"
         >
-          {wordCountVisible
-            ? doc?.wordGoal
-              ? `${wordCount.toLocaleString()} / ${doc.wordGoal.toLocaleString()} words`
-              : `${wordCount.toLocaleString()} words`
-            : "Word count"}
+          {!wordCountVisible
+            ? "Word count"
+            : selectedWordCount > 0
+              ? // A live selection takes the badge over the goal — while you're
+                // measuring a passage, that's the number you're after.
+                `${selectedWordCount.toLocaleString()}/${wordCount.toLocaleString()} words`
+              : doc?.wordGoal
+                ? `${wordCount.toLocaleString()} / ${doc.wordGoal.toLocaleString()} words`
+                : `${wordCount.toLocaleString()} words`}
         </button>
         {wordCountVisible && (
           <button
