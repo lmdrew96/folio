@@ -94,6 +94,13 @@ function mdInline(nodes: Node[] | undefined): string {
   return out;
 }
 
+/** A list item's own text line(s) — paragraphs, plus headings now that a
+ *  bullet can be promoted to one (see DocEditor's ListItem content override).
+ *  Without heading here, a heading'd list line exported as an empty bullet. */
+function isItemLine(child: Node): boolean {
+  return child.type === "paragraph" || child.type === "heading";
+}
+
 function mdList(list: Node, depth: number): string {
   const ordered = list.type === "orderedList";
   const start = typeof list.attrs?.start === "number" ? list.attrs.start : 1;
@@ -104,7 +111,7 @@ function mdList(list: Node, depth: number): string {
     let firstText = "";
     const rest: string[] = [];
     for (const child of item.content ?? []) {
-      if (child.type === "paragraph" && firstText === "") {
+      if (isItemLine(child) && firstText === "") {
         firstText = mdInline(child.content);
       } else if (child.type === "bulletList" || child.type === "orderedList") {
         rest.push(mdList(child, depth + 1));
@@ -236,7 +243,7 @@ function rtfList(list: Node): string {
   (list.content ?? []).forEach((item, i) => {
     const marker = ordered ? `${start + i}.` : "\\bullet";
     const text = (item.content ?? [])
-      .filter((c) => c.type === "paragraph")
+      .filter(isItemLine)
       .map((p) => rtfInline(p.content))
       .join(" ");
     out += `\\pard\\fi-360\\li720\\sa120 ${marker}\\tab ` + text + "\\par\n";
@@ -399,7 +406,7 @@ async function toDocxBlob(doc: Node, title: string): Promise<Blob> {
     const out: Para[] = [];
     (list.content ?? []).forEach((item, i) => {
       const itemRuns = (item.content ?? [])
-        .filter((c) => c.type === "paragraph")
+        .filter(isItemLine)
         .flatMap((p) => runs(p.content));
       if (ordered) {
         out.push(

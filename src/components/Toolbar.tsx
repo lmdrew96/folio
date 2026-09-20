@@ -31,13 +31,24 @@ const TEXT_COLORS = [
   { name: "Herbs", value: "#817965", display: "#817965" },
 ];
 
+// Each tier's actual rendered default when no override is set — mirrors the
+// `.ProseMirror p` / `.ProseMirror h1..h4` rules in globals.css. Keep the two
+// in sync: these are what the size dial shows, those are what the page renders.
+const DEFAULT_FONT_SIZE = "11px";
+const HEADING_FONT_SIZES: Record<number, string> = {
+  1: "20px",
+  2: "16px",
+  3: "14px",
+  4: "12px",
+};
+
+// The block-type <select>'s values, and the heading level each maps to.
+type BlockValue = "paragraph" | "h1" | "h2" | "h3" | "h4";
+const HEADING_LEVELS = { h1: 1, h2: 2, h3: 3, h4: 4 } as const;
+
 // Standard word-processor multiples (Single/1.15/1.5/Double), not vague
 // relative labels — matches what Word/Docs call these so the number you pick
 // is the number you get, not a guess at what "Relaxed" means in px.
-// Body text's actual rendered default when no override is set — mirrors the
-// `.ProseMirror p` rule in globals.css. Keep the two in sync.
-const DEFAULT_FONT_SIZE = "12px";
-
 const LINE_SPACINGS = [
   { label: "Default", value: "" },
   { label: "Single", value: "1" },
@@ -581,17 +592,20 @@ export function Toolbar({
       alignCenter: e.isActive({ textAlign: "center" }),
       alignRight: e.isActive({ textAlign: "right" }),
       highlight: e.isActive("highlight"),
+      headingLevel: (e.getAttributes("heading").level as number | undefined) ?? 0,
       lineHeight:
         e.getAttributes("paragraph").lineHeight ||
         e.getAttributes("heading").lineHeight ||
         "",
-      // Body text's real default is 12px (see .ProseMirror p in globals.css) —
-      // show it explicitly instead of leaving the dial blank. Headings keep
-      // their own size tier, so only fall back when a heading isn't active.
+      // Show the tier's real rendered default rather than a blank dial: 11px
+      // for body text, or the active heading level's own size (see
+      // .ProseMirror p / h1..h4 in globals.css). An explicit per-block
+      // override, when there is one, still wins.
       fontSize:
         e.getAttributes("paragraph").fontSize ||
         e.getAttributes("heading").fontSize ||
-        (e.isActive("heading") ? "" : DEFAULT_FONT_SIZE),
+        HEADING_FONT_SIZES[e.getAttributes("heading").level as number] ||
+        DEFAULT_FONT_SIZE,
     }),
   });
 
@@ -606,13 +620,14 @@ export function Toolbar({
           : "paragraph";
   const alignValue = s.alignCenter ? "center" : s.alignRight ? "right" : "left";
 
-  const setBlock = (value: string) => {
+  // Switching tier also clears any manual size override, so a tier is actually
+  // a size: picking "Heading 2" gives you 16px instead of silently keeping the
+  // 40px you'd typed while the same block was an H1.
+  const setBlock = (value: BlockValue) => {
     const chain = editor.chain().focus();
-    if (value === "h1") chain.setHeading({ level: 1 }).run();
-    else if (value === "h2") chain.setHeading({ level: 2 }).run();
-    else if (value === "h3") chain.setHeading({ level: 3 }).run();
-    else if (value === "h4") chain.setHeading({ level: 4 }).run();
-    else chain.setParagraph().run();
+    if (value === "paragraph") chain.setParagraph();
+    else chain.setHeading({ level: HEADING_LEVELS[value] });
+    chain.unsetFontSize().run();
   };
 
   const onLink = () => {
@@ -644,7 +659,7 @@ export function Toolbar({
       <select
         id="folio-block-type"
         value={blockValue}
-        onChange={(e) => setBlock(e.target.value)}
+        onChange={(e) => setBlock(e.target.value as BlockValue)}
         className="h-8 rounded-md bg-transparent px-1.5 text-sm text-foreground/80 outline-none transition hover:bg-black/5 focus:bg-black/5 dark:hover:bg-white/10 dark:focus:bg-white/10"
         title="Paragraph style"
       >

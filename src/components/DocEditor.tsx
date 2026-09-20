@@ -11,6 +11,7 @@ import { Fragment, type Node as PMNode } from "@tiptap/pm/model";
 import { TextSelection } from "@tiptap/pm/state";
 import { StarterKit } from "@tiptap/starter-kit";
 import { UniqueID } from "@tiptap/extension-unique-id";
+import { ListItem } from "@tiptap/extension-list";
 import { TextAlign } from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
@@ -387,7 +388,17 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
         // see the comment there for why.
         underline: false,
         strike: false,
+        // ListItem is pulled out below to widen its content expression.
+        listItem: false,
       }),
+      // A bullet/numbered line can become a heading. ListItem ships with
+      // `content: "paragraph block*"`, so the first child HAD to be a
+      // paragraph and setHeading inside a list silently no-op'd — the only
+      // way to get a big list line was to resize it by hand. extendNodeSchema
+      // can't fix this (the node's own `content` field overrides whatever it
+      // returns), so the node itself gets extended. Paragraph stays first in
+      // the choice so it's still the default type for a new/empty item.
+      ListItem.extend({ content: "(paragraph|heading) block*" }),
       UniqueID.configure({ types: BLOCK_TYPES }),
       Attribution,
       SmartTypography,

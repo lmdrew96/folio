@@ -105,12 +105,26 @@ body {
   --tw-prose-counters: #4e4c5e;
 }
 
-/* Body text's actual default size — prose-lg's own 1.125rem otherwise wins by
-   default, leaving the toolbar's size field blank with nothing honest to show.
-   A block's own explicit font-size (inline style, from the FontSize extension)
-   always overrides this regardless of source order. Keep in sync with
-   DEFAULT_FONT_SIZE in Toolbar.tsx. */
+/* Each block tier's real default size. prose-lg's own em-relative sizes (an h1
+   at 2.25em of 1.125rem ≈ 40px) otherwise win, which left the toolbar's size
+   field blank on headings with nothing honest to show and made "Heading 2" a
+   guess rather than a size. A block's own explicit font-size (inline style,
+   from the FontSize extension) still overrides these regardless of source
+   order. Keep in sync with DEFAULT_FONT_SIZE / HEADING_FONT_SIZES in
+   Toolbar.tsx. */
 .ProseMirror p {
+  font-size: 11px;
+}
+.ProseMirror h1 {
+  font-size: 20px;
+}
+.ProseMirror h2 {
+  font-size: 16px;
+}
+.ProseMirror h3 {
+  font-size: 14px;
+}
+.ProseMirror h4 {
   font-size: 12px;
 }
 
@@ -175,6 +189,13 @@ body {
    a huge gap before the following block. Keep the space *above* a heading
    (separates sections); collapse the space *below* it to the heading's margin. */
 .ProseMirror :is(h1, h2, h3, h4) {
+  /* Declare the heading ink here rather than leaning on the typography
+     plugin's own `color: var(--tw-prose-headings)` rule — that one lives in
+     @layer utilities at (0,1,0), so any unlayered rule touching heading color
+     silently outranks it. This is unlayered at (0,1,1) and reads the same var,
+     so the theme (and the @media print override below) still drives the value;
+     it just can't lose the cascade any more. */
+  color: var(--tw-prose-headings);
   margin-bottom: 0.3em;
 }
 .ProseMirror :is(h1, h2, h3, h4) + * {
