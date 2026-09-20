@@ -22,6 +22,7 @@ import { LineHeight } from "./extensions/line-height";
 import { FontSize } from "./extensions/font-size";
 import { Indent } from "./extensions/indent";
 import { FindReplace as FindReplaceExtension } from "./extensions/find-replace";
+import { PlainPaste } from "./extensions/plain-paste";
 import { FootnoteReference, Footnote, FootnoteSync } from "./extensions/footnote";
 import { fontCssValue } from "@/lib/fonts";
 import { registerPendingSaveFlush } from "@/lib/pendingSave";
@@ -564,6 +565,7 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
       FontSize,
       Indent,
       FindReplaceExtension,
+      PlainPaste,
       FootnoteReference,
       Footnote,
       FootnoteSync,

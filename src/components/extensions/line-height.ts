@@ -1,4 +1,5 @@
 import { Extension } from "@tiptap/core";
+import { normalizeLineHeight } from "@/lib/cssUnits";
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -28,7 +29,9 @@ export const LineHeight = Extension.create({
         attributes: {
           lineHeight: {
             default: null,
-            parseHTML: (element) => element.style.lineHeight || null,
+            // Snapped to one of the spacing menu's own values, so a pasted
+            // `115%` can't apply a spacing the control then shows as unset.
+            parseHTML: (element) => normalizeLineHeight(element.style.lineHeight),
             renderHTML: (attributes) =>
               attributes.lineHeight
                 ? { style: `line-height: ${attributes.lineHeight}` }

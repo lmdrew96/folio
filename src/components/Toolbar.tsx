@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
 import { useDropdownMenu } from "@/lib/useDropdownMenu";
+import { fontSizeToDialValue } from "@/lib/cssUnits";
 import {
   exportDocument,
   EXPORT_FORMATS,
@@ -366,7 +367,11 @@ function FontFamilyControl({
 }
 
 function FontSizeControl({ editor, current }: { editor: Editor; current: string }) {
-  const currentPx = current.replace(/px$/, "");
+  // Parsed, not just de-suffixed: a block that already carries a foreign unit
+  // (`11pt`, from a paste that predates lib/cssUnits.ts) would otherwise be
+  // handed verbatim to an <input type="number">, which renders it as an empty
+  // field — the toolbar claiming "no explicit size" for a block that has one.
+  const currentPx = fontSizeToDialValue(current);
   const [draft, setDraft] = useState(currentPx);
   const [focused, setFocused] = useState(false);
   const [syncedPx, setSyncedPx] = useState(currentPx);

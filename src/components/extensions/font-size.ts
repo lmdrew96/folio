@@ -1,5 +1,6 @@
 import { Extension } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
+import { normalizeFontSize } from "@/lib/cssUnits";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
@@ -60,7 +61,11 @@ export const FontSize = Extension.create({
         attributes: {
           fontSize: {
             default: null,
-            parseHTML: (element) => element.style.fontSize || null,
+            // Normalized, never taken at face value: a paste from Word or
+            // Docs arrives as `11pt`/`1.1em`, and Folio's own attribute is
+            // always `Npx` (see lib/cssUnits.ts for why relative units are
+            // dropped rather than guessed at).
+            parseHTML: (element) => normalizeFontSize(element.style.fontSize),
             renderHTML: (attributes) =>
               attributes.fontSize ? { style: `font-size: ${attributes.fontSize}` } : {},
           },

@@ -1,7 +1,13 @@
 import { Extension } from "@tiptap/core";
+import { cssLengthToPx, parseCssLength } from "@/lib/cssUnits";
+import { DEFAULT_FONT_SIZE } from "./font-size";
 
 const MAX_INDENT = 10;
 const STEP_EM = 2; // visual width of one indent level
+// One level's real width in px, for reading a margin that came from another
+// document. Folio renders its own indent in em, so em needs no conversion —
+// but `0.5in` from Word means nothing until it's measured against this.
+const STEP_PX = STEP_EM * (cssLengthToPx(DEFAULT_FONT_SIZE) ?? 16);
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -37,9 +43,22 @@ export const Indent = Extension.create({
           indent: {
             default: null,
             parseHTML: (element) => {
-              const ml = parseFloat(element.style.marginLeft);
-              if (!ml) return null;
-              return Math.min(MAX_INDENT, Math.max(1, Math.round(ml / STEP_EM)));
+              const ml = element.style.marginLeft;
+              const length = parseCssLength(ml);
+              if (!length || length.n <= 0) return null;
+              // em is Folio's own unit, so it converts exactly. Anything else
+              // came from the source document and has to be resolved through
+              // px first — the old code read `0.5in` as if the 0.5 were em.
+              const levels =
+                length.unit === "em"
+                  ? length.n / STEP_EM
+                  : (cssLengthToPx(ml) ?? 0) / STEP_PX;
+              const level = Math.round(levels);
+              // A margin that rounds to nothing is layout noise from the source
+              // document, not an indent the writer asked for. The old code
+              // clamped it up to level 1 and invented an indent.
+              if (level < 1) return null;
+              return Math.min(MAX_INDENT, level);
             },
             renderHTML: (attributes) =>
               attributes.indent
