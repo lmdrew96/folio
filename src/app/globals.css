@@ -111,7 +111,7 @@ body {
    guess rather than a size. A block's own explicit font-size (inline style,
    from the FontSize extension) still overrides these regardless of source
    order. Keep in sync with DEFAULT_FONT_SIZE / HEADING_FONT_SIZES in
-   Toolbar.tsx. */
+   components/extensions/font-size.ts. */
 .ProseMirror p {
   font-size: 11px;
 }

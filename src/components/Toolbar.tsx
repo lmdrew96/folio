@@ -10,6 +10,9 @@ import {
 } from "@/lib/export";
 import { FONT_OPTIONS, fontOption, type FontOption } from "@/lib/fonts";
 import { insertFootnote } from "./extensions/footnote";
+// The tier size table lives with the FontSize extension — it's the same
+// table the list-marker decoration reads, so there's one source of truth.
+import { DEFAULT_FONT_SIZE, HEADING_FONT_SIZES } from "./extensions/font-size";
 
 // Curated highlights. `value` is the semantic name stored on the mark (themed
 // in CSS); `display` is the light-mode tint shown in the swatch. The stored
@@ -30,17 +33,6 @@ const TEXT_COLORS = [
   { name: "Usugaki", value: "#FFA67A", display: "#FFA67A" },
   { name: "Herbs", value: "#817965", display: "#817965" },
 ];
-
-// Each tier's actual rendered default when no override is set — mirrors the
-// `.ProseMirror p` / `.ProseMirror h1..h4` rules in globals.css. Keep the two
-// in sync: these are what the size dial shows, those are what the page renders.
-const DEFAULT_FONT_SIZE = "11px";
-const HEADING_FONT_SIZES: Record<number, string> = {
-  1: "20px",
-  2: "16px",
-  3: "14px",
-  4: "12px",
-};
 
 // The block-type <select>'s values, and the heading level each maps to.
 type BlockValue = "paragraph" | "h1" | "h2" | "h3" | "h4";
