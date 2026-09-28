@@ -10,6 +10,60 @@ import { NewDocButton } from "./NewDocButton";
 
 const UNDO_MS = 8000;
 
+const SORTS = {
+  edited: "Last edited",
+  newest: "Newest first",
+  oldest: "Oldest first",
+  az: "Title A–Z",
+  za: "Title Z–A",
+} as const;
+type SortKey = keyof typeof SORTS;
+
+const FILTERS = { all: "All", mine: "Mine", shared: "Shared with me" } as const;
+type FilterKey = keyof typeof FILTERS;
+
+const SORT_KEY = "folio:desk:sort";
+const FILTER_KEY = "folio:desk:filter";
+
+/** A remembered desk preference — a per-browser convenience, so any storage
+ *  failure (private window, blocked site data) just falls back to the default. */
+function readPref<K extends string>(key: string, allowed: Record<K, string>, fallback: K): K {
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw && raw in allowed ? (raw as K) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function writePref(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Not remembered this time; nothing else depends on it.
+  }
+}
+
+const titleOf = (doc: { title: string }) => doc.title || "Untitled";
+
+type DeskDoc = { title: string; createdAt: number; updatedAt: number };
+function compareDocs(sort: SortKey): (a: DeskDoc, b: DeskDoc) => number {
+  switch (sort) {
+    case "newest":
+      return (a, b) => b.createdAt - a.createdAt;
+    case "oldest":
+      return (a, b) => a.createdAt - b.createdAt;
+    case "az":
+    case "za": {
+      const dir = sort === "az" ? 1 : -1;
+      // numeric: "Chapter 2" before "Chapter 10".
+      return (a, b) =>
+        dir * titleOf(a).localeCompare(titleOf(b), undefined, { numeric: true, sensitivity: "base" });
+    }
+    default:
+      return (a, b) => b.updatedAt - a.updatedAt;
+  }
+}
+
 /** Per-card delete with a calm two-step inline confirm (no scary modal). */
 function DeleteControl({
   documentId,
@@ -129,6 +183,10 @@ export function DocList() {
   const docs = useQuery(api.documents.list);
   const restore = useMutation(api.documents.restore);
   const [query, setQuery] = useState("");
+  // DocList only mounts client-side (inside <Authenticated>), so reading
+  // storage in the initializer can't cause a hydration mismatch.
+  const [sort, setSort] = useState<SortKey>(() => readPref(SORT_KEY, SORTS, "edited"));
+  const [filter, setFilter] = useState<FilterKey>(() => readPref(FILTER_KEY, FILTERS, "all"));
   const [pendingUndo, setPendingUndo] = useState<{
     documentId: Id<"documents">;
     title: string;
@@ -189,12 +247,21 @@ export function DocList() {
     );
   }
 
+  const hasShared = docs.some((d) => d.role === "editor");
+  // With nothing shared, "Mine"/"Shared" would be noise — and a remembered
+  // "Shared" filter would otherwise strand you on an empty desk.
+  const activeFilter: FilterKey = hasShared ? filter : "all";
   const trimmedQuery = query.trim().toLowerCase();
-  const filtered = trimmedQuery
-    ? docs.filter((doc) =>
-        (doc.title || "Untitled").toLowerCase().includes(trimmedQuery),
-      )
-    : docs;
+  const filtered = docs
+    .filter((doc) =>
+      activeFilter === "mine"
+        ? doc.role === "owner"
+        : activeFilter === "shared"
+          ? doc.role === "editor"
+          : true,
+    )
+    .filter((doc) => !trimmedQuery || titleOf(doc).toLowerCase().includes(trimmedQuery))
+    .sort(compareDocs(sort));
 
   return (
     <>
@@ -205,20 +272,66 @@ export function DocList() {
           </h2>
           <NewDocButton />
         </div>
-        <label className="sr-only" htmlFor="folio-doc-search">
-          Search documents
-        </label>
-        <input
-          id="folio-doc-search"
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search documents…"
-          className="mb-6 w-full max-w-xs rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-4 py-2 text-sm text-foreground outline-none transition placeholder:text-foreground/40 focus:ring-2 focus:ring-[var(--folio-attr-sibling)]"
-        />
+        <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-3">
+          <label className="sr-only" htmlFor="folio-doc-search">
+            Search documents
+          </label>
+          <input
+            id="folio-doc-search"
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search documents…"
+            className="w-full max-w-xs rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-4 py-2 text-sm text-foreground outline-none transition placeholder:text-foreground/40 focus:ring-2 focus:ring-[var(--folio-attr-sibling)]"
+          />
+          {hasShared && (
+            <div role="group" aria-label="Show" className="flex items-center gap-0.5 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] p-0.5">
+              {(Object.keys(FILTERS) as FilterKey[]).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={activeFilter === key}
+                  onClick={() => {
+                    setFilter(key);
+                    writePref(FILTER_KEY, key);
+                  }}
+                  className={`rounded-full px-3 py-1 text-xs transition ${
+                    activeFilter === key
+                      ? "bg-black/10 text-foreground dark:bg-white/15"
+                      : "text-foreground/60 hover:text-foreground"
+                  }`}
+                >
+                  {FILTERS[key]}
+                </button>
+              ))}
+            </div>
+          )}
+          <label className="flex items-center gap-2 text-xs text-foreground/50 sm:ml-auto">
+            Sort
+            <select
+              value={sort}
+              onChange={(e) => {
+                const next = e.target.value as SortKey;
+                setSort(next);
+                writePref(SORT_KEY, next);
+              }}
+              className="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1.5 text-xs text-foreground outline-none focus:ring-2 focus:ring-[var(--folio-attr-sibling)]"
+            >
+              {(Object.keys(SORTS) as SortKey[]).map((key) => (
+                <option key={key} value={key}>
+                  {SORTS[key]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         {filtered.length === 0 ? (
           <p className="py-10 text-center text-foreground/50">
-            No documents match &ldquo;{query.trim()}&rdquo;.
+            {trimmedQuery
+              ? <>No documents match &ldquo;{query.trim()}&rdquo;.</>
+              : activeFilter === "shared"
+                ? "Nothing's been shared with you yet."
+                : "No documents here."}
           </p>
         ) : (
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -240,7 +353,9 @@ export function DocList() {
                       )}
                     </div>
                     <p className="mt-3 text-sm text-foreground/50">
-                      edited {relativeTime(doc.updatedAt)}
+                      {sort === "newest" || sort === "oldest"
+                        ? `created ${relativeTime(doc.createdAt)}`
+                        : `edited ${relativeTime(doc.updatedAt)}`}
                     </p>
                   </div>
                 </Link>
