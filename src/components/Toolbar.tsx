@@ -3,6 +3,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
 import { useDropdownMenu } from "@/lib/useDropdownMenu";
+import { InputPopover } from "./InputPopover";
 import { useRovingToolbar } from "@/lib/useRovingToolbar";
 import { fontSizeToDialValue } from "@/lib/cssUnits";
 import {
@@ -79,6 +80,83 @@ function ToolButton({
     >
       {children}
     </button>
+  );
+}
+
+const LINK_PROTOCOLS = ["http:", "https:", "mailto:", "tel:"];
+
+/** A usable href from what the writer typed, or null. A bare domain
+ *  ("example.com") gets https:// — the old prompt's prefilled "https://" did
+ *  the same job. Returns the typed text rather than URL.href so a link isn't
+ *  silently rewritten (no added trailing slash). */
+function normalizeHref(input: string): string | null {
+  const candidate = /^[a-z][a-z\d+.-]*:/i.test(input) ? input : `https://${input}`;
+  try {
+    const url = new URL(candidate);
+    if (!LINK_PROTOCOLS.includes(url.protocol)) return null;
+    const web = url.protocol === "http:" || url.protocol === "https:";
+    if (web && !url.hostname.includes(".") && url.hostname !== "localhost") return null;
+    return candidate;
+  } catch {
+    return null;
+  }
+}
+
+function LinkControl({ editor, active }: { editor: Editor; active: boolean }) {
+  // The input takes focus, so remember what the writer had selected when the
+  // popover opened and apply the link there — not wherever focus lands next.
+  const rangeRef = useRef<{ from: number; to: number; inLink: boolean } | null>(null);
+
+  const restore = () => {
+    const size = editor.state.doc.content.size;
+    const { from, to } = editor.state.selection;
+    const r = rangeRef.current ?? { from, to, inLink: false };
+    return {
+      range: { from: Math.min(r.from, size), to: Math.min(r.to, size) },
+      inLink: r.inLink,
+    };
+  };
+
+  return (
+    <InputPopover
+      label={active ? "Edit link" : "Add link"}
+      trigger={LinkIcon}
+      triggerClassName={`${BTN} ${active ? BTN_ACTIVE : ""}`}
+      active={active}
+      fieldLabel="Link address"
+      placeholder="https://…"
+      inputMode="url"
+      initialValue={() => (editor.getAttributes("link").href as string | undefined) ?? ""}
+      validate={(v) =>
+        normalizeHref(v) ? null : "That doesn't look like a web, email or phone link."
+      }
+      onOpen={() => {
+        const { from, to } = editor.state.selection;
+        rangeRef.current = { from, to, inLink: editor.isActive("link") };
+      }}
+      onApply={(v) => {
+        const href = normalizeHref(v);
+        if (!href) return;
+        const { range, inLink } = restore();
+        const chain = editor.chain().focus().setTextSelection(range);
+        if (range.from === range.to && !inLink) {
+          // Nothing selected and not inside a link: insert the address itself
+          // as linked text, rather than silently arming an invisible mark.
+          chain
+            .insertContent({ type: "text", text: href, marks: [{ type: "link", attrs: { href } }] })
+            .run();
+        } else {
+          chain.extendMarkRange("link").setLink({ href }).run();
+        }
+      }}
+      onClear={() => {
+        const { range } = restore();
+        editor.chain().focus().setTextSelection(range).extendMarkRange("link").unsetLink().run();
+      }}
+      clearLabel="Remove link"
+      canClear={active}
+      refocusTrigger={false}
+    />
   );
 }
 
@@ -630,26 +708,6 @@ export function Toolbar({
     chain.unsetFontSize().run();
   };
 
-  const onLink = () => {
-    if (s.link) {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-    const prev = editor.getAttributes("link").href as string | undefined;
-    const url = window.prompt("Link URL", prev ?? "https://");
-    if (url === null) return; // cancelled
-    if (url.trim() === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-    editor
-      .chain()
-      .focus()
-      .extendMarkRange("link")
-      .setLink({ href: url.trim() })
-      .run();
-  };
-
   return (
     // role="toolbar" is only honest alongside useRovingToolbar: the role promises
     // one tab stop for the group and arrow-key movement within it, and the role
@@ -724,9 +782,7 @@ export function Toolbar({
       >
         <span className="font-mono text-xs">{"</>"}</span>
       </ToolButton>
-      <ToolButton label={s.link ? "Remove link" : "Add link"} active={s.link} onClick={onLink}>
-        {LinkIcon}
-      </ToolButton>
+      <LinkControl editor={editor} active={s.link} />
       <ToolButton label="Insert footnote" onClick={() => insertFootnote(editor)}>
         {FootnoteIcon}
       </ToolButton>

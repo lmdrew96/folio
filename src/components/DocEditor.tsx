@@ -36,6 +36,7 @@ import {
 } from "./extensions/attribution";
 import { SmartTypography } from "./extensions/typography";
 import { Toolbar } from "./Toolbar";
+import { InputPopover } from "./InputPopover";
 import { Outline } from "./Outline";
 import { FindReplace } from "./FindReplace";
 
@@ -366,21 +367,8 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
 
   // Reuses the native-prompt pattern Toolbar's link button already uses
   // rather than a new dialog — a blank/cleared input clears the goal.
-  const editWordGoal = () => {
-    const input = window.prompt(
-      "Word count goal (blank to clear)",
-      doc?.wordGoal ? String(doc.wordGoal) : "",
-    );
-    if (input === null) return; // cancelled
-    const trimmed = input.trim();
-    if (trimmed === "") {
-      void setWordGoal({ documentId, wordGoal: null });
-      return;
-    }
-    const n = Number(trimmed);
-    if (!Number.isFinite(n) || n <= 0) return; // ignore invalid input
-    void setWordGoal({ documentId, wordGoal: Math.round(n) });
-  };
+  // Thousands separators are what people type ("50,000"); strip them first.
+  const parseWordGoal = (input: string) => Math.round(Number(input.replace(/[,\s_]/g, "")));
 
   const clearTimer = (ref: React.MutableRefObject<ReturnType<typeof setTimeout> | null>) => {
     if (ref.current) {
@@ -845,13 +833,24 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
                 : `${wordCount.toLocaleString()} words`}
         </button>
         {wordCountVisible && (
-          <button
-            onClick={editWordGoal}
-            title={doc?.wordGoal ? "Edit word goal" : "Set a word goal"}
-            className="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-2 py-1 text-xs text-foreground/40 shadow-sm transition hover:text-foreground"
-          >
-            {doc?.wordGoal ? "Edit goal" : "Set goal"}
-          </button>
+          <InputPopover
+            label={doc?.wordGoal ? "Edit word goal" : "Set a word goal"}
+            trigger={doc?.wordGoal ? "Edit goal" : "Set goal"}
+            triggerClassName="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-2 py-1 text-xs text-foreground/40 shadow-sm transition hover:text-foreground"
+            fieldLabel="Word count goal"
+            placeholder="e.g. 2000"
+            inputMode="numeric"
+            placement="above"
+            initialValue={() => (doc?.wordGoal ? String(doc.wordGoal) : "")}
+            validate={(v) => {
+              const n = parseWordGoal(v);
+              return Number.isFinite(n) && n >= 1 ? null : "Enter a whole number of words, 1 or more.";
+            }}
+            onApply={(v) => void setWordGoal({ documentId, wordGoal: parseWordGoal(v) })}
+            onClear={() => void setWordGoal({ documentId, wordGoal: null })}
+            clearLabel="Clear goal"
+            canClear={Boolean(doc?.wordGoal)}
+          />
         )}
       </div>
     </div>

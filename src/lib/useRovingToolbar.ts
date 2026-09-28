@@ -37,8 +37,9 @@ export function useRovingToolbar(rootRef: RefObject<HTMLElement | null>) {
       (el) =>
         !el.hasAttribute("disabled") &&
         // An open popover's items are the menu's own business — useDropdownMenu
-        // roves those with Up/Down. Only the toolbar row itself roves here.
-        !el.closest('[role="menu"]') &&
+        // roves those with Up/Down — and a dialog (InputPopover) owns its own
+        // keys too. Only the toolbar row itself roves here.
+        !el.closest('[role="menu"], [role="dialog"]') &&
         // Whatever the current breakpoint has collapsed into the More menu.
         el.offsetParent !== null,
     );
@@ -79,8 +80,8 @@ export function useRovingToolbar(rootRef: RefObject<HTMLElement | null>) {
       return;
     }
     const target = e.target as HTMLElement;
-    // Let a text-entry control and an open menu keep their own keys.
-    if (target.closest('input, textarea, select, [role="menu"]')) return;
+    // Let a text-entry control and an open menu/dialog keep their own keys.
+    if (target.closest('input, textarea, select, [role="menu"], [role="dialog"]')) return;
     const list = items();
     if (list.length === 0) return;
     const current = list.indexOf(target);
