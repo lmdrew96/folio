@@ -104,8 +104,9 @@ export const FontSize = Extension.create({
                 }
                 return true; // keep descending — nested lists live in here
               }
-              // Nothing else can contain a listItem, so don't walk the prose.
-              return name === "bulletList" || name === "orderedList";
+              // Only lists and tables (a cell can hold a list) contain a
+              // listItem, so don't walk the prose.
+              return name === "bulletList" || name === "orderedList" || name.startsWith("table");
             });
             if (decorations.length === 0) return DecorationSet.empty;
             return DecorationSet.create(state.doc, decorations);

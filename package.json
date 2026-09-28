@@ -1,6 +1,6 @@
 {
   "name": "folio",
-  "version": "0.47.0",
+  "version": "0.48.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -17,6 +17,7 @@
     "@tiptap/extension-highlight": "3.26.1",
     "@tiptap/extension-list": "3.26.1",
     "@tiptap/extension-strike": "3.26.1",
+    "@tiptap/extension-table": "3.26.1",
     "@tiptap/extension-text-align": "3.26.1",
     "@tiptap/extension-text-style": "3.26.1",
     "@tiptap/extension-underline": "3.26.1",

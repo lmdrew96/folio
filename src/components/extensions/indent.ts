@@ -104,6 +104,7 @@ export const Indent = Extension.create({
           editor.commands.sinkListItem("listItem");
           return true;
         }
+        if (editor.isActive("table")) return false; // Table's Tab: next cell
         editor.commands.indentBlock();
         return true;
       },
@@ -113,6 +114,7 @@ export const Indent = Extension.create({
           editor.commands.liftListItem("listItem");
           return true;
         }
+        if (editor.isActive("table")) return false;
         editor.commands.outdentBlock();
         return true;
       },

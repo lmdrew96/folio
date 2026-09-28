@@ -17,6 +17,7 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
 import { Underline } from "@tiptap/extension-underline";
 import { Strike } from "@tiptap/extension-strike";
+import { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table";
 import { ThemeHighlight } from "./extensions/theme-highlight";
 import { LineHeight } from "./extensions/line-height";
 import { FontSize } from "./extensions/font-size";
@@ -50,6 +51,7 @@ const BLOCK_TYPES = [
   "orderedList",
   "horizontalRule",
   "footnote",
+  "table",
 ];
 
 const DEBOUNCE_MS = 600;
@@ -557,6 +559,11 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
       FootnoteReference,
       Footnote,
       FootnoteSync,
+      // Fixed-layout columns (no drag-resize): calmer, and nothing to persist.
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableHeader,
+      TableCell,
     ],
     editorProps: {
       attributes: {

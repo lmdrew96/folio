@@ -28,9 +28,11 @@ function blockText(content: unknown): string {
   const parts: string[] = [];
   const walk = (n: unknown) => {
     if (!n || typeof n !== "object") return;
-    const node = n as { text?: unknown; content?: unknown };
+    const node = n as { type?: unknown; text?: unknown; content?: unknown };
     if (typeof node.text === "string") parts.push(node.text);
     if (Array.isArray(node.content)) for (const c of node.content) walk(c);
+    // Table cells are separate words, not one run: "Name" + "Age" ≠ "NameAge".
+    if (node.type === "tableCell" || node.type === "tableHeader") parts.push(" ");
   };
   walk(content);
   return parts.join("").replace(/\s+/g, " ").trim();
@@ -106,6 +108,26 @@ function mdList(list: PMNode, depth = 0): string {
   return lines.join("\n");
 }
 
+/** table → GFM pipe table (first row as header — GFM has no headerless
+ *  form). A cell's blocks join with <br> so each row stays on one line. */
+function mdTable(table: PMNode): string {
+  const rows = (table.content ?? []).map((row) =>
+    (row.content ?? []).map((cell) =>
+      (cell.content ?? [])
+        .map((b) => mdInline(b.content) || blockText(b))
+        .join("<br>")
+        .replace(/\|/g, "\\|"),
+    ),
+  );
+  if (rows.length === 0) return "";
+  const width = Math.max(...rows.map((r) => r.length));
+  const line = (cells: string[]) =>
+    "| " + [...cells, ...Array<string>(width - cells.length).fill("")].join(" | ") + " |";
+  return [line(rows[0]), line(Array<string>(width).fill("---")), ...rows.slice(1).map(line)].join(
+    "\n",
+  );
+}
+
 /**
  * Serialize one top-level block's ProseMirror JSON to markdown — the
  * Claude-facing fix for Bug 2 (formatting never reached Claude) that also
@@ -129,6 +151,8 @@ function blockMarkdown(content: unknown): string {
       return mdList(node);
     case "paragraph":
       return mdInline(node.content);
+    case "table":
+      return mdTable(node);
     default:
       return mdInline(node.content) || blockText(content);
   }

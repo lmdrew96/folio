@@ -8,9 +8,11 @@ function blockText(content: unknown): string {
   const parts: string[] = [];
   const walk = (n: unknown) => {
     if (!n || typeof n !== "object") return;
-    const node = n as { text?: unknown; content?: unknown };
+    const node = n as { type?: unknown; text?: unknown; content?: unknown };
     if (typeof node.text === "string") parts.push(node.text);
     if (Array.isArray(node.content)) for (const c of node.content) walk(c);
+    // Table cells are separate words, not one run: "Name" + "Age" ≠ "NameAge".
+    if (node.type === "tableCell" || node.type === "tableHeader") parts.push(" ");
   };
   walk(content);
   return parts.join("").replace(/\s+/g, " ").trim();

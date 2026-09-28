@@ -277,6 +277,45 @@ body {
   border-top: 1px solid var(--folio-paper-edge);
 }
 
+/* ── Tables ───────────────────────────────────────────────────────────────────
+   Quiet ruled grid tinted from the ink colour; header cells get a faint tint
+   rather than a heavy fill. Fixed layout (columns aren't drag-resizable), and
+   the wrapper scrolls sideways so a wide table never widens the sheet. */
+.ProseMirror .tableWrapper {
+  overflow-x: auto;
+  margin: 1.25em 0;
+}
+.ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0;
+}
+.ProseMirror :is(td, th) {
+  position: relative;
+  min-width: 3em;
+  /* The paper-edge token (6% alpha) is too faint to read as a rule. */
+  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  padding: 0.35em 0.6em;
+  vertical-align: top;
+  text-align: left;
+}
+.ProseMirror th {
+  font-weight: 600;
+  background: color-mix(in srgb, currentColor 5%, transparent);
+}
+.ProseMirror :is(td, th) > :is(p, h1, h2, h3, h4, ul, ol) {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+.ProseMirror :is(td, th).selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--folio-attr-sibling) 18%, transparent);
+  pointer-events: none;
+}
+
 /* ── Print: put just the paper on the page ────────────────────────────────────
    Cmd/Ctrl+P prints the document sheet alone. We hide the desk chrome (header,
    the changes/Cleo sidebar + drawer, the editor toolbar, the floating save
@@ -361,6 +400,22 @@ body {
   /* Attribution ticks are an editing aid, not part of the document. */
   .ProseMirror .folio-attr::before {
     display: none !important;
+  }
+
+  /* Tables: plain grey rules on white, and no cell-selection tint. */
+  .ProseMirror :is(td, th) {
+    border-color: #ccc !important;
+  }
+  .ProseMirror th {
+    background: #f3f3f3 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .ProseMirror .selectedCell::after {
+    display: none !important;
+  }
+  .ProseMirror tr {
+    break-inside: avoid;
   }
 
   /* Tidy pagination — don't strand a heading at a page foot or split a quote. */

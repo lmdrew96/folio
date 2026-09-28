@@ -30,6 +30,20 @@ const linkHref = (marks: Mark[] | undefined): string | undefined => {
 const footnoteLabel = (node: Node): string =>
   typeof node.attrs?.n === "number" && node.attrs.n > 0 ? `${node.attrs.n}. ` : "";
 
+type TableCellNode = { node: Node; header: boolean; colspan: number; rowspan: number };
+
+/** A table's rows → cells, with header-ness and spans read off the JSON. */
+function tableRows(table: Node): TableCellNode[][] {
+  return (table.content ?? []).map((row) =>
+    (row.content ?? []).map((cell) => ({
+      node: cell,
+      header: cell.type === "tableHeader",
+      colspan: typeof cell.attrs?.colspan === "number" ? cell.attrs.colspan : 1,
+      rowspan: typeof cell.attrs?.rowspan === "number" ? cell.attrs.rowspan : 1,
+    })),
+  );
+}
+
 /** All descendant text, with code-block newlines preserved. */
 function textOf(node: Node): string {
   if (typeof node.text === "string") return node.text;
@@ -170,6 +184,9 @@ function mdBlocks(nodes: Node[] | undefined, depth = 0): string[] {
       case "horizontalRule":
         out.push("---");
         break;
+      case "table":
+        out.push(mdTable(node));
+        break;
       case "footnote":
         // "[1] …", not "1. …" — a leading "1. " would parse as an ordered list.
         out.push(
@@ -182,6 +199,28 @@ function mdBlocks(nodes: Node[] | undefined, depth = 0): string[] {
     }
   }
   return out;
+}
+
+/** GFM pipe table. GFM has no headerless tables and no cell spans, so the
+ *  first row always becomes the header and a spanned cell pads its row with
+ *  empty cells to keep the columns lined up. Multi-block cells join with <br>. */
+function mdTable(table: Node): string {
+  const rows = tableRows(table).map((cells) =>
+    cells.flatMap((c) => [
+      mdBlocks(c.node.content)
+        .join("<br>")
+        .replace(/\n/g, "<br>")
+        .replace(/\|/g, "\\|"),
+      ...Array<string>(c.colspan - 1).fill(""),
+    ]),
+  );
+  if (rows.length === 0) return "";
+  const width = Math.max(...rows.map((r) => r.length));
+  const line = (cells: string[]) =>
+    "| " + [...cells, ...Array<string>(width - cells.length).fill("")].join(" | ") + " |";
+  return [line(rows[0]), line(Array<string>(width).fill("---")), ...rows.slice(1).map(line)].join(
+    "\n",
+  );
 }
 
 const toMarkdown = (doc: Node) =>
@@ -303,6 +342,9 @@ function rtfBlocks(nodes: Node[] | undefined): string {
       case "horizontalRule":
         out += "\\pard\\brdrb\\brdrs\\brdrw10\\brsp20\\par\\pard\\par\n";
         break;
+      case "table":
+        out += rtfTable(node);
+        break;
       case "footnote":
         out +=
           "\\pard\\sa120\\fs20 " +
@@ -316,6 +358,32 @@ function rtfBlocks(nodes: Node[] | undefined): string {
     }
   }
   return out;
+}
+
+/** RTF table rows: each row declares its cell right-edges (\\cellx, in twips
+ *  across a 6.5in text block), then its cells. A colspan widens that cell's
+ *  edge; rowspan has no simple RTF equivalent, so a spanned cell just holds
+ *  its content in the first row. */
+function rtfTable(table: Node): string {
+  const rows = tableRows(table);
+  const cols = Math.max(1, ...rows.map((r) => r.reduce((n, c) => n + c.colspan, 0)));
+  const unit = Math.floor(9360 / cols);
+  let out = "";
+  for (const cells of rows) {
+    out += "\\trowd\\trgaph108";
+    let edge = 0;
+    for (const c of cells) {
+      edge += unit * c.colspan;
+      out += `\\clbrdrt\\brdrs\\clbrdrl\\brdrs\\clbrdrb\\brdrs\\clbrdrr\\brdrs\\cellx${edge}`;
+    }
+    out += "\n";
+    for (const c of cells) {
+      const text = (c.node.content ?? []).map((b) => rtfInline(b.content)).join("\\line ");
+      out += "\\pard\\intbl " + (c.header ? `\\b ${text}\\b0 ` : text) + "\\cell\n";
+    }
+    out += "\\row\n";
+  }
+  return out + "\\pard\\par\n";
 }
 
 const toRtf = (doc: Node) =>
@@ -374,6 +442,10 @@ const toHtml = (editor: Editor, title: string) =>
   mark[data-highlight="green"] { background: #c6c3ba; }
   mark[data-highlight="mint"] { background: #c6c6cb; }
   mark[data-highlight="lavender"] { background: #cdc1c8; }
+  table { border-collapse: collapse; width: 100%; margin: 1.25rem 0; }
+  th, td { border: 1px solid #ccc; padding: .35rem .6rem; vertical-align: top; text-align: left; }
+  th { background: #f3f3f3; }
+  th > p, td > p { margin: 0; }
   .folio-footnote { font-size: .85em; color: #444; }
   .folio-footnote.first { margin-top: 2rem; padding-top: .75rem; border-top: 1px solid #ccc; }
   a { color: inherit; }
@@ -397,6 +469,10 @@ async function toDocxBlob(doc: Node, title: string): Promise<Blob> {
     AlignmentType,
     BorderStyle,
     ExternalHyperlink,
+    Table,
+    TableRow,
+    TableCell,
+    WidthType,
   } = await import("docx");
 
   type Run = InstanceType<typeof TextRun> | InstanceType<typeof ExternalHyperlink>;
@@ -476,7 +552,42 @@ async function toDocxBlob(doc: Node, title: string): Promise<Blob> {
     return out;
   };
 
-  const blockToParas = (node: Node): Para[] => {
+  type Block = Para | InstanceType<typeof Table>;
+
+  // Header cells: bold every run, the way the app renders <th>.
+  const boldify = (n: Node): Node =>
+    n.type === "text"
+      ? { ...n, marks: [...(n.marks ?? []), { type: "bold" }] }
+      : n.content
+        ? { ...n, content: n.content.map(boldify) }
+        : n;
+
+  const tableToDocx = (table: Node): InstanceType<typeof Table> =>
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: tableRows(table).map(
+        (cells) =>
+          new TableRow({
+            tableHeader: cells.length > 0 && cells.every((c) => c.header),
+            children: cells.map(
+              (c) =>
+                new TableCell({
+                  columnSpan: c.colspan > 1 ? c.colspan : undefined,
+                  rowSpan: c.rowspan > 1 ? c.rowspan : undefined,
+                  // A cell must hold at least one paragraph, even when empty.
+                  children: (() => {
+                    const blocks = (c.node.content ?? [])
+                      .map((b) => (c.header ? boldify(b) : b))
+                      .flatMap(blockToParas);
+                    return blocks.length ? blocks : [new Paragraph({ children: [] })];
+                  })(),
+                }),
+            ),
+          }),
+      ),
+    });
+
+  const blockToParas = (node: Node): Block[] => {
     switch (node.type) {
       case "paragraph":
         return [
@@ -547,6 +658,8 @@ async function toDocxBlob(doc: Node, title: string): Promise<Blob> {
             },
           }),
         ];
+      case "table":
+        return [tableToDocx(node)];
       case "footnote":
         return [
           new Paragraph({
@@ -594,6 +707,19 @@ export async function exportDocument(
           textSerializers: {
             footnote: ({ node }) =>
               footnoteLabel(node.toJSON() as Node) + node.textContent,
+            // One line per row, cells separated by tabs — pastes cleanly into
+            // a spreadsheet, and doesn't blow each cell into its own paragraph.
+            table: ({ node }) => {
+              const lines: string[] = [];
+              node.forEach((row) => {
+                const cells: string[] = [];
+                row.forEach((cell) =>
+                  cells.push(cell.textBetween(0, cell.content.size, " ", " ").trim()),
+                );
+                lines.push(cells.join("\t"));
+              });
+              return lines.join("\n");
+            },
           },
         }),
         `${base}.txt`,

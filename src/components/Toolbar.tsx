@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
 import { useDropdownMenu } from "@/lib/useDropdownMenu";
 import { InputPopover } from "./InputPopover";
@@ -229,6 +229,12 @@ const LineSpacingIcon = (
     <path d="M9 6h11M9 12h11M9 18h11M4 4v16M4 4 2 6M4 4l2 2M4 20l-2-2M4 20l2-2" />
   </Icon>
 );
+const TableIcon = (
+  <Icon>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M3 10h18M3 15h18M9 4v16M15 4v16" />
+  </Icon>
+);
 const ExportIcon = (
   <Icon>
     <path d="M12 3v12M8 11l4 4 4-4M5 21h14" />
@@ -308,6 +314,207 @@ function SwatchPopover({
           >
             {clearLabel}
           </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Rows × columns the insert form will accept. No real maximum — rows and
+ *  columns can be added forever once the table exists — this only stops a
+ *  typo ("1000") from building a table big enough to hang the tab. */
+const TABLE_DIM_MAX = 100;
+
+/**
+ * One toolbar button for tables. Outside a table it opens a small insert form
+ * (rows, columns, header row); inside one it becomes a menu of row/column
+ * actions. The form is a dialog, the actions a menu — see InputPopover for why
+ * the roles differ.
+ */
+function TableMenu({ editor, inTable }: { editor: Editor; inTable: boolean }) {
+  const { open, setOpen, close, rootRef, triggerRef, onTriggerKeyDown, onPanelKeyDown } =
+    useDropdownMenu();
+  const [rows, setRows] = useState("3");
+  const [cols, setCols] = useState("3");
+  const [header, setHeader] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const rowsRef = useRef<HTMLInputElement>(null);
+
+  // The insert form has no menu items for useDropdownMenu to focus.
+  useEffect(() => {
+    if (open && !inTable) rowsRef.current?.select();
+  }, [open, inTable]);
+
+  // Run an editor command, then hand focus back to the writing — not to the
+  // trigger — since the next thing you do after adding a row is type in it.
+  const run = (fn: (c: ReturnType<Editor["chain"]>) => ReturnType<Editor["chain"]>) => {
+    fn(editor.chain().focus()).run();
+    setOpen(false);
+  };
+
+  const insert = () => {
+    const r = Number(rows);
+    const c = Number(cols);
+    if (!Number.isInteger(r) || !Number.isInteger(c) || r < 1 || c < 1) {
+      setError("Rows and columns must be whole numbers, 1 or more.");
+      return;
+    }
+    if (r * c < 2) {
+      setError("A table needs at least 2 cells — one row or one column is fine.");
+      return;
+    }
+    if (r > TABLE_DIM_MAX || c > TABLE_DIM_MAX) {
+      setError(`Start with ${TABLE_DIM_MAX} or fewer; you can add more once it's in.`);
+      return;
+    }
+    // A header row on a one-row table would leave no body at all — skip it.
+    run((ch) => ch.insertTable({ rows: r, cols: c, withHeaderRow: header && r > 1 }));
+  };
+
+  const actions: { label: string; can: boolean; go: () => void }[] = inTable
+    ? [
+        { label: "Add row above", can: editor.can().addRowBefore(), go: () => run((c) => c.addRowBefore()) },
+        { label: "Add row below", can: editor.can().addRowAfter(), go: () => run((c) => c.addRowAfter()) },
+        { label: "Delete row", can: editor.can().deleteRow(), go: () => run((c) => c.deleteRow()) },
+        { label: "Add column left", can: editor.can().addColumnBefore(), go: () => run((c) => c.addColumnBefore()) },
+        { label: "Add column right", can: editor.can().addColumnAfter(), go: () => run((c) => c.addColumnAfter()) },
+        { label: "Delete column", can: editor.can().deleteColumn(), go: () => run((c) => c.deleteColumn()) },
+        { label: "Toggle header row", can: editor.can().toggleHeaderRow(), go: () => run((c) => c.toggleHeaderRow()) },
+        { label: "Merge / split cells", can: editor.can().mergeOrSplit(), go: () => run((c) => c.mergeOrSplit()) },
+        { label: "Delete table", can: editor.can().deleteTable(), go: () => run((c) => c.deleteTable()) },
+      ]
+    : [];
+
+  // Inside the form, only Escape goes to the shared handler — its arrow and
+  // Home/End roving would steal a number field's own keys.
+  const onFormKeyDown = (e: KeyboardEvent<HTMLElement>) => {
+    if ((e.target as HTMLElement).tagName === "INPUT" && e.key !== "Escape") return;
+    onPanelKeyDown(e);
+  };
+
+  const fieldClass =
+    "w-16 rounded-md border border-foreground/15 bg-transparent px-2 py-1 text-sm text-foreground outline-none focus:ring-2 focus:ring-[var(--folio-attr-sibling)]";
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => {
+          setError(null);
+          setOpen((o) => !o);
+        }}
+        onKeyDown={onTriggerKeyDown}
+        aria-label={inTable ? "Table options" : "Insert table"}
+        aria-expanded={open}
+        aria-haspopup={inTable ? "menu" : "dialog"}
+        title={inTable ? "Table options" : "Insert table"}
+        className={`${BTN} ${open || inTable ? BTN_ACTIVE : ""}`}
+      >
+        {TableIcon}
+      </button>
+      {open && inTable && (
+        <div
+          role="menu"
+          onKeyDown={onPanelKeyDown}
+          className="absolute left-0 top-9 z-30 w-48 overflow-hidden rounded-lg border border-foreground/10 bg-[var(--folio-paper)] py-1 shadow-md"
+        >
+          {actions.map((a, i) => (
+            <button
+              key={a.label}
+              type="button"
+              role="menuitem"
+              disabled={!a.can}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={a.go}
+              className={`block w-full px-3 py-1.5 text-left text-sm text-foreground/80 transition hover:bg-black/5 hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent dark:hover:bg-white/10 ${
+                i === 3 || i === 6 ? "border-t border-foreground/10" : ""
+              }`}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {open && !inTable && (
+        <div
+          role="dialog"
+          aria-label="Insert table"
+          onKeyDown={onFormKeyDown}
+          className="absolute left-0 top-9 z-30 w-56 rounded-lg border border-foreground/10 bg-[var(--folio-paper)] p-2 shadow-md"
+        >
+          <form
+            noValidate
+            onSubmit={(e) => {
+              e.preventDefault();
+              insert();
+            }}
+            className="flex flex-col gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <label className="flex flex-col gap-0.5 text-xs text-foreground/50">
+                Rows
+                <input
+                  ref={rowsRef}
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  value={rows}
+                  onChange={(e) => {
+                    setRows(e.target.value);
+                    setError(null);
+                  }}
+                  className={fieldClass}
+                />
+              </label>
+              <span aria-hidden="true" className="mt-4 text-foreground/40">
+                ×
+              </span>
+              <label className="flex flex-col gap-0.5 text-xs text-foreground/50">
+                Columns
+                <input
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  value={cols}
+                  onChange={(e) => {
+                    setCols(e.target.value);
+                    setError(null);
+                  }}
+                  className={fieldClass}
+                />
+              </label>
+            </div>
+            <label className="flex items-center gap-2 text-xs text-foreground/70">
+              <input
+                type="checkbox"
+                checked={header}
+                onChange={(e) => setHeader(e.target.checked)}
+              />
+              Header row
+            </label>
+            {error && (
+              <p role="alert" className="text-xs text-foreground/80">
+                {error}
+              </p>
+            )}
+            <div className="flex justify-end gap-1">
+              <button
+                type="button"
+                onClick={close}
+                className="rounded px-2 py-1 text-xs text-foreground/60 transition hover:text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="rounded-md bg-black/5 px-2.5 py-1 text-xs font-medium text-foreground transition hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
+              >
+                Insert
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>
@@ -667,6 +874,7 @@ export function Toolbar({
       orderedList: e.isActive("orderedList"),
       blockquote: e.isActive("blockquote"),
       codeBlock: e.isActive("codeBlock"),
+      table: e.isActive("table"),
       alignCenter: e.isActive({ textAlign: "center" }),
       alignRight: e.isActive({ textAlign: "right" }),
       highlight: e.isActive("highlight"),
@@ -844,6 +1052,7 @@ export function Toolbar({
       >
         <span className="font-mono text-xs">{"{}"}</span>
       </ToolButton>
+      <TableMenu editor={editor} inTable={s.table} />
 
       <Divider />
 
