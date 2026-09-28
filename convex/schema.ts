@@ -28,7 +28,26 @@ export default defineSchema({
     // Optional target word count — shows progress instead of a raw tally in
     // the editor's word-count toggle. Unset = no goal.
     wordGoal: v.optional(v.number()),
-  }).index("by_owner", ["ownerId"]),
+    // The owner's folder for this document (convex/folders.ts). Unset =
+    // unfiled. Filing is the owner's private organization — a collaborator
+    // never sees it, and only the owner can change it.
+    folderId: v.optional(v.id("folders")),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_folder", ["folderId"]),
+
+  // The owner's filing system for their documents. Folders nest via parentId
+  // (unset = top level) with no depth limit. `color` is a key from the curated
+  // set in src/lib/folders.ts, not a raw hex, so the theme can render it.
+  folders: defineTable({
+    ownerId: v.string(), // identity.subject, same as documents.ownerId
+    name: v.string(),
+    color: v.optional(v.string()),
+    parentId: v.optional(v.id("folders")),
+    createdAt: v.number(),
+  })
+    .index("by_owner", ["ownerId"])
+    .index("by_parent", ["parentId"]),
 
   blocks: defineTable({
     documentId: v.id("documents"),

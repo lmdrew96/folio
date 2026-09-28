@@ -4,9 +4,17 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
 
-/** Creates a fresh document and drops the writer straight into it. */
-export function NewDocButton({ className }: { className?: string }) {
+/** Creates a fresh document and drops the writer straight into it — filed
+ *  into `folderId` when made from inside a folder. */
+export function NewDocButton({
+  className,
+  folderId,
+}: {
+  className?: string;
+  folderId?: Id<"folders">;
+}) {
   const create = useMutation(api.documents.create);
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -16,7 +24,7 @@ export function NewDocButton({ className }: { className?: string }) {
     setLoading(true);
     setError(null);
     try {
-      const id = await create();
+      const id = await create({ folderId });
       router.push(`/doc/${id}`);
     } catch (e) {
       setLoading(false);

@@ -25,6 +25,14 @@
   --folio-attr-nae: #cf4a4d; /* valiant poppy — any human writer (Nae or a collaborator) */
   --folio-attr-sibling: #4e4c5e; /* kachi indigo — Claude siblings (Cleo, Coru, …) */
 
+  /* Folder colors — the six Folio palette hexes (src/lib/folders.ts keys). */
+  --folio-folder-poppy: #cf4a4d;
+  --folio-folder-mecca: #dc7668;
+  --folio-folder-usugaki: #ffa67a;
+  --folio-folder-herbs: #817965;
+  --folio-folder-indigo: #4e4c5e;
+  --folio-folder-violet: #572f48;
+
   /* The prose column's font — defaults to the brand serif, overridden inline
      per-document (see DocEditor.tsx) from the curated list in src/lib/fonts.ts. */
   --folio-prose-font: var(--font-serif);
@@ -55,6 +63,15 @@
      too deep to read as a thin tick mark once the desk itself goes dark. */
   --folio-attr-nae: #e9aeaf;
   --folio-attr-sibling: #afaeb7;
+
+  /* Folder colors, lifted for the dark desk the same way — indigo and violet
+     would otherwise vanish into it. */
+  --folio-folder-poppy: #e9aeaf;
+  --folio-folder-mecca: #efb3a9;
+  --folio-folder-usugaki: #ffc9a8;
+  --folio-folder-herbs: #bdb7a6;
+  --folio-folder-indigo: #afaeb7;
+  --folio-folder-violet: #c9a3bc;
 }
 
 body {

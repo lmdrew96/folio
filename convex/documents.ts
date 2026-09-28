@@ -2,6 +2,7 @@ import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { resolveAccess } from "./access";
 import { rememberFriend } from "./friends";
+import { ownFolder } from "./folders";
 import type { Doc } from "./_generated/dataModel";
 
 // How long a soft-deleted document stays recoverable before the daily purge
@@ -48,6 +49,8 @@ export const list = query({
         createdAt: r.doc.createdAt,
         updatedAt: r.doc.updatedAt,
         role: r.role,
+        // The owner's private filing — never exposed on a shared row.
+        folderId: r.role === "owner" ? r.doc.folderId : undefined,
       }));
   },
 });
@@ -64,19 +67,41 @@ export const get = query({
   },
 });
 
-/** Create a fresh untitled document and return its id. */
+/** Create a fresh untitled document and return its id — filed straight into
+ *  `folderId` when it's created from inside a folder. */
 export const create = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: { folderId: v.optional(v.id("folders")) },
+  handler: async (ctx, { folderId }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    if (folderId) await ownFolder(ctx, folderId, identity.subject);
     const now = Date.now();
     return await ctx.db.insert("documents", {
       ownerId: identity.subject,
       title: "Untitled",
       createdAt: now,
       updatedAt: now,
+      folderId,
     });
+  },
+});
+
+/** File a document into one of the owner's folders (null = unfiled) —
+ *  owner-only. Deliberately leaves updatedAt alone: filing isn't an edit, and
+ *  it shouldn't jump the document to the top of "last edited". */
+export const moveToFolder = mutation({
+  args: {
+    documentId: v.id("documents"),
+    folderId: v.union(v.id("folders"), v.null()),
+  },
+  handler: async (ctx, { documentId, folderId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const access = await resolveAccess(ctx, documentId, identity);
+    if (!access || access.role !== "owner") throw new Error("Not found");
+    if (folderId) await ownFolder(ctx, folderId, identity.subject);
+
+    await ctx.db.patch(documentId, { folderId: folderId ?? undefined });
   },
 });
 
