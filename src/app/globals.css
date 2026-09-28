@@ -298,8 +298,16 @@ body {
     height: auto !important;
   }
 
-  /* Desk chrome — everything that isn't the sheet. (.fixed covers the save pill
-     and the mobile drawer; the editor toolbar carries print:hidden.) */
+  /* Desk chrome — everything that isn't the sheet. An allowlist, not a
+     blocklist: keep the sheet, its contents, and the chain of wrappers that
+     leads to it; hide every other element. The old blocklist (header, aside,
+     .fixed) missed the wide-screen changes/Cleo dock — a plain div — so PDF
+     export printed Cleo's panel beside the document. Anything new added to
+     the desk is now hidden by default instead of leaking onto the page. */
+  body *:not(:has(.folio-paper)):not(.folio-paper, .folio-paper *) {
+    display: none !important;
+  }
+  /* Fallback for a browser without :has() — the old named chrome. */
   header,
   aside,
   .fixed {

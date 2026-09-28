@@ -88,7 +88,7 @@ export function ResizableDock({ documentId }: { documentId: Id<"documents"> }) {
 
   return (
     <div
-      className={`relative hidden shrink-0 lg:flex ${dragging ? "select-none" : ""}`}
+      className={`relative hidden shrink-0 lg:flex print:hidden ${dragging ? "select-none" : ""}`}
       style={{ width }}
     >
       {/* Width handle — sits on the left edge, doubles as the panel border. */}

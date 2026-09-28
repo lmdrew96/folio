@@ -24,6 +24,12 @@ const linkHref = (marks: Mark[] | undefined): string | undefined => {
   return typeof href === "string" ? href : undefined;
 };
 
+/** A footnote's visible number. In the editor it only exists as CSS
+ *  (`content: attr(data-n)`), so every format has to write it out itself or
+ *  the notes export as unnumbered paragraphs. */
+const footnoteLabel = (node: Node): string =>
+  typeof node.attrs?.n === "number" && node.attrs.n > 0 ? `${node.attrs.n}. ` : "";
+
 /** All descendant text, with code-block newlines preserved. */
 function textOf(node: Node): string {
   if (typeof node.text === "string") return node.text;
@@ -164,6 +170,13 @@ function mdBlocks(nodes: Node[] | undefined, depth = 0): string[] {
       case "horizontalRule":
         out.push("---");
         break;
+      case "footnote":
+        // "[1] …", not "1. …" — a leading "1. " would parse as an ordered list.
+        out.push(
+          (footnoteLabel(node) ? `[${node.attrs?.n}] ` : "") +
+            mdInline(node.content),
+        );
+        break;
       default:
         if (node.content) out.push(mdInline(node.content));
     }
@@ -290,6 +303,13 @@ function rtfBlocks(nodes: Node[] | undefined): string {
       case "horizontalRule":
         out += "\\pard\\brdrb\\brdrs\\brdrw10\\brsp20\\par\\pard\\par\n";
         break;
+      case "footnote":
+        out +=
+          "\\pard\\sa120\\fs20 " +
+          rtfEscape(footnoteLabel(node)) +
+          rtfInline(node.content) +
+          "\\fs24\\par\n";
+        break;
       default:
         if (node.content)
           out += "\\pard\\sa180 " + rtfInline(node.content) + "\\par\n";
@@ -312,6 +332,30 @@ const htmlEscape = (s: string) =>
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c,
   );
 
+/** The editor's HTML, minus editor-only plumbing: block ids (UniqueID's
+ *  data-id) and footnote cross-reference ids are internal bookkeeping, and
+ *  footnote numbers exist only as CSS in the app — write them in as text so
+ *  the references and notes aren't blank in the exported file. */
+function cleanEditorHtml(html: string): string {
+  const doc = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
+  doc.querySelectorAll("sup.folio-footnote-ref").forEach((el) => {
+    el.textContent = el.getAttribute("data-n") ?? "";
+  });
+  doc.querySelectorAll("p.folio-footnote").forEach((el, i) => {
+    if (i === 0) el.classList.add("first");
+    const n = el.getAttribute("data-n");
+    if (n && n !== "0") el.prepend(`${n}. `);
+  });
+  doc
+    .querySelectorAll("[data-id], [data-ref-id], [data-footnote-id], [data-n]")
+    .forEach((el) => {
+      for (const attr of ["data-id", "data-ref-id", "data-footnote-id", "data-n"]) {
+        el.removeAttribute(attr);
+      }
+    });
+  return doc.body.innerHTML;
+}
+
 const toHtml = (editor: Editor, title: string) =>
   `<!doctype html>
 <html lang="en">
@@ -326,12 +370,17 @@ const toHtml = (editor: Editor, title: string) =>
   blockquote { border-left: 3px solid #ccc; margin-left: 0; padding-left: 1rem; color: #444; }
   pre { background: #f5f5f5; padding: .75rem 1rem; border-radius: 6px; overflow: auto; }
   code { font-family: Consolas, ui-monospace, monospace; }
-  mark { padding: 0 .15em; border-radius: 2px; }
+  mark { padding: 0 .15em; border-radius: 2px; background: #ffd7c3; color: #20161e; }
+  mark[data-highlight="green"] { background: #c6c3ba; }
+  mark[data-highlight="mint"] { background: #c6c6cb; }
+  mark[data-highlight="lavender"] { background: #cdc1c8; }
+  .folio-footnote { font-size: .85em; color: #444; }
+  .folio-footnote.first { margin-top: 2rem; padding-top: .75rem; border-top: 1px solid #ccc; }
   a { color: inherit; }
 </style>
 </head>
 <body>
-${editor.getHTML()}
+${cleanEditorHtml(editor.getHTML())}
 </body>
 </html>
 `;
@@ -498,6 +547,15 @@ async function toDocxBlob(doc: Node, title: string): Promise<Blob> {
             },
           }),
         ];
+      case "footnote":
+        return [
+          new Paragraph({
+            children: [
+              new TextRun({ text: footnoteLabel(node), size: 20 }),
+              ...runs(node.content),
+            ],
+          }),
+        ];
       default:
         return node.content ? [new Paragraph({ children: runs(node.content) })] : [];
     }
@@ -531,7 +589,13 @@ export async function exportDocument(
   switch (format) {
     case "txt":
       download(
-        editor.getText({ blockSeparator: "\n\n" }),
+        editor.getText({
+          blockSeparator: "\n\n",
+          textSerializers: {
+            footnote: ({ node }) =>
+              footnoteLabel(node.toJSON() as Node) + node.textContent,
+          },
+        }),
         `${base}.txt`,
         "text/plain;charset=utf-8",
       );
