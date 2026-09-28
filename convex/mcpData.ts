@@ -1,6 +1,7 @@
 import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
+import { decodeContent } from "./blockContent";
 import { resolveAccessForUser } from "./access";
 
 /**
@@ -231,7 +232,7 @@ export const readDocumentForUser = internalQuery({
         type: b.type,
         // Cleo's blocks say "claude"; a human's carry their display name.
         author: b.author === "claude" ? "claude" : (b.authorName ?? "unknown"),
-        text: blockMarkdown(b.content),
+        text: blockMarkdown(decodeContent(b.content)),
       }));
 
     return { id: doc._id, title: doc.title, updatedAt: doc.updatedAt, blocks };
@@ -297,7 +298,7 @@ export const diffSinceForUser = internalQuery({
       const base = {
         blockId: b.blockId,
         type: b.type,
-        preview: textPreview(b.content),
+        preview: textPreview(decodeContent(b.content)),
         author: b.author === "claude" ? "claude" : (b.authorName ?? "unknown"),
       };
       if (b.deletedAt !== undefined) {

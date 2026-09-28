@@ -1,13 +1,15 @@
 import { internalMutation, mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { resolveAccess } from "./access";
+import { decodeContent, encodeContent, MAX_BLOCK_CONTENT_BYTES } from "./blockContent";
 
 // Floor on how long a soft-deleted block's tombstone is kept, regardless of
 // watermark state — see purgeOldTombstones below.
 const TOMBSTONE_RETENTION_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 
 /** All blocks for a document the caller owns or has editor access to,
- *  ordered. Reactive. */
+ *  ordered. Reactive. `content` is always the JSON string (see blockContent.ts);
+ *  previousContent is diff-panel-only and not sent. */
 export const list = query({
   args: { documentId: v.id("documents") },
   handler: async (ctx, { documentId }) => {
@@ -22,7 +24,12 @@ export const list = query({
       .collect();
     return blocks
       .filter((b) => b.deletedAt === undefined) // hide soft-deleted (Patch 4)
-      .sort((a, b) => a.order - b.order);
+      .sort((a, b) => a.order - b.order)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      .map(({ previousContent: _previous, ...b }) => ({
+        ...b,
+        content: encodeContent(b.content),
+      }));
   },
 });
 
@@ -149,6 +156,8 @@ export const reconcile = mutation({
   args: {
     documentId: v.id("documents"),
     // Desired top-level blocks, in document order (array index = position).
+    // `content` is the node's JSON string (blockContent.ts). Still v.any() so a
+    // tab running the pre-string frontend keeps saving shallow blocks.
     blocks: v.array(
       v.object({
         blockId: v.string(),
@@ -185,6 +194,12 @@ export const reconcile = mutation({
       const b = blocks[i];
       const order = orders[i];
       const existing = existingByBlockId.get(b.blockId);
+      const encoded = encodeContent(b.content);
+      if (new TextEncoder().encode(encoded).length > MAX_BLOCK_CONTENT_BYTES) {
+        // ConvexError, not Error: prod redacts plain error messages to a bare
+        // "Server Error", and the client needs to know retrying can't help.
+        throw new ConvexError({ code: "BLOCK_TOO_LARGE", blockId: b.blockId });
+      }
 
       if (existing === undefined) {
         await ctx.db.insert("blocks", {
@@ -192,7 +207,7 @@ export const reconcile = mutation({
           blockId: b.blockId,
           order,
           type: b.type,
-          content: b.content,
+          content: encoded,
           author: actor,
           authorName: actorName,
           createdAt: now,
@@ -205,7 +220,7 @@ export const reconcile = mutation({
       // A soft-deleted block whose id is back (e.g. undo) → revive it.
       if (existing.deletedAt !== undefined) {
         await ctx.db.patch(existing._id, {
-          content: b.content,
+          content: encoded,
           type: b.type,
           order,
           author: actor,
@@ -217,8 +232,10 @@ export const reconcile = mutation({
         continue;
       }
 
+      const desiredContent = decodeContent(b.content);
+      const existingContent = decodeContent(existing.content);
       const typeChanged = existing.type !== b.type;
-      const contentChanged = typeChanged || !deepEqual(existing.content, b.content);
+      const contentChanged = typeChanged || !deepEqual(existingContent, desiredContent);
       const orderChanged = existing.order !== order;
       if (!contentChanged && !orderChanged) continue;
 
@@ -226,14 +243,15 @@ export const reconcile = mutation({
       // content so rendering stays correct, but don't count as an "edit" for
       // diff/attribution purposes — only a meaning change does.
       const meaningfulChanged =
-        typeChanged || !deepEqual(stripStyle(existing.content), stripStyle(b.content));
+        typeChanged || !deepEqual(stripStyle(existingContent), stripStyle(desiredContent));
 
       const patch: Record<string, unknown> = {};
       if (typeChanged) patch.type = b.type;
       if (contentChanged) {
-        patch.content = b.content;
+        patch.content = encoded;
         if (meaningfulChanged) {
-          patch.previousContent = existing.content; // for the diff panel's word-level view
+          // for the diff panel's word-level view
+          patch.previousContent = encodeContent(existing.content);
           patch.author = actor; // whoever last touched it owns it now
           patch.authorName = actorName;
           patch.lastEditedAt = now;

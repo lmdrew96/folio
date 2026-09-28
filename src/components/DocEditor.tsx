@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useEditor,
   EditorContent,
@@ -28,6 +28,7 @@ import { FootnoteReference, Footnote, FootnoteSync } from "./extensions/footnote
 import { fontCssValue } from "@/lib/fonts";
 import { registerPendingSaveFlush } from "@/lib/pendingSave";
 import { useMutation, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import {
@@ -75,6 +76,7 @@ type SaveStatus = "idle" | "saving" | "saved" | "retrying" | "error";
  * so the default is "retryable."
  */
 function isTerminalSaveError(e: unknown): boolean {
+  if (e instanceof ConvexError && e.data?.code === "BLOCK_TOO_LARGE") return true;
   const message = e instanceof Error ? e.message : String(e);
   return message.includes("Not found");
 }
@@ -320,7 +322,18 @@ function mergeRemoteChanges(
 }
 
 export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
-  const blocks = useQuery(api.blocks.list, { documentId });
+  // Block content travels as a JSON string (convex/blockContent.ts — Convex's
+  // 16-level nesting cap vs. deeply indented lists); parse once per update.
+  const storedBlocks = useQuery(api.blocks.list, { documentId });
+  const blocks = useMemo(
+    () =>
+      storedBlocks?.map((b) => ({
+        ...b,
+        // Tolerates a backend that predates the string form, mid-deploy.
+        content: (typeof b.content === "string" ? JSON.parse(b.content) : b.content) as JSONContent,
+      })),
+    [storedBlocks],
+  );
   const doc = useQuery(api.documents.get, { documentId });
   const reconcile = useMutation(api.blocks.reconcile);
   const setFontFamily = useMutation(api.documents.setFontFamily);
@@ -463,7 +476,10 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
     }
 
     try {
-      await reconcile({ documentId, blocks: desired });
+      await reconcile({
+        documentId,
+        blocks: desired.map((b) => ({ ...b, content: JSON.stringify(b.content) })),
+      });
       lastSyncedHashRef.current = hash;
       clearTimer(savingShowRef);
       cancelRetry();

@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { diffWords } from "diff";
+import { decodeContent } from "./blockContent";
 import { resolveAccess } from "./access";
 
 /** Full plain text of a ProseMirror block's JSON. */
@@ -102,7 +103,7 @@ export const diffSince = query({
       const base = {
         blockId: b.blockId,
         type: b.type,
-        preview: textPreview(b.content),
+        preview: textPreview(decodeContent(b.content)),
         author: b.author,
         authorName: b.authorName,
       };
@@ -114,7 +115,10 @@ export const diffSince = query({
         edited.push({
           ...base,
           at: b.lastEditedAt,
-          diff: b.previousContent !== undefined ? editDiff(b.previousContent, b.content) : undefined,
+          diff:
+            b.previousContent !== undefined
+              ? editDiff(decodeContent(b.previousContent), decodeContent(b.content))
+              : undefined,
         });
       }
     }
@@ -213,9 +217,9 @@ export const reactionPayload = query({
         blockId: r.blockId,
         type: r.type,
         author: r.authorName ?? r.author ?? "Nae",
-        text: blockText(r.content),
-        prevText: i > 0 ? blockText(live[i - 1].content) : null,
-        nextText: i < live.length - 1 ? blockText(live[i + 1].content) : null,
+        text: blockText(decodeContent(r.content)),
+        prevText: i > 0 ? blockText(decodeContent(live[i - 1].content)) : null,
+        nextText: i < live.length - 1 ? blockText(decodeContent(live[i + 1].content)) : null,
       };
     };
 
@@ -251,7 +255,7 @@ export const reactionPayload = query({
             blockId: r.blockId,
             type: r.type,
             author: r.authorName ?? r.author ?? "Nae",
-            text: blockText(r.content),
+            text: blockText(decodeContent(r.content)),
           });
         }
       } else if (r.createdAt > since) {
