@@ -15,9 +15,19 @@ export async function resolveAccess(
   documentId: Id<"documents">,
   identity: UserIdentity,
 ): Promise<Access | null> {
+  return resolveAccessForUser(ctx, documentId, identity.subject);
+}
+
+/** The same check keyed on a bare user id — for the MCP door, where the
+ *  caller is authenticated by an API key instead of a Clerk session. */
+export async function resolveAccessForUser(
+  ctx: QueryCtx | MutationCtx,
+  documentId: Id<"documents">,
+  userId: string,
+): Promise<Access | null> {
   const doc = await ctx.db.get(documentId);
   if (!doc || doc.deletedAt !== undefined) return null;
-  if (doc.ownerId === identity.subject) return { doc, role: "owner" };
+  if (doc.ownerId === userId) return { doc, role: "owner" };
 
   // collect(), not unique() — the same person can end up with two share rows
   // if they were invited at two different emails before signing up (invite
@@ -26,7 +36,7 @@ export async function resolveAccess(
   const shares = await ctx.db
     .query("documentShares")
     .withIndex("by_document_and_user", (q) =>
-      q.eq("documentId", documentId).eq("userId", identity.subject),
+      q.eq("documentId", documentId).eq("userId", userId),
     )
     .collect();
   if (shares.some((s) => s.acceptedAt !== undefined)) return { doc, role: "editor" };

@@ -1,13 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
 import { SignInButton, UserButton } from "@clerk/nextjs";
 import { DocList } from "./DocList";
 import { ThemeToggle } from "./ThemeToggle";
 import { ChangeLog } from "./ChangeLog";
+import { ConnectAIDialog } from "./ConnectAIDialog";
 
 /** The desk: signed-out gets the pitch, signed-in gets their documents. */
 export function HomeScreen() {
+  const [connectOpen, setConnectOpen] = useState(false);
   return (
     <div className="flex min-h-dvh flex-col bg-[var(--folio-backdrop)]">
       <header className="flex items-center justify-between px-6 py-3">
@@ -16,6 +19,20 @@ export function HomeScreen() {
         </span>
         <div className="flex items-center gap-1">
           <ChangeLog />
+          <Authenticated>
+            <button
+              type="button"
+              onClick={() => setConnectOpen(true)}
+              title="Connect an AI"
+              aria-label="Connect an AI"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-foreground/60 transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+            >
+              {/* A plug: this is where outside assistants connect in. */}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z" />
+              </svg>
+            </button>
+          </Authenticated>
           <ThemeToggle />
           <Authenticated>
             <UserButton />
@@ -50,6 +67,7 @@ export function HomeScreen() {
         <main className="flex flex-1 flex-col">
           <DocList />
         </main>
+        {connectOpen && <ConnectAIDialog onClose={() => setConnectOpen(false)} />}
       </Authenticated>
     </div>
   );

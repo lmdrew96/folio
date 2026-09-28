@@ -9,6 +9,7 @@
  */
 
 import type * as access from "../access.js";
+import type * as apiKeys from "../apiKeys.js";
 import type * as blocks from "../blocks.js";
 import type * as crons from "../crons.js";
 import type * as diff from "../diff.js";
@@ -31,6 +32,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   access: typeof access;
+  apiKeys: typeof apiKeys;
   blocks: typeof blocks;
   crons: typeof crons;
   diff: typeof diff;

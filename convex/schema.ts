@@ -77,7 +77,9 @@ export default defineSchema({
     documentId: v.id("documents"),
     userId: v.string(), // who looked (nae | claude)
     lastVisitedAt: v.number(),
-  }).index("by_doc_user", ["documentId", "userId"]),
+  })
+    .index("by_doc_user", ["documentId", "userId"])
+    .index("by_user", ["userId"]),
 
   // v0 continuity layer — the in-app Claude's own memory of this document.
   // Frozen: superseded by `messages` below, which unifies this one-shot
@@ -155,6 +157,22 @@ export default defineSchema({
   // populated automatically whenever you invite someone via
   // documents.invite, and grants no access by itself, so it never needs the
   // other person's consent.
+  // Per-user API keys for the MCP door (convex/apiKeys.ts, convex/http.ts).
+  // Only a SHA-256 of the key is stored — the plaintext is shown once at
+  // creation and never again. `label` names the AI using the key ("Coru",
+  // "ChatGPT"); its since-last-look watermark lives in `visits` under
+  // userId "mcp:<keyId>".
+  apiKeys: defineTable({
+    userId: v.string(), // identity.subject of the key's owner
+    keyHash: v.string(),
+    label: v.string(),
+    last4: v.string(), // for telling keys apart in the list
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_hash", ["keyHash"]),
+
   friends: defineTable({
     ownerId: v.string(), // identity.subject of whoever saved this contact
     friendEmail: v.string(), // lowercased
