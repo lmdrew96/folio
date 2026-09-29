@@ -1,52 +1,52 @@
 [
   {
-    "hash": "df8acd4",
-    "date": "2026-08-23",
-    "subject": "v0.36.0: one-time explainer for freshly-invited collaborators"
+    "hash": "2572e69",
+    "date": "2026-09-28",
+    "subject": "v0.51.1: store block content as a JSON string so nested lists save"
   },
   {
-    "hash": "7d469aa",
-    "date": "2026-08-23",
-    "subject": "v0.35.0: shared accessible-menu primitive for the toolbar's dropdowns"
+    "hash": "c1c802d",
+    "date": "2026-09-28",
+    "subject": "v0.51.0: per-user MCP keys — connect any AI to your own documents"
   },
   {
-    "hash": "5eb3f0b",
-    "date": "2026-08-23",
-    "subject": "v0.34.0: word-count goals"
+    "hash": "a4e8769",
+    "date": "2026-09-28",
+    "subject": "v0.50.1: one-time remap from the Clerk dev instance to production"
   },
   {
-    "hash": "9e1a057",
-    "date": "2026-08-23",
-    "subject": "v0.33.0: footnotes"
+    "hash": "de0fb49",
+    "date": "2026-09-27",
+    "subject": "v0.50.0: folders — file documents, nest them, color them"
   },
   {
-    "hash": "690d797",
-    "date": "2026-08-23",
-    "subject": "v0.32.2: show friend suggestions on focus, not just once typing starts"
+    "hash": "a27044b",
+    "date": "2026-09-27",
+    "subject": "v0.49.0: sort and filter the desk"
   },
   {
-    "hash": "8524fd8",
-    "date": "2026-08-23",
-    "subject": "v0.32.1: auto-reload the offline page once the network returns"
+    "hash": "de363a3",
+    "date": "2026-09-27",
+    "subject": "v0.48.0: insert and edit tables"
   },
   {
-    "hash": "3815153",
-    "date": "2026-08-23",
-    "subject": "v0.32.0: find & replace (Cmd/Ctrl+F)"
+    "hash": "7589667",
+    "date": "2026-09-27",
+    "subject": "v0.47.0: link and word goal ask in-page, not with window.prompt"
   },
   {
-    "hash": "5792d7e",
-    "date": "2026-08-23",
-    "subject": "v0.31.0: outline panel for quick-jump navigation on long documents"
+    "hash": "9a61d0a",
+    "date": "2026-09-27",
+    "subject": "v0.46.1: export only the document — no Cleo panel, no editor plumbing"
   },
   {
-    "hash": "2cfb5e3",
-    "date": "2026-08-23",
-    "subject": "v0.30.4: close ShareDialog and ChangeLog on Escape"
+    "hash": "db53692",
+    "date": "2026-09-20",
+    "subject": "v0.46.0: name the writing surface, make the toolbar a real toolbar"
   },
   {
-    "hash": "cc6bcdb",
-    "date": "2026-08-23",
-    "subject": "v0.30.3: tap-to-reveal names on PresenceBadge for touch devices"
+    "hash": "f119393",
+    "date": "2026-09-20",
+    "subject": "v0.45.1: anchor the find bar to the editor column"
   }
 ]
