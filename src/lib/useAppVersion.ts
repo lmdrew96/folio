@@ -73,10 +73,15 @@ export function useAppVersion() {
     // for days catches the update the instant it's refocused, rather than
     // waiting out a poll interval that wasn't running while it was hidden.
     document.addEventListener("visibilitychange", check);
+    // Switching between app windows (the installed PWA especially) never
+    // changes visibilityState — the window stays "visible" behind another one
+    // — so window focus is the only signal that the reader came back.
+    window.addEventListener("focus", check);
     return () => {
       cancelled = true;
       clearInterval(id);
       document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
     };
   }, [updateReady]);
 
