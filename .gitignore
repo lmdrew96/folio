@@ -46,3 +46,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# SuperDoc collaboration worker — built by scripts/build-superdoc-worker.mjs
+/public/superdoc/

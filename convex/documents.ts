@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { resolveAccess } from "./access";
 import { rememberFriend } from "./friends";
 import { ownFolder } from "./folders";
+import { deleteRoomData } from "./ydoc";
 import type { Doc } from "./_generated/dataModel";
 
 // How long a soft-deleted document stays recoverable before the daily purge
@@ -278,7 +279,8 @@ export const revokeShare = mutation({
 
 /**
  * Hard-delete documents whose soft-delete tombstone is older than the
- * retention window, cascading to their blocks/visits/reactions/messages/shares.
+ * retention window, cascading to their blocks/visits/reactions/messages/shares
+ * and SuperDoc room data.
  * Called only by the daily cron in convex/crons.ts — never exposed to the
  * client, so a restore is impossible to race once this runs.
  */
@@ -323,6 +325,7 @@ export const purgeDeleted = internalMutation({
         ...reactions.map((r) => ctx.db.delete(r._id)),
         ...messages.map((m) => ctx.db.delete(m._id)),
         ...shares.map((s) => ctx.db.delete(s._id)),
+        deleteRoomData(ctx, doc._id), // SuperDoc Y.Doc log + snapshot blobs
         ctx.db.delete(doc._id),
       ]);
     }

@@ -24,6 +24,7 @@ import type * as migrations from "../migrations.js";
 import type * as presence from "../presence.js";
 import type * as reactions from "../reactions.js";
 import type * as users from "../users.js";
+import type * as ydoc from "../ydoc.js";
 
 import type {
   ApiFromModules,
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   presence: typeof presence;
   reactions: typeof reactions;
   users: typeof users;
+  ydoc: typeof ydoc;
 }>;
 
 /**

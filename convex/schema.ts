@@ -32,6 +32,12 @@ export default defineSchema({
     // unfiled. Filing is the owner's private organization — a collaborator
     // never sees it, and only the owner can change it.
     folderId: v.optional(v.id("folders")),
+    // Which editor owns this document's content. Unset = the TipTap editor,
+    // with `blocks` as the source of truth. "superdoc" = the SuperDoc Y.Doc in
+    // `ydocUpdates` is the source of truth and `blocks` is a derived copy —
+    // such a document must never be opened by the TipTap editor again, or it
+    // would write blocks the Y.Doc doesn't know about.
+    editor: v.optional(v.literal("superdoc")),
   })
     .index("by_owner", ["ownerId"])
     .index("by_folder", ["folderId"]),
@@ -172,6 +178,28 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_hash", ["keyHash"]),
+
+  // SuperDoc persistence (convex/ydoc.ts). One row per Yjs update pushed by an
+  // editor's collaboration worker, plus compacted snapshots that replace a run
+  // of them. Exactly one of `update` (inline bytes) or `storageId` (a snapshot
+  // too big to hold inline) is set. Rows are append-only apart from
+  // compaction, which deletes the rows it merged.
+  ydocUpdates: defineTable({
+    documentId: v.id("documents"),
+    update: v.optional(v.bytes()),
+    storageId: v.optional(v.id("_storage")),
+    author: v.string(), // identity.subject, or "compaction" for a snapshot
+  }).index("by_document", ["documentId"]),
+
+  // One row per document that has a SuperDoc room. Decides create-vs-join
+  // atomically (ydoc.claimRoom) and tracks when to compact.
+  ydocRooms: defineTable({
+    documentId: v.id("documents"),
+    claimedBy: v.string(), // identity.subject of the tab that created the room
+    claimedAt: v.number(),
+    pendingUpdates: v.number(), // update rows since the last compaction
+    compactionScheduled: v.boolean(),
+  }).index("by_document", ["documentId"]),
 
   friends: defineTable({
     ownerId: v.string(), // identity.subject of whoever saved this contact
