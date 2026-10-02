@@ -383,12 +383,14 @@ html:root {
   color: var(--folio-ink-on-highlight) !important;
 }
 
-/* Paginated layout: SuperDoc left-aligns the page in its column. Centre it,
-   with breathing room under the toolbar. Auto margins (not justify-content)
-   fall back to 0 when the column is narrower than the page, so the page
-   scrolls instead of being pushed off the left edge. */
+/* Paginated layout: the layers box must span the whole column. SuperDoc
+   centres the page inside it, and its fit-to-width zoom scales that box from
+   the top-left corner — left at the page's own width, a scaled-down page
+   landed off-centre and ran off the right edge. Breathing room under the
+   toolbar comes from the vertical margin. */
 .folio-superdoc .superdoc--contained > .superdoc__layers {
-  margin: 1.5rem auto;
+  width: 100%;
+  margin: 1.5rem 0;
 }
 
 /* Continuous layout: SuperDoc renders a bare flow, so give it Folio's sheet. */
@@ -405,6 +407,23 @@ html:root {
   border: 1px solid var(--folio-paper-edge);
   border-radius: 2px;
   box-shadow: var(--folio-paper-shadow);
+}
+
+/* Phones: the sheet is the screen. Desktop margins (and a 4rem gutter each
+   side) would leave a ribbon of text; the bottom padding keeps the last line
+   clear of the footer pills. Pages get less room under the toolbar. */
+@media (max-width: 767px) {
+  .folio-superdoc .superdoc-web-flow {
+    max-width: none;
+    margin: 0;
+    padding: 1.5rem 1.25rem 5rem;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .folio-superdoc .superdoc--contained > .superdoc__layers {
+    margin: 0.75rem 0;
+  }
 }
 
 /* Attribution tick (see src/superdoc/folioExtension.ts) — the same quiet marginal

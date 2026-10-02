@@ -30,12 +30,16 @@ export function SuperDocFooter({
   wordCount,
   selectedWordCount,
   onJump,
+  pagePreview,
 }: {
   documentId: Id<"documents">;
   headings: OutlineHeading[];
   wordCount: number;
   selectedWordCount: number;
   onJump: (nodeId: string) => void;
+  /** On mobile the layout switch lives here, not in the toolbar's overflow
+   *  menu: Pages is a read-only preview, Continuous is where you edit. */
+  pagePreview?: { active: boolean; toggle: () => void };
 }) {
   const doc = useQuery(api.documents.get, { documentId });
   const setWordGoal = useMutation(api.documents.setWordGoal);
@@ -99,6 +103,15 @@ export function SuperDocFooter({
           clearLabel="Clear goal"
           canClear={Boolean(doc?.wordGoal)}
         />
+      )}
+      {pagePreview && (
+        <button
+          onClick={pagePreview.toggle}
+          aria-pressed={pagePreview.active}
+          className="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-foreground/60 shadow-sm transition hover:text-foreground"
+        >
+          {pagePreview.active ? "Edit" : "Page preview"}
+        </button>
       )}
     </div>
   );

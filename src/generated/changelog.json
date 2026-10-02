@@ -1,6 +1,11 @@
 [
   {
-    "hash": "9c7b4c7",
+    "hash": "f8fffde",
+    "date": "2026-10-02",
+    "subject": "v0.58.0: mobile — edit in Continuous, fit-to-width read-only page preview"
+  },
+  {
+    "hash": "d3fe409",
     "date": "2026-10-02",
     "subject": "v0.57.0: SuperDoc cutover — new documents and every open go through SuperDoc"
   },
@@ -43,10 +48,5 @@
     "hash": "2572e69",
     "date": "2026-09-28",
     "subject": "v0.51.1: store block content as a JSON string so nested lists save"
-  },
-  {
-    "hash": "c1c802d",
-    "date": "2026-09-28",
-    "subject": "v0.51.0: per-user MCP keys — connect any AI to your own documents"
   }
 ]

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
@@ -57,6 +57,26 @@ type Layout = "paginated" | "web";
 
 /** Per-device choice — a viewing preference, not part of the document. */
 const LAYOUT_KEY = "folio:superdoc-layout";
+
+/** A phone (either orientation) or small tablet: touch, and too narrow for a
+ *  letter-size page at full size. A narrow desktop window doesn't count — it
+ *  keeps full editing in both layouts. */
+const MOBILE_QUERY = "(pointer: coarse) and (max-width: 1023px)";
+const isMobileNow = (): boolean => {
+  try {
+    return window.matchMedia(MOBILE_QUERY).matches;
+  } catch {
+    return false;
+  }
+};
+const subscribeMobile = (onChange: () => void) => {
+  const mq = window.matchMedia(MOBILE_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+};
+
+/** Paginated pages scale down to fit a narrow column (never up past 100%). */
+const FIT_WIDTH_ZOOM = { mode: "fit-width" as const, fitWidth: { padding: 16 } };
 
 const readLayout = (): Layout => {
   try {
@@ -366,13 +386,20 @@ export function SuperDocEditor({
   // ---- layout (paginated ↔ continuous) ----
   // viewOptions is read once at mount, so switching remounts the editor
   // (keyed on layout). The content reloads from Convex — nothing is lost.
-  const [layout, setLayout] = useState<Layout>(readLayout);
+  // On mobile, documents always open in Continuous — the layout you can
+  // edit in — and Pages is a read-only, fit-to-width preview. The choice
+  // isn't saved there: the next document opens ready to edit again.
+  const mobile = useSyncExternalStore(subscribeMobile, isMobileNow, () => false);
+  const [layout, setLayout] = useState<Layout>(() => (isMobileNow() ? "web" : readLayout()));
+  const preview = mobile && layout === "paginated";
   const switchLayout = (next: Layout) => {
     if (next === layout) return;
-    try {
-      localStorage.setItem(LAYOUT_KEY, next);
-    } catch {
-      // not persisted on this device; still switch for this session
+    if (!mobile) {
+      try {
+        localStorage.setItem(LAYOUT_KEY, next);
+      } catch {
+        // not persisted on this device; still switch for this session
+      }
     }
     setRoomMode("join"); // the room exists by now — a remount must not "create"
     setLayout(next);
@@ -603,7 +630,9 @@ export function SuperDocEditor({
         excludeItems: EXCLUDED_TOOLBAR_ITEMS,
         fontOptions: SUPERDOC_FONT_OPTIONS,
         customItems: [
-          {
+          // On mobile the layout switch is a footer pill instead (this one
+          // would sit in the overflow menu, out of sight).
+          ...(mobile ? [] : [{
             id: "folio-layout",
             type: "dropdown" as const,
             region: "right" as const,
@@ -618,7 +647,7 @@ export function SuperDocEditor({
             ],
             onSelect: ({ value }: { value?: string | number }) =>
               switchLayout(value === "web" ? "web" : "paginated"),
-          },
+          }]),
           {
             id: "folio-export",
             type: "dropdown" as const,
@@ -634,7 +663,7 @@ export function SuperDocEditor({
     }),
     // switchLayout closes over layout; rebuilt (with the editor) when it changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [layout],
+    [layout, mobile],
   );
 
   // ---- converting a TipTap document (phase 4) ----
@@ -715,7 +744,9 @@ export function SuperDocEditor({
       <SuperDoc
         key={layout}
         document={document}
-        documentMode="editing"
+        documentMode={preview ? "viewing" : "editing"}
+        hideToolbar={preview}
+        zoom={layout === "paginated" ? FIT_WIDTH_ZOOM : undefined}
         contained
         ui={ui}
         fonts={fontsConfig}
@@ -767,6 +798,11 @@ export function SuperDocEditor({
         wordCount={wordCount}
         selectedWordCount={selectedWordCount}
         onJump={jumpTo}
+        pagePreview={
+          mobile
+            ? { active: preview, toggle: () => switchLayout(preview ? "web" : "paginated") }
+            : undefined
+        }
       />
     </div>
   );
