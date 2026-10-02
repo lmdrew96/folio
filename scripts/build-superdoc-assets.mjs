@@ -3,12 +3,14 @@
 // `pnpm build`.
 //   - public/superdoc/collab-worker.js: SuperDoc's collaboration worker +
 //     Folio's Convex provider adapter, bundled into one module worker.
-//   - public/superdoc/fonts/*.woff2: the editor's fonts, copied out of
-//     @fontsource-variable/* (the list lives in src/superdoc/fonts.ts).
+//   - public/superdoc/fonts/*.woff2: the editor's fonts, copied from
+//     assets/superdoc-fonts/ (the list lives in src/superdoc/fonts.ts).
+//   - public/superdoc/folio-template.docx: the file new documents start from
+//     (scripts/folio-docx-template.mjs).
 import { build } from "esbuild";
-import { copyFile, mkdir, rm } from "node:fs/promises";
-import { createRequire } from "node:module";
+import { copyFile, mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { buildFolioTemplate } from "./folio-docx-template.mjs";
 
 await build({
   entryPoints: ["src/superdoc/collab-worker.ts"],
@@ -30,17 +32,20 @@ const fontsModule = await build({
   write: false,
   logLevel: "warning",
 });
-const { SUPERDOC_FONTS, fontFiles } = await import(
+const { SUPERDOC_FONTS, DEFAULT_SUPERDOC_FONT, fontFiles } = await import(
   "data:text/javascript;base64," + Buffer.from(fontsModule.outputFiles[0].text).toString("base64")
 );
 
-const require = createRequire(import.meta.url);
 const outDir = "public/superdoc/fonts";
 await rm(outDir, { recursive: true, force: true });
 await mkdir(outDir, { recursive: true });
 for (const font of SUPERDOC_FONTS) {
-  const pkgDir = path.dirname(require.resolve(`@fontsource-variable/${font.slug}/package.json`));
   for (const file of fontFiles(font)) {
-    await copyFile(path.join(pkgDir, "files", file), path.join(outDir, file));
+    await copyFile(path.join("assets/superdoc-fonts", file), path.join(outDir, file));
   }
 }
+
+await writeFile(
+  "public/superdoc/folio-template.docx",
+  await buildFolioTemplate(DEFAULT_SUPERDOC_FONT),
+);

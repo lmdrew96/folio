@@ -52,7 +52,7 @@ function textOf(node: Node): string {
 
 // ── filename + download ──────────────────────────────────────────────────────
 
-function slugify(title: string): string {
+export function slugify(title: string): string {
   const base = title
     .trim()
     .toLowerCase()
@@ -63,7 +63,7 @@ function slugify(title: string): string {
   return base || "document";
 }
 
-function download(data: Blob | string, filename: string, mime: string): void {
+export function download(data: Blob | string, filename: string, mime: string): void {
   const blob = typeof data === "string" ? new Blob([data], { type: mime }) : data;
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -424,7 +424,9 @@ function cleanEditorHtml(html: string): string {
   return doc.body.innerHTML;
 }
 
-const toHtml = (editor: Editor, title: string) =>
+/** A self-contained, readable HTML file around an editor's body HTML — shared
+ *  by the TipTap and SuperDoc exports so both produce the same file. */
+export const standaloneHtml = (title: string, bodyHtml: string) =>
   `<!doctype html>
 <html lang="en">
 <head>
@@ -452,10 +454,13 @@ const toHtml = (editor: Editor, title: string) =>
 </style>
 </head>
 <body>
-${cleanEditorHtml(editor.getHTML())}
+${bodyHtml}
 </body>
 </html>
 `;
+
+const toHtml = (editor: Editor, title: string) =>
+  standaloneHtml(title, cleanEditorHtml(editor.getHTML()));
 
 // ── Word (.docx) — docx is dynamically imported so it never enters the main bundle ─
 

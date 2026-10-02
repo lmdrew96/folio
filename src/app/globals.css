@@ -407,6 +407,43 @@ html:root {
   box-shadow: var(--folio-paper-shadow);
 }
 
+/* Attribution tick (see src/superdoc/folioExtension.ts) — the same quiet marginal
+   tick as the TipTap editor's `.ProseMirror .folio-attr`: hidden for human
+   writers until the block is hovered, faintly present for Cleo. SuperDoc
+   stamps the extension's data as `data-superdoc-ext-*`; in the continuous
+   layout (which SuperDoc doesn't decorate) SuperDocEditor stamps the same
+   attributes itself, so this one rule covers both layouts. */
+.folio-superdoc .superdoc-web-flow-block.folio-attr {
+  position: relative; /* paginated fragments are already absolutely placed */
+}
+.folio-superdoc .folio-attr::before {
+  content: "";
+  position: absolute;
+  left: -1rem;
+  top: 0.2em;
+  height: 1.1em;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--folio-attr-nae);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.folio-superdoc .folio-attr:hover::before {
+  opacity: 0.5;
+}
+.folio-superdoc .folio-attr[data-superdoc-ext-folio-author="claude"]::before {
+  background: var(--folio-attr-sibling);
+  opacity: 0.45;
+}
+.folio-superdoc .folio-attr[data-superdoc-ext-folio-author="claude"]:hover::before {
+  opacity: 0.75;
+}
+@media (prefers-reduced-motion: reduce) {
+  .folio-superdoc .folio-attr::before {
+    transition: none;
+  }
+}
+
 /* SuperDoc sizes toolbar icons with `.superdoc-toolbar svg`, but the overflow
    (⋮) menu is attached to <body>, outside .superdoc-toolbar — so its icons
    collapsed to 0×0 and the menu looked empty. Give them the toolbar's size. */
@@ -456,7 +493,13 @@ html:root {
      .fixed) missed the wide-screen changes/Cleo dock — a plain div — so PDF
      export printed Cleo's panel beside the document. Anything new added to
      the desk is now hidden by default instead of leaking onto the page. */
-  body *:not(:has(.folio-paper)):not(.folio-paper, .folio-paper *) {
+  body
+    *:not(:has(.folio-paper, .folio-superdoc)):not(
+      .folio-paper,
+      .folio-paper *,
+      .folio-superdoc,
+      .folio-superdoc *
+    ) {
     display: none !important;
   }
   /* Fallback for a browser without :has() — the old named chrome. */
@@ -511,8 +554,57 @@ html:root {
   }
 
   /* Attribution ticks are an editing aid, not part of the document. */
-  .ProseMirror .folio-attr::before {
+  .ProseMirror .folio-attr::before,
+  .folio-superdoc .folio-attr::before {
     display: none !important;
+  }
+
+  /* SuperDoc documents. The editor wrapper is on the allowlist above, so hide
+     what inside it isn't the document: SuperDoc's toolbar and Folio's own
+     floating controls (word count, outline, save pill). */
+  .folio-superdoc .superdoc-toolbar-container,
+  .folio-superdoc > .fixed {
+    display: none !important;
+  }
+  /* Dark on white whatever the theme: undo the dark-mode paper and ink. */
+  html:root {
+    --sd-layout-page-bg: #fff;
+    --sd-surface-page: #fff;
+    --sd-surface-canvas: #fff;
+  }
+  .folio-superdoc,
+  .folio-superdoc [style*="color: rgb(0, 0, 0)"],
+  .dark .folio-superdoc [style*="color: rgb(0, 0, 0)"] {
+    color: #000 !important;
+  }
+  /* Paginated layout: each SuperDoc page is already a full Letter sheet with
+     its own margins, so print it 1:1 on a margin-free named page (see
+     @page superdoc-page below) and break after each one. The flex column
+     they sit in is flattened — Chrome doesn't fragment flex items reliably. */
+  .folio-superdoc .presentation-editor {
+    display: block !important;
+  }
+  .folio-superdoc .superdoc__layers {
+    margin: 0 !important;
+  }
+  .folio-superdoc .superdoc-page {
+    page: superdoc-page;
+    break-after: page;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+  /* Continuous layout: the sheet becomes plain paper inside the 1in margins. */
+  .folio-superdoc .superdoc--web-layout {
+    background: #fff !important;
+  }
+  .folio-superdoc .superdoc-web-flow {
+    max-width: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #fff !important;
   }
 
   /* Tables: plain grey rules on white, and no cell-selection tint. */
@@ -547,4 +639,9 @@ html:root {
    on its own, so it doesn't need the nesting. */
 @page {
   margin: 1in;
+}
+/* SuperDoc's paginated pages carry their own margins — print them edge to edge. */
+@page superdoc-page {
+  size: letter;
+  margin: 0;
 }

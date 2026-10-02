@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Convex-generated code — never hand-edited, don't lint it.
     "convex/_generated/**",
+    // Built by scripts/build-superdoc-assets.mjs (a 6 MB minified bundle).
+    "public/superdoc/**",
   ]),
 ]);
 

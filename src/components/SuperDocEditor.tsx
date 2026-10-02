@@ -2,26 +2,31 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import {
   SuperDocEditor as SuperDoc,
   type SuperDocReadyEvent,
 } from "@superdoc-dev/react";
 import "@superdoc-dev/react/style.css";
-import { BlankDOCX } from "superdoc";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { registerPendingSaveFlush } from "@/lib/pendingSave";
 import { toReconcileBlocks, type SdBlock, type SdProjection } from "@/superdoc/extract";
+import { SUPERDOC_FONT_OPTIONS, superDocFontsConfig } from "@/superdoc/fonts";
+import { createFolioExtension, type BlockAttribution } from "@/superdoc/folioExtension";
 import {
-  DEFAULT_SUPERDOC_FONT,
-  SUPERDOC_FONT_OPTIONS,
-  superDocFontsConfig,
-} from "@/superdoc/fonts";
+  exportSuperDoc,
+  SUPERDOC_EXPORT_FORMATS,
+  type SuperDocExportFormat,
+} from "@/superdoc/exportDocument";
+import { relativeTime } from "@/lib/time";
+import { replayTyping } from "@/superdoc/typography";
+import { countWords, SuperDocFooter, type OutlineHeading } from "./SuperDocFooter";
 
-/** Built by scripts/build-superdoc-assets.mjs. */
+/** Both built by scripts/build-superdoc-assets.mjs. */
 const COLLAB_WORKER_URL = "/superdoc/collab-worker.js";
+const FOLIO_TEMPLATE_URL = "/superdoc/folio-template.docx";
 /** Quiet time after an edit before the derived block rows are rebuilt. */
 const EXTRACT_DEBOUNCE_MS = 1000;
 /** How long to wait before re-claiming a room another tab is still creating. */
@@ -56,11 +61,61 @@ const EXCLUDED_TOOLBAR_ITEMS = [
 const fontsConfig = superDocFontsConfig();
 
 /** The slice of SuperDoc's browser Document API this editor reads. */
-type DocApi = {
-  blocks: { list(input: unknown): Promise<{ blocks: SdBlock[] }> | { blocks: SdBlock[] } };
-  projectMarkdown?(input: unknown): Promise<SdProjection>;
-  styles?: { apply(input: unknown): unknown };
+type MaybePromise<T> = T | Promise<T>;
+type TextPoint = { kind: "text"; blockId: string; offset: number };
+type SelectionInfo = {
+  empty?: boolean;
+  text?: string;
+  /** Start/end form (`target` is the segments form, not used here). */
+  selectionTarget?: {
+    kind: "selection";
+    start: TextPoint | { kind: string };
+    end: TextPoint | { kind: string };
+  } | null;
 };
+
+/** The caret, when the selection is a plain collapsed point inside text. */
+const caretOf = (sel: SelectionInfo): TextPoint | null => {
+  const start = sel.selectionTarget?.start;
+  const end = sel.selectionTarget?.end;
+  if (!sel.empty || !start || !end || start.kind !== "text" || end.kind !== "text") return null;
+  const a = start as TextPoint;
+  const b = end as TextPoint;
+  return a.blockId === b.blockId && a.offset === b.offset ? a : null;
+};
+type DocApi = {
+  blocks: { list(input: unknown): MaybePromise<{ blocks: SdBlock[] }> };
+  projectMarkdown?(input: unknown): Promise<SdProjection>;
+  selection: { current(input?: { includeText?: boolean }): MaybePromise<SelectionInfo> };
+  replace(input: unknown): unknown;
+  getMarkdown(input: object): MaybePromise<string>;
+  getHtml(input: object): MaybePromise<string>;
+  getText(input: object): MaybePromise<string>;
+};
+/** The slice of the SuperDoc instance this editor drives. */
+type SuperDocInstance = {
+  navigateTo(target: unknown): Promise<boolean>;
+  export(params: object): Promise<unknown>;
+};
+
+/** Live handles shared by callbacks SuperDoc holds on to (toolbar items,
+ *  extension hooks). Those callbacks are built during render, so the handles
+ *  live behind methods on a stable object rather than in refs. */
+function createSession() {
+  let superdoc: SuperDocInstance | null = null;
+  let doc: DocApi | null = null;
+  let title = "";
+  return {
+    attach(next: { superdoc: SuperDocInstance; doc: DocApi | null }) {
+      superdoc = next.superdoc;
+      doc = next.doc;
+    },
+    setTitle(next: string) {
+      title = next;
+    },
+    get: () => ({ superdoc, doc, title }),
+  };
+}
 
 /**
  * A document edited in SuperDoc. Its Y.Doc lives in Convex (convex/ydoc.ts),
@@ -117,8 +172,10 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
         ? null
         : {
             type: "docx",
-            // A room needs a base file; on join the Y.Doc's content replaces it.
-            url: BlankDOCX,
+            // A room needs a base file. On create it's Folio's template (its
+            // styles become the document's: Fraunces, Folio headings); on
+            // join the Y.Doc's content replaces it.
+            url: FOLIO_TEMPLATE_URL,
             collaboration: {
               providerType: "extension" as const,
               adapterId: "convex",
@@ -153,8 +210,21 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [unsynced]);
 
+  // ---- live handles + Folio's SuperDoc extension ----
+  const [session] = useState(createSession);
+  const [{ bridge, extension }] = useState(createFolioExtension);
+  const extensions = useMemo(() => [extension], [extension]);
+
+  const meta = useQuery(api.documents.get, { documentId });
+  useEffect(() => {
+    session.setTitle(meta?.title ?? "");
+  }, [meta?.title, session]);
+
+  // The latest block listing — feeds word count, the outline and attribution.
+  const [liveBlocks, setLiveBlocks] = useState<SdBlock[]>([]);
+  const [selectedWordCount, setSelectedWordCount] = useState(0);
+
   // ---- derived block rows ----
-  const docApiRef = useRef<DocApi | null>(null);
   const extractTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const extracting = useRef<Promise<void> | null>(null);
   const extractAgain = useRef(false);
@@ -164,7 +234,7 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
       extractAgain.current = true; // an edit landed mid-run; go once more after
       return extracting.current;
     }
-    const doc = docApiRef.current;
+    const { doc } = session.get();
     if (!doc) return;
     extracting.current = (async () => {
       do {
@@ -180,6 +250,7 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
                 })
               : Promise.resolve(null),
           ]);
+          setLiveBlocks(blocks);
           await reconcile({
             documentId,
             blocks: toReconcileBlocks(blocks, projection),
@@ -248,6 +319,221 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
     setLayout(next);
   };
 
+  const runExport = async (value: string | number | undefined) => {
+    const format = SUPERDOC_EXPORT_FORMATS.find((f) => f.id === value)?.id;
+    const { superdoc, doc, title } = session.get();
+    if (!format || !superdoc || !doc) return;
+    try {
+      await exportSuperDoc(
+        {
+          doc,
+          exportDocx: async () =>
+            (await superdoc.export({ exportType: ["docx"], triggerDownload: false })) as Blob,
+        },
+        title || "Untitled",
+        format as SuperDocExportFormat,
+      );
+    } catch (e) {
+      console.error(`Folio: ${format} export failed`, e);
+    }
+  };
+
+  // ---- attribution: block rows (who/when) × live blocks (where) ----
+  const rows = useQuery(api.blocks.list, { documentId });
+  const attribution = useMemo<BlockAttribution[]>(() => {
+    if (!rows) return [];
+    const byId = new Map(rows.map((r) => [r.blockId, r]));
+    return liveBlocks.flatMap((b) => {
+      const row = byId.get(b.nodeId);
+      if (!row) return [];
+      return [
+        {
+          blockId: b.nodeId,
+          length: (b.text ?? b.textPreview ?? "").length,
+          author: row.author ?? "",
+          name: row.author === "claude" ? "Cleo" : (row.authorName ?? "Nae"),
+          lastEditedAt: row.lastEditedAt,
+        },
+      ];
+    });
+  }, [rows, liveBlocks]);
+  useEffect(() => bridge.setAttribution(attribution), [attribution, bridge]);
+
+  // SuperDoc only paints extension decorations in the paginated layout. In
+  // the continuous layout, stamp the same class + data onto its blocks (by
+  // Word paragraph id) so the one CSS rule draws the tick there too, and
+  // re-stamp whenever SuperDoc repaints a block.
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const surface = surfaceRef.current;
+    if (layout !== "web" || !surface) return;
+    const byId = new Map(attribution.map((a) => [a.blockId, a]));
+    const stamp = () => {
+      surface
+        .querySelectorAll<HTMLElement>(".superdoc-web-flow-block[data-source-node-id]")
+        .forEach((el) => {
+          const a = byId.get(el.dataset.sourceNodeId ?? "");
+          el.classList.toggle("folio-attr", Boolean(a));
+          if (!a) return;
+          el.dataset.superdocExtFolioAuthor = a.author === "claude" ? "claude" : "human";
+          el.dataset.superdocExtFolioName = a.name;
+          el.dataset.superdocExtFolioEdited = String(a.lastEditedAt);
+        });
+    };
+    stamp();
+    // Attribute writes don't trigger a childList observer, so this can't loop.
+    const mo = new MutationObserver(stamp);
+    mo.observe(surface, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, [layout, attribution]);
+
+  // Hover tooltip for the tick ("Nae · edited 2m ago"). Computed on hover so
+  // the relative time is never stale.
+  const onAttributionHover = (e: React.MouseEvent) => {
+    const el = (e.target as Element).closest<HTMLElement>("[data-superdoc-ext-folio-edited]");
+    if (!el) return;
+    const edited = Number(el.dataset.superdocExtFolioEdited);
+    el.title = `${el.dataset.superdocExtFolioName ?? "Someone"} · edited ${relativeTime(edited)}`;
+  };
+
+  // Words in the current selection, for the "930/1996 words" readout.
+  useEffect(() => {
+    bridge.setSelectionHandler(({ collapsed }) => {
+      const { doc } = session.get();
+      if (collapsed || !doc) {
+        setSelectedWordCount(0);
+        return;
+      }
+      void Promise.resolve(doc.selection.current({ includeText: true }))
+        .then((sel) => setSelectedWordCount(countWords(sel.text ?? "")))
+        .catch(() => setSelectedWordCount(0));
+    });
+    return () => bridge.setSelectionHandler(null);
+  }, [bridge, session]);
+
+  // Every change rebuilds the derived rows (this also catches style-only
+  // changes onEditorUpdate misses).
+  useEffect(() => {
+    bridge.setMutationHandler(() => scheduleExtract());
+    return () => bridge.setMutationHandler(null);
+    // scheduleExtract only touches refs and stable values.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bridge]);
+
+  // Smart typography. SuperDoc has no input-rule hook, its edits land in the
+  // worker a beat after the keystroke, and every read is a worker round trip —
+  // so instead of checking per keystroke, this tracks the current unbroken
+  // RUN of typed characters and, once typing pauses, replays the whole run
+  // through the rules (replayTyping) and replaces just what changed.
+  //
+  // Anything that isn't plain typing ends the run without converting: a click,
+  // arrows, Enter, Backspace/Delete, shortcuts (paste, undo…). So a conversion
+  // can only ever touch characters just typed, deletions never convert, and an
+  // undone conversion stays undone.
+  useEffect(() => {
+    const PAUSE_MS = 150;
+    const MODIFIERS = new Set(["Shift", "Alt", "Meta", "Control", "CapsLock", "Fn"]);
+    let run = 0; // typed characters in the current run not yet checked
+    let busy = false;
+    let unreadable = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const endRun = () => {
+      run = 0;
+      clearTimeout(timer);
+    };
+    const schedule = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => void check(), PAUSE_MS);
+    };
+
+    const check = async (): Promise<void> => {
+      const { doc } = session.get();
+      if (!doc || run === 0) return;
+      if (busy) return schedule();
+      busy = true;
+      const n = run;
+      try {
+        const caret = caretOf(await doc.selection.current({}));
+        if (!caret) {
+          // Briefly unreadable while SuperDoc applies an edit — try again,
+          // but not forever (focus may simply have left the editor).
+          if (++unreadable > 10) endRun();
+          else schedule();
+          return;
+        }
+        unreadable = 0;
+        const { blocks } = await doc.blocks.list({ nodeIds: [caret.blockId], includeText: true });
+        const before = (blocks[0]?.text ?? "").slice(0, caret.offset);
+        if (before.length < n) {
+          endRun(); // the run no longer lines up with the text — don't guess
+          return;
+        }
+        const fix = replayTyping(before.slice(0, before.length - n), before.slice(before.length - n));
+        if (fix) {
+          // Typing resumed while we read? Leave the document alone; the next
+          // pause re-checks the whole run.
+          const now = caretOf(await doc.selection.current({}));
+          if (!now || now.blockId !== caret.blockId || now.offset !== caret.offset) {
+            schedule();
+            return;
+          }
+          await doc.replace({
+            target: {
+              kind: "selection",
+              start: { kind: "text", blockId: caret.blockId, offset: fix.from },
+              end: { kind: "text", blockId: caret.blockId, offset: caret.offset },
+            },
+            text: fix.insert,
+          });
+        }
+        // These n characters are settled; anything typed meanwhile stays queued.
+        run = Math.max(0, run - n);
+        if (run > 0) schedule();
+      } catch (e) {
+        console.error("Folio: smart typography skipped", e);
+        endRun();
+      } finally {
+        busy = false;
+      }
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!surfaceRef.current?.contains(e.target as Node)) return;
+      if (MODIFIERS.has(e.key)) return;
+      // A printable character (Option combos like Option+- included); not a
+      // shortcut, not IME composition (which reports "Process").
+      if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.isComposing) {
+        run += 1;
+        schedule();
+        return;
+      }
+      endRun();
+    };
+    const onPointerDown = () => endRun();
+    window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("pointerdown", onPointerDown, true);
+    };
+  }, [session]);
+
+  const wordCount = useMemo(
+    () => liveBlocks.reduce((n, b) => n + countWords(b.text ?? b.textPreview ?? ""), 0),
+    [liveBlocks],
+  );
+  const headings = useMemo<OutlineHeading[]>(
+    () =>
+      liveBlocks
+        .filter((b) => b.nodeType === "heading")
+        .map((b) => ({ nodeId: b.nodeId, level: b.headingLevel ?? 1, text: (b.text ?? "").trim() })),
+    [liveBlocks],
+  );
+  const jumpTo = (nodeId: string) =>
+    void session.get().superdoc?.navigateTo({ kind: "block", nodeId, nodeType: "heading" });
+
   const ui = useMemo(
     () => ({
       toolbar: {
@@ -274,6 +560,16 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
             onSelect: ({ value }: { value?: string | number }) =>
               switchLayout(value === "web" ? "web" : "paginated"),
           },
+          {
+            id: "folio-export",
+            type: "dropdown" as const,
+            region: "right" as const,
+            label: "Export",
+            hasCaret: true,
+            tooltip: "Export document",
+            options: SUPERDOC_EXPORT_FORMATS.map((f) => ({ id: f.id, label: f.label })),
+            onSelect: ({ value }: { value?: string | number }) => void runExport(value),
+          },
         ],
       },
     }),
@@ -284,24 +580,7 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
 
   const onReady = ({ superdoc }: SuperDocReadyEvent) => {
     const doc = (superdoc.activeEditor?.doc ?? null) as DocApi | null;
-    docApiRef.current = doc;
-    if (doc?.styles && roomMode === "create") {
-      // A brand-new document: make Folio's default prose face the document
-      // default (docDefaults), so it's what Word sees on export too.
-      void Promise.resolve(
-        doc.styles.apply({
-          target: { scope: "docDefaults", channel: "run" },
-          patch: {
-            fontFamily: {
-              ascii: DEFAULT_SUPERDOC_FONT,
-              hAnsi: DEFAULT_SUPERDOC_FONT,
-              cs: DEFAULT_SUPERDOC_FONT,
-              eastAsia: DEFAULT_SUPERDOC_FONT,
-            },
-          },
-        }),
-      ).catch((e: unknown) => console.error("Folio: couldn't set the default font", e));
-    }
+    session.attach({ superdoc: superdoc as unknown as SuperDocInstance, doc });
     void extract();
   };
 
@@ -313,7 +592,11 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
   }
 
   return (
-    <div className="folio-superdoc flex min-h-0 flex-1 flex-col">
+    <div
+      ref={surfaceRef}
+      className="folio-superdoc flex min-h-0 flex-1 flex-col"
+      onMouseOver={onAttributionHover}
+    >
       <SuperDoc
         key={layout}
         document={document}
@@ -321,13 +604,22 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
         contained
         ui={ui}
         fonts={fontsConfig}
+        extensions={extensions}
         viewOptions={layout === "web" ? { layout: "web" } : undefined}
         telemetry={{ enabled: false }}
         workerUrls={{ collaboration: COLLAB_WORKER_URL }}
         onReady={onReady}
         onEditorUpdate={scheduleExtract}
         onCollaborationConnectionChange={({ state }) => onConnection(state)}
-        onException={(e) => console.error("Folio: SuperDoc exception", e)}
+        onException={(e) => {
+          // Spell out the error — the raw payload logs as "[object Error]".
+          const { error, ...rest } = e as { error?: unknown } & Record<string, unknown>;
+          console.error(
+            "Folio: SuperDoc exception",
+            rest,
+            error instanceof Error ? `${error.name}: ${error.message}` : error,
+          );
+        }}
         className="min-h-0 flex-1"
       />
       {/* Same quiet pill the TipTap editor uses for its save story. */}
@@ -342,6 +634,13 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
             : "Not saved — reconnecting…"}
         </span>
       </div>
+      <SuperDocFooter
+        documentId={documentId}
+        headings={headings}
+        wordCount={wordCount}
+        selectedWordCount={selectedWordCount}
+        onJump={jumpTo}
+      />
     </div>
   );
 }

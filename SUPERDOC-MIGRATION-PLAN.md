@@ -127,6 +127,33 @@ checked by hand on dev.**
 **Done when:** a SuperDoc doc has everything a TipTap doc has today, except the listed
 Cmd+Delete gap.
 
+**Status (2026-10-02): built on `superdoc-migration`, uncommitted; checked in Chrome on dev
+except printing.**
+- Attribution: `src/superdoc/folioExtension.ts` block decorations
+  (`data-superdoc-ext-folio-*`). SuperDoc doesn't decorate the continuous layout, so
+  SuperDocEditor stamps the same attributes there itself. Tooltip computed on hover.
+- Word count / selection count / goal + outline: `SuperDocFooter.tsx`, from the extraction
+  pass; outline jumps with `navigateTo`. Extraction now also runs on the extension's mutation
+  hook — `onEditorUpdate` misses style-only changes (a paragraph made a heading).
+- Export: `src/superdoc/exportDocument.ts` — DOCX native, Markdown/HTML from converters,
+  plain text from the block list (SuperDoc's `getText` runs paragraphs together), PDF via print.
+- Smart typography: `src/superdoc/typography.ts` (+ arrows: → ← ↔ ⇒). Applied after a 150 ms
+  typing pause by replaying the current run of typed characters — keystrokes land in the
+  worker after the keydown, so per-keystroke checks can't work. Undo sticks.
+- Print: `.folio-superdoc` joins the print allowlist; paginated pages print 1:1 on a
+  margin-free named page (`@page superdoc-page`). **Unverified** — needs a print preview,
+  and long documents may hit SuperDoc page virtualisation.
+- Find & replace: SuperDoc's built-in search. Footnotes: native DOCX footnotes, conversion is
+  Phase 4.
+- Styles: new docs start from a Folio DOCX template (`scripts/folio-docx-template.mjs`,
+  built to `public/superdoc/folio-template.docx`) — Fraunces throughout, 1.4 line spacing,
+  Title/Heading 1–6/Subtitle/Quote in automatic ink so dark mode can invert them. Replaces
+  the blue Aptos Display headings of SuperDoc's blank DOCX.
+- Fonts: one full Latin + Latin Extended woff2 per style, committed in
+  `assets/superdoc-fonts/` (`scripts/fetch-superdoc-fonts.py`, from google/fonts, OFL).
+  SuperDoc registers one source per face, so @fontsource's split unicode-range subsets
+  were rejected ("source cannot be replaced") and Romanian fell back. fontsource removed.
+
 ### Phase 4 — Converting existing documents
 
 1. **Convert on first open**, per document, using the spike's import path.
