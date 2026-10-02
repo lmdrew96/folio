@@ -20,11 +20,11 @@ export function NewDocButton({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const onClick = async (editor?: "superdoc") => {
+  const onClick = async () => {
     setLoading(true);
     setError(null);
     try {
-      const id = await create({ folderId, editor });
+      const id = await create({ folderId });
       router.push(`/doc/${id}`);
     } catch (e) {
       setLoading(false);
@@ -44,17 +44,6 @@ export function NewDocButton({
       >
         {loading ? "Creating…" : "New document"}
       </button>
-      {/* SuperDoc migration (phase 2): dev-only until the new editor ships.
-          NODE_ENV is inlined at build time, so this is absent from prod. */}
-      {process.env.NODE_ENV === "development" && (
-        <button
-          onClick={() => void onClick("superdoc")}
-          disabled={loading}
-          className="text-xs text-foreground/50 underline decoration-foreground/20 underline-offset-2 transition hover:text-foreground disabled:opacity-50"
-        >
-          New SuperDoc document (dev)
-        </button>
-      )}
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
     </div>
   );

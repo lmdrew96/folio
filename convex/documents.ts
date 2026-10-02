@@ -69,14 +69,15 @@ export const get = query({
 });
 
 /** Create a fresh untitled document and return its id — filed straight into
- *  `folderId` when it's created from inside a folder. `editor: "superdoc"`
- *  makes it a SuperDoc document from the start (see schema.ts). */
+ *  `folderId` when it's created from inside a folder. Every new document is a
+ *  SuperDoc document (see schema.ts); `editor` is still accepted so a tab on
+ *  an older build can create one, but it no longer changes anything. */
 export const create = mutation({
   args: {
     folderId: v.optional(v.id("folders")),
     editor: v.optional(v.literal("superdoc")),
   },
-  handler: async (ctx, { folderId, editor }) => {
+  handler: async (ctx, { folderId }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
     if (folderId) await ownFolder(ctx, folderId, identity.subject);
@@ -87,7 +88,7 @@ export const create = mutation({
       createdAt: now,
       updatedAt: now,
       folderId,
-      editor,
+      editor: "superdoc",
     });
   },
 });

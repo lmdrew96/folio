@@ -206,6 +206,22 @@ highlights. Prod not touched.**
 3. Drop `legacyContent` snapshots after a second soak.
 4. Close the superseded patches (below) and update the changelog.
 
+**Status (2026-10-02): cutover code built on `superdoc-migration`.** `documents.create`
+always makes a SuperDoc document; conversion on open runs in every build (a document whose
+conversion failed still opens in TipTap); the AGPL source link is in "What's new". Steps 2–3
+wait for the soak.
+
+**Ship order** (prod steps are Nae's):
+1. `pnpm changelog`, commit, merge `superdoc-migration` → `main` (not pushed yet).
+2. `npx convex deploy` — prod schema + `conversion.*` must exist before any new frontend
+   loads, or opening a document fails.
+3. Push `main` → Vercel deploys the frontend.
+4. Open each document once (it converts); `npx convex run --prod conversion:status` to
+   confirm none failed. Check the editor on the phone / installed PWA.
+5. Rollback for one document: `npx convex run --prod conversion:revert '{"documentId": …}'`.
+   There is no whole-app rollback by redeploying the old frontend: it can't open converted
+   documents, so revert documents first.
+
 ---
 
 ## ChaosPatch impact

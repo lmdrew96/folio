@@ -1,6 +1,36 @@
 [
   {
-    "hash": "b8d528d",
+    "hash": "9c7b4c7",
+    "date": "2026-10-02",
+    "subject": "v0.57.0: SuperDoc cutover — new documents and every open go through SuperDoc"
+  },
+  {
+    "hash": "286e8dd",
+    "date": "2026-10-02",
+    "subject": "v0.56.0: SuperDoc Phase 4 — convert TipTap documents on open (dev)"
+  },
+  {
+    "hash": "573bebc",
+    "date": "2026-10-02",
+    "subject": "v0.55.0: SuperDoc Phase 3 — attribution, footer, export, typography, Folio template"
+  },
+  {
+    "hash": "7e0b0e1",
+    "date": "2026-10-01",
+    "subject": "v0.54.0: SuperDoc look & feel — Folio theme, fonts, layout toggle"
+  },
+  {
+    "hash": "51021b5",
+    "date": "2026-10-01",
+    "subject": "v0.53.0: SuperDoc editor behind a dev flag (migration phase 2)"
+  },
+  {
+    "hash": "46098bd",
+    "date": "2026-09-30",
+    "subject": "v0.52.0: add SuperDoc storage foundation (migration phase 1)"
+  },
+  {
+    "hash": "46c2c71",
     "date": "2026-09-28",
     "subject": "v0.51.3: check for updates when the app window regains focus"
   },
@@ -18,35 +48,5 @@
     "hash": "c1c802d",
     "date": "2026-09-28",
     "subject": "v0.51.0: per-user MCP keys — connect any AI to your own documents"
-  },
-  {
-    "hash": "a4e8769",
-    "date": "2026-09-28",
-    "subject": "v0.50.1: one-time remap from the Clerk dev instance to production"
-  },
-  {
-    "hash": "de0fb49",
-    "date": "2026-09-27",
-    "subject": "v0.50.0: folders — file documents, nest them, color them"
-  },
-  {
-    "hash": "a27044b",
-    "date": "2026-09-27",
-    "subject": "v0.49.0: sort and filter the desk"
-  },
-  {
-    "hash": "de363a3",
-    "date": "2026-09-27",
-    "subject": "v0.48.0: insert and edit tables"
-  },
-  {
-    "hash": "7589667",
-    "date": "2026-09-27",
-    "subject": "v0.47.0: link and word goal ask in-page, not with window.prompt"
-  },
-  {
-    "hash": "9a61d0a",
-    "date": "2026-09-27",
-    "subject": "v0.46.1: export only the document — no Cleo panel, no editor plumbing"
   }
 ]

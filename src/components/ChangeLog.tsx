@@ -85,6 +85,21 @@ export function ChangeLog() {
                 );
               })}
             </ul>
+
+            {/* SuperDoc's engine is AGPL, which asks that users of the app
+                can get its source. */}
+            <p className="border-t border-black/10 pt-3 text-xs text-foreground/50 dark:border-white/10">
+              Folio is open source —{" "}
+              <a
+                href="https://github.com/lmdrew96/folio"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline decoration-foreground/20 underline-offset-2 hover:text-foreground"
+              >
+                view the code on GitHub
+              </a>
+              .
+            </p>
           </div>
         </div>
       )}
