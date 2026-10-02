@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Authenticated, AuthLoading, useMutation, useQuery } from "convex/react";
 import { UserButton, useAuth } from "@clerk/nextjs";
 import { api } from "@convex/_generated/api";
@@ -17,6 +18,13 @@ import { OnboardingExplainer } from "@/components/OnboardingExplainer";
 import { ShareDialog } from "@/components/ShareDialog";
 import { PresenceBadge } from "@/components/PresenceBadge";
 import { folioClaudeLabel } from "@/lib/identity";
+
+// SuperDoc touches the DOM at import time and is ~22 MB of JS, so it loads
+// browser-only and only for documents that use it.
+const SuperDocEditor = dynamic(
+  () => import("@/components/SuperDocEditor").then((m) => m.SuperDocEditor),
+  { ssr: false, loading: () => <p className="px-6 py-10 text-foreground/50">Opening…</p> },
+);
 
 /** Owner-only "Share" entry point in the header — hidden entirely for an
  *  editor viewing a shared document. */
@@ -163,8 +171,16 @@ function DocBody({ documentId }: { documentId: Id<"documents"> }) {
       </div>
     );
   }
+  // Wait for the document before choosing an editor: mounting TipTap on a
+  // SuperDoc document, even briefly, is exactly what schema.ts forbids.
+  if (doc === undefined) {
+    return <p className="px-6 py-10 text-foreground/50">Loading…</p>;
+  }
   // key on documentId → a doc switch fully remounts the editor (fresh refs),
   // so load/debounce/hash state never leaks between documents.
+  if (doc.editor === "superdoc") {
+    return <SuperDocEditor key={documentId} documentId={documentId} />;
+  }
   return <DocEditor key={documentId} documentId={documentId} />;
 }
 

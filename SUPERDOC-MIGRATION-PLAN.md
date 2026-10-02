@@ -62,7 +62,7 @@ until Phase 4.
 **Done when:** unit-level checks pass — push/pull under auth, claimRoom race, compaction
 round-trip (content identical before/after).
 
-**Status (2026-09-30): built on branch `superdoc-migration`, not deployed.**
+**Status (2026-09-30): committed on branch `superdoc-migration` as v0.52.0; deployed to dev.**
 - `convex/ydoc.ts`: `claimRoom` (create / join / wait, 60 s stale-claim takeover), `head`
   (`{ latest, count }` — count so an out-of-order row still wakes subscribers), `since`,
   `push`, and compaction (`compact` → `commitCompaction`, lossless `Y.mergeUpdates`,
@@ -70,7 +70,8 @@ round-trip (content identical before/after).
 - `src/superdoc/convexProvider.ts` (sync logic, testable) + `collab-worker.ts` (entry);
   `pnpm dev` / `pnpm build` build the worker into gitignored `public/superdoc/`.
 - Tests: `pnpm test` — 10 backend (convex-test, pinned 0.0.54 for Convex 1.41) + 7 adapter.
-- Not yet verified on a real deployment: yjs running inside Convex's runtime (compaction).
+- Verified on the dev deployment: both compaction paths (inline and file storage) run in
+  Convex's real runtime with text intact. Prod not deployed.
 
 ### Phase 2 — The editor surface (new docs only, behind a dev flag)
 
@@ -87,6 +88,21 @@ round-trip (content identical before/after).
 
 **Done when:** a new doc can be written, formatted, shared and reopened; Cleo, the diff
 panel and the MCP tools read it correctly.
+
+**Status (2026-09-30): steps 1, 2 and 4 built on `superdoc-migration`, deployed to dev,
+awaiting a hands-on check; step 3 waits on the visual spec.**
+- `SuperDocEditor.tsx`, routed by `DocBody` on `documents.editor`; dev-only "New SuperDoc
+  document (dev)" button (compiled out of production builds).
+- `blocks.reconcile` takes `source: "superdoc"` and rejects a write from the wrong editor
+  (`EDITOR_MISMATCH`) — a stale TipTap tab can't clobber a SuperDoc document, or vice versa.
+- Extraction (`src/superdoc/extract.ts`): `blocks.list` + `projectMarkdown` → rows with
+  bold/italic/strike/underline/code/links and real tables.
+- Offline: the save pill reads "Not saved — reconnecting…"; unload is guarded while unsynced;
+  the update toast won't reload over an unsynced document.
+- Interim: `.folio-superdoc` pins the editor to light colours (dark mode turned the page's
+  text white-on-white) until the visual spec.
+- Known gap for Phase 3: **printing a SuperDoc document prints a blank page** — the print
+  allowlist only shows `.folio-paper`.
 
 ### Phase 3 — Folio's own features on the new surface
 

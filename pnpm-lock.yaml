@@ -14,6 +14,9 @@ importers:
       '@clerk/nextjs':
         specifier: ^7.5.2
         version: 7.5.2(next@16.2.9(@babel/core@7.29.7)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@superdoc-dev/react':
+        specifier: 1.16.2
+        version: 1.16.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(superdoc@2.18.0(@hocuspocus/provider@2.15.3(y-protocols@1.0.7(yjs@13.6.33))(yjs@13.6.33))(react@19.2.4)(typescript@5.9.3)(yjs@13.6.33))
       '@tiptap/core':
         specifier: ^3.26.1
         version: 3.26.1(@tiptap/pm@3.26.1)
@@ -62,6 +65,15 @@ importers:
       docx:
         specifier: ^9.7.1
         version: 9.7.1
+      mdast-util-from-markdown:
+        specifier: 2.0.3
+        version: 2.0.3
+      mdast-util-gfm:
+        specifier: 3.1.0
+        version: 3.1.0
+      micromark-extension-gfm:
+        specifier: 3.0.0
+        version: 3.0.0
       next:
         specifier: 16.2.9
         version: 16.2.9(@babel/core@7.29.7)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -96,6 +108,9 @@ importers:
       '@tailwindcss/typography':
         specifier: ^0.5.20
         version: 0.5.20(tailwindcss@4.3.1)
+      '@types/mdast':
+        specifier: 4.0.4
+        version: 4.0.4
       '@types/node':
         specifier: ^20
         version: 20.19.43
@@ -1060,6 +1075,13 @@ packages:
 
   '@stablelib/base64@1.0.1':
     resolution: {integrity: sha512-1bnPQqSxSuc3Ii6MhBysoWCg58j97aUjuCSZrGSmDxNqtytIi0k8utUenAwTZN4V5mXXYGsVUI9zeBqy+jBOSQ==}
+
+  '@superdoc-dev/react@1.16.2':
+    resolution: {integrity: sha512-Aq/BpctudirxlB/qoVgr3zElsWrZ+IQoTUS+xzVRSGt+F6VYVKUp7NrMHjEbnH5aV+PxAEA1fxt+0aavnBafyg==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+      superdoc: '>=1.0.0'
 
   '@superdoc/docx-engine@0.17.0':
     resolution: {integrity: sha512-CyctVwMs+vhOmw9VR0goGn3WpHGPQ7HVqnRcwzfY/X8RRxw150Y3FlZrRBM/JeHcvS8UkOau2MUkrIZWD2yDoA==}
@@ -4535,6 +4557,12 @@ snapshots:
   '@rtsao/scc@1.1.0': {}
 
   '@stablelib/base64@1.0.1': {}
+
+  '@superdoc-dev/react@1.16.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(superdoc@2.18.0(@hocuspocus/provider@2.15.3(y-protocols@1.0.7(yjs@13.6.33))(yjs@13.6.33))(react@19.2.4)(typescript@5.9.3)(yjs@13.6.33))':
+    dependencies:
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+      superdoc: 2.18.0(@hocuspocus/provider@2.15.3(y-protocols@1.0.7(yjs@13.6.33))(yjs@13.6.33))(react@19.2.4)(typescript@5.9.3)(yjs@13.6.33)
 
   '@superdoc/docx-engine@0.17.0(@hocuspocus/provider@2.15.3(y-protocols@1.0.7(yjs@13.6.33))(yjs@13.6.33))(vue@3.5.43(typescript@5.9.3))(y-websocket@3.1.0(yjs@13.6.33))(yjs@13.6.33)':
     dependencies:

@@ -333,6 +333,16 @@ body {
   pointer-events: none;
 }
 
+/* ── SuperDoc editor (migration phase 2) ───────────────────────────────────────
+   SuperDoc paints white paper pages. Its document text has no colour of its
+   own ("auto"), so it inherited Folio's dark-mode foreground and turned white
+   on white. Pin the editor to the light colour scheme until the Phase 2
+   look-and-feel spec decides how SuperDoc should look in dark mode. ── */
+.folio-superdoc {
+  color-scheme: light;
+  color: CanvasText;
+}
+
 /* ── Print: put just the paper on the page ────────────────────────────────────
    Cmd/Ctrl+P prints the document sheet alone. We hide the desk chrome (header,
    the changes/Cleo sidebar + drawer, the editor toolbar, the floating save
