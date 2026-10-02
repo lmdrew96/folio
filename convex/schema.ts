@@ -195,7 +195,11 @@ export default defineSchema({
   // atomically (ydoc.claimRoom) and tracks when to compact.
   ydocRooms: defineTable({
     documentId: v.id("documents"),
-    claimedBy: v.string(), // identity.subject of the tab that created the room
+    claimedBy: v.string(), // identity.subject of whoever claimed the room
+    // Random per-editor token of the claim. Lets the same editor re-claim its
+    // own still-empty room after a remount (React StrictMode mounts twice in
+    // dev) without another tab getting "create" too.
+    claimToken: v.optional(v.string()),
     claimedAt: v.number(),
     pendingUpdates: v.number(), // update rows since the last compaction
     compactionScheduled: v.boolean(),

@@ -60,12 +60,14 @@ const hasAnyUpdate = async (ctx: QueryCtx | MutationCtx, documentId: Id<"documen
  * opening a brand-new document at once would both guess "create".
  *   - no room row           → claim it, "create"
  *   - room has content      → "join"
- *   - claimed, still empty  → "wait" (the claimer is seeding it), unless the
- *                             claim is stale, in which case take it over
+ *   - claimed by this same editor (`claimToken`), still empty → "create" again
+ *                             (the editor remounted before writing anything)
+ *   - claimed elsewhere, still empty → "wait" (the claimer is seeding it),
+ *                             unless the claim is stale — then take it over
  */
 export const claimRoom = mutation({
-  args: { documentId: v.id("documents") },
-  handler: async (ctx, { documentId }): Promise<"create" | "join" | "wait"> => {
+  args: { documentId: v.id("documents"), claimToken: v.string() },
+  handler: async (ctx, { documentId, claimToken }): Promise<"create" | "join" | "wait"> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
     if (!(await resolveAccess(ctx, documentId, identity))) throw new Error("Not found");
@@ -76,6 +78,7 @@ export const claimRoom = mutation({
       await ctx.db.insert("ydocRooms", {
         documentId,
         claimedBy: identity.subject,
+        claimToken,
         claimedAt: now,
         pendingUpdates: 0,
         compactionScheduled: false,
@@ -83,8 +86,9 @@ export const claimRoom = mutation({
       return "create";
     }
     if (await hasAnyUpdate(ctx, documentId)) return "join";
+    if (room.claimToken === claimToken) return "create";
     if (now - room.claimedAt < STALE_CLAIM_MS) return "wait";
-    await ctx.db.patch(room._id, { claimedBy: identity.subject, claimedAt: now });
+    await ctx.db.patch(room._id, { claimedBy: identity.subject, claimToken, claimedAt: now });
     return "create";
   },
 });

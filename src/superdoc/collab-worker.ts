@@ -8,7 +8,7 @@
  *                    documentId, roomMode, providerOptions: { convexUrl }, token }
  * and `workerUrls.collaboration` pointing at the built file.
  *
- * Built by scripts/build-superdoc-worker.mjs into public/superdoc/ (not
+ * Built by scripts/build-superdoc-assets.mjs into public/superdoc/ (not
  * bundled by Next, since SuperDoc spawns it from a URL).
  */
 import { bootstrapSuperDocCollaborationWorker } from "superdoc/collaboration-worker";

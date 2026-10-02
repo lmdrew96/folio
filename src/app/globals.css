@@ -18,6 +18,9 @@
   --folio-backdrop: #d9d7d1; /* soft warm-taupe desk */
   --folio-paper: #fff6f2; /* the sheet — bright, near-white peach */
   --folio-paper-edge: rgba(32, 22, 30, 0.06); /* hairline page edge */
+  /* Ink for highlighted text — the light-theme ink in both themes, since a
+     highlight stays bright in the dark (SuperDoc editor). */
+  --folio-ink-on-highlight: #20161e;
   --folio-paper-shadow:
     0 1px 2px rgba(32, 22, 30, 0.04), 0 14px 40px -16px rgba(32, 22, 30, 0.18);
 
@@ -333,14 +336,97 @@ body {
   pointer-events: none;
 }
 
-/* ── SuperDoc editor (migration phase 2) ───────────────────────────────────────
-   SuperDoc paints white paper pages. Its document text has no colour of its
-   own ("auto"), so it inherited Folio's dark-mode foreground and turned white
-   on white. Pin the editor to the light colour scheme until the Phase 2
-   look-and-feel spec decides how SuperDoc should look in dark mode. ── */
+/* ── SuperDoc editor ───────────────────────────────────────────────────────────
+   SuperDoc themes itself through --sd-* custom properties declared on :root.
+   `html:root` outranks that, and every value reads a Folio token, so the
+   editor follows the light/dark switch the same way the rest of Folio does.
+   Its menus are attached to <body> (outside .folio-superdoc), which is why
+   these live on the root rather than on the editor wrapper. ── */
+html:root {
+  --sd-surface-canvas: var(--folio-backdrop);
+  --sd-layout-page-bg: var(--folio-paper);
+  --sd-surface-page: var(--folio-paper);
+  --sd-layout-page-shadow: var(--folio-paper-shadow);
+  --sd-ui-bg: var(--folio-paper);
+  --sd-ui-toolbar-bg: var(--folio-paper);
+  --sd-ui-surface-bg: var(--folio-paper);
+  --sd-ui-dropdown-bg: var(--folio-paper);
+  --sd-ui-text: var(--foreground);
+  --sd-ui-toolbar-button-text: var(--foreground);
+  --sd-ui-dropdown-text: var(--foreground);
+  --sd-ui-dropdown-hover-text: var(--foreground);
+  --sd-ui-text-muted: color-mix(in srgb, var(--foreground) 55%, transparent);
+  --sd-ui-border: var(--folio-paper-edge);
+  --sd-ui-dropdown-border: var(--folio-paper-edge);
+  --sd-ui-hover-bg: color-mix(in srgb, var(--foreground) 8%, transparent);
+  --sd-ui-dropdown-hover-bg: color-mix(in srgb, var(--foreground) 8%, transparent);
+  --sd-ui-toolbar-button-hover-bg: color-mix(in srgb, var(--foreground) 8%, transparent);
+  --sd-ui-active-bg: color-mix(in srgb, var(--foreground) 14%, transparent);
+  --sd-ui-toolbar-button-active-bg: color-mix(in srgb, var(--foreground) 14%, transparent);
+  --sd-ui-dropdown-active-bg: color-mix(in srgb, var(--foreground) 14%, transparent);
+  --sd-ui-font-family: var(--font-sans);
+}
 .folio-superdoc {
-  color-scheme: light;
-  color: CanvasText;
+  color: var(--foreground);
+}
+
+/* Dark mode inverts the paper. SuperDoc paints default-coloured ("auto")
+   text with an inline `color: rgb(0, 0, 0)`, which no variable reaches — so
+   in the dark, map exactly that to Folio's ink. Text the document colours on
+   purpose (links, red, …) keeps its colour. */
+.dark .folio-superdoc [style*="color: rgb(0, 0, 0)"] {
+  color: var(--foreground) !important;
+}
+/* Highlighted text keeps dark ink in both themes — light ink on a bright
+   highlight would be unreadable. */
+.folio-superdoc [style*="background-color"] {
+  color: var(--folio-ink-on-highlight) !important;
+}
+
+/* Paginated layout: SuperDoc left-aligns the page in its column. Centre it,
+   with breathing room under the toolbar. Auto margins (not justify-content)
+   fall back to 0 when the column is narrower than the page, so the page
+   scrolls instead of being pushed off the left edge. */
+.folio-superdoc .superdoc--contained > .superdoc__layers {
+  margin: 1.5rem auto;
+}
+
+/* Continuous layout: SuperDoc renders a bare flow, so give it Folio's sheet. */
+.folio-superdoc .superdoc--web-layout {
+  background: var(--folio-backdrop);
+}
+.folio-superdoc .superdoc-web-flow {
+  box-sizing: border-box;
+  max-width: 48rem;
+  min-height: 70vh;
+  margin: 2.5rem auto;
+  padding: 3.5rem 4rem;
+  background: var(--folio-paper);
+  border: 1px solid var(--folio-paper-edge);
+  border-radius: 2px;
+  box-shadow: var(--folio-paper-shadow);
+}
+
+/* SuperDoc sizes toolbar icons with `.superdoc-toolbar svg`, but the overflow
+   (⋮) menu is attached to <body>, outside .superdoc-toolbar — so its icons
+   collapsed to 0×0 and the menu looked empty. Give them the toolbar's size. */
+.sd-toolbar-overflow-menu .sd-toolbar-icon__icon {
+  width: 16px;
+}
+.sd-toolbar-overflow-menu .sd-toolbar-icon__icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* Same root cause for colour: the dropdown carets in that menu set no fill of
+   their own and fell back to black. */
+.sd-toolbar-overflow-menu svg {
+  fill: currentColor;
+}
+/* Most toolbar icons are filled with currentColor, but some (line height)
+   are drawn with a hard-coded black stroke, which stayed black in dark mode. */
+.sd-toolbar-icon__icon svg [stroke]:not([stroke="none"]) {
+  stroke: currentColor;
 }
 
 /* ── Print: put just the paper on the page ────────────────────────────────────

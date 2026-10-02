@@ -47,5 +47,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# SuperDoc collaboration worker — built by scripts/build-superdoc-worker.mjs
+# SuperDoc worker + fonts — built by scripts/build-superdoc-assets.mjs
 /public/superdoc/

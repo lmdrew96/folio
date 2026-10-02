@@ -14,8 +14,13 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { registerPendingSaveFlush } from "@/lib/pendingSave";
 import { toReconcileBlocks, type SdBlock, type SdProjection } from "@/superdoc/extract";
+import {
+  DEFAULT_SUPERDOC_FONT,
+  SUPERDOC_FONT_OPTIONS,
+  superDocFontsConfig,
+} from "@/superdoc/fonts";
 
-/** Built by scripts/build-superdoc-worker.mjs. */
+/** Built by scripts/build-superdoc-assets.mjs. */
 const COLLAB_WORKER_URL = "/superdoc/collab-worker.js";
 /** Quiet time after an edit before the derived block rows are rebuilt. */
 const EXTRACT_DEBOUNCE_MS = 1000;
@@ -24,11 +29,37 @@ const CLAIM_RETRY_MS = 2000;
 
 type RoomMode = "create" | "join";
 type Connection = "connecting" | "synced" | "degraded" | "failed";
+/** "paginated" = paper pages (SuperDoc's default); "web" = one continuous page. */
+type Layout = "paginated" | "web";
+
+/** Per-device choice — a viewing preference, not part of the document. */
+const LAYOUT_KEY = "folio:superdoc-layout";
+
+const readLayout = (): Layout => {
+  try {
+    return localStorage.getItem(LAYOUT_KEY) === "web" ? "web" : "paginated";
+  } catch {
+    return "paginated"; // storage blocked (private window etc.)
+  }
+};
+
+/** Built-in toolbar controls Folio doesn't use: no AI provider is configured,
+ *  and Folio has no suggesting/tracked-changes or ruler-unit workflow. */
+const EXCLUDED_TOOLBAR_ITEMS = [
+  "ai",
+  "document-mode",
+  "track-changes-accept-selection",
+  "track-changes-reject-selection",
+  "measurement-unit",
+] as const;
+
+const fontsConfig = superDocFontsConfig();
 
 /** The slice of SuperDoc's browser Document API this editor reads. */
 type DocApi = {
   blocks: { list(input: unknown): Promise<{ blocks: SdBlock[] }> | { blocks: SdBlock[] } };
   projectMarkdown?(input: unknown): Promise<SdProjection>;
+  styles?: { apply(input: unknown): unknown };
 };
 
 /**
@@ -56,12 +87,15 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
   // ---- room claim (decided once, before SuperDoc mounts) ----
   const [roomMode, setRoomMode] = useState<RoomMode | null>(null);
   const [claimError, setClaimError] = useState<string | null>(null);
+  // Identifies this editor's claim across remounts (StrictMode mounts twice
+  // in dev), so re-claiming its own empty room isn't mistaken for another tab.
+  const [claimToken] = useState(() => crypto.randomUUID());
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const claim = async () => {
       try {
-        const result = await claimRoom({ documentId });
+        const result = await claimRoom({ documentId, claimToken });
         if (cancelled) return;
         if (result === "wait") timer = setTimeout(() => void claim(), CLAIM_RETRY_MS);
         else setRoomMode(result);
@@ -75,7 +109,7 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [claimRoom, documentId]);
+  }, [claimRoom, documentId, claimToken]);
 
   const document = useMemo(
     () =>
@@ -199,8 +233,75 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
     [],
   );
 
+  // ---- layout (paginated ↔ continuous) ----
+  // viewOptions is read once at mount, so switching remounts the editor
+  // (keyed on layout). The content reloads from Convex — nothing is lost.
+  const [layout, setLayout] = useState<Layout>(readLayout);
+  const switchLayout = (next: Layout) => {
+    if (next === layout) return;
+    try {
+      localStorage.setItem(LAYOUT_KEY, next);
+    } catch {
+      // not persisted on this device; still switch for this session
+    }
+    setRoomMode("join"); // the room exists by now — a remount must not "create"
+    setLayout(next);
+  };
+
+  const ui = useMemo(
+    () => ({
+      toolbar: {
+        // Fit the editor column, not the browser window (SuperDoc's default),
+        // so controls that don't fit go into the overflow menu instead of
+        // sliding under the changes/Cleo sidebar.
+        responsiveTo: "container" as const,
+        excludeItems: EXCLUDED_TOOLBAR_ITEMS,
+        fontOptions: SUPERDOC_FONT_OPTIONS,
+        customItems: [
+          {
+            id: "folio-layout",
+            type: "dropdown" as const,
+            region: "right" as const,
+            label: layout === "web" ? "Continuous" : "Pages",
+            hasCaret: true,
+            size: "wide" as const, // room for "Continuous" without truncating
+            tooltip: "Page layout",
+            selectedValue: layout,
+            options: [
+              { id: "paginated", label: "Pages" },
+              { id: "web", label: "Continuous" },
+            ],
+            onSelect: ({ value }: { value?: string | number }) =>
+              switchLayout(value === "web" ? "web" : "paginated"),
+          },
+        ],
+      },
+    }),
+    // switchLayout closes over layout; rebuilt (with the editor) when it changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [layout],
+  );
+
   const onReady = ({ superdoc }: SuperDocReadyEvent) => {
-    docApiRef.current = (superdoc.activeEditor?.doc ?? null) as DocApi | null;
+    const doc = (superdoc.activeEditor?.doc ?? null) as DocApi | null;
+    docApiRef.current = doc;
+    if (doc?.styles && roomMode === "create") {
+      // A brand-new document: make Folio's default prose face the document
+      // default (docDefaults), so it's what Word sees on export too.
+      void Promise.resolve(
+        doc.styles.apply({
+          target: { scope: "docDefaults", channel: "run" },
+          patch: {
+            fontFamily: {
+              ascii: DEFAULT_SUPERDOC_FONT,
+              hAnsi: DEFAULT_SUPERDOC_FONT,
+              cs: DEFAULT_SUPERDOC_FONT,
+              eastAsia: DEFAULT_SUPERDOC_FONT,
+            },
+          },
+        }),
+      ).catch((e: unknown) => console.error("Folio: couldn't set the default font", e));
+    }
     void extract();
   };
 
@@ -214,9 +315,13 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
   return (
     <div className="folio-superdoc flex min-h-0 flex-1 flex-col">
       <SuperDoc
+        key={layout}
         document={document}
         documentMode="editing"
         contained
+        ui={ui}
+        fonts={fontsConfig}
+        viewOptions={layout === "web" ? { layout: "web" } : undefined}
         telemetry={{ enabled: false }}
         workerUrls={{ collaboration: COLLAB_WORKER_URL }}
         onReady={onReady}

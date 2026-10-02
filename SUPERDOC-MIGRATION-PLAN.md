@@ -56,7 +56,7 @@ until Phase 4.
    snapshot row when they pass ~100. Snapshots over ~900 KB go to Convex file storage
    (1 MB value limit). Clients already dedupe by row id, and re-applying merged state is a
    no-op in Yjs, so compaction is invisible to open tabs.
-5. Build step: `scripts/build-superdoc-worker.mjs` (esbuild) wired into `pnpm build`, output
+5. Build step: `scripts/build-superdoc-assets.mjs` (esbuild) wired into `pnpm build`, output
    to `public/superdoc/`. Pin `superdoc` to an exact version; the worker and page must match.
 
 **Done when:** unit-level checks pass — push/pull under auth, claimRoom race, compaction
@@ -89,8 +89,15 @@ round-trip (content identical before/after).
 **Done when:** a new doc can be written, formatted, shared and reopened; Cleo, the diff
 panel and the MCP tools read it correctly.
 
-**Status (2026-09-30): steps 1, 2 and 4 built on `superdoc-migration`, deployed to dev,
-awaiting a hands-on check; step 3 waits on the visual spec.**
+**Status (2026-10-02): Phase 2 complete on `superdoc-migration` (v0.53.0 + v0.54.0),
+checked by hand on dev.**
+- Look & feel (v0.54.0): toolbar fits its column (`responsiveTo: "container"`, overflow menu);
+  Pages/Continuous dropdown (per device, remounts the editor); unused controls removed;
+  Folio theme via `--sd-*` variables; dark mode inverts the paper (inline black → Folio ink);
+  13 fonts self-hosted from @fontsource-variable (latin + latin-ext, so Romanian renders),
+  new documents default to Fraunces; pages centred; overflow-menu icon/caret/stroke fixes.
+- claimRoom now takes a per-editor `claimToken` so a remount (StrictMode) can't strand a new
+  document on "Opening…".
 - `SuperDocEditor.tsx`, routed by `DocBody` on `documents.editor`; dev-only "New SuperDoc
   document (dev)" button (compiled out of production builds).
 - `blocks.reconcile` takes `source: "superdoc"` and rejects a write from the wrong editor
@@ -99,8 +106,6 @@ awaiting a hands-on check; step 3 waits on the visual spec.**
   bold/italic/strike/underline/code/links and real tables.
 - Offline: the save pill reads "Not saved — reconnecting…"; unload is guarded while unsynced;
   the update toast won't reload over an unsynced document.
-- Interim: `.folio-superdoc` pins the editor to light colours (dark mode turned the page's
-  text white-on-white) until the visual spec.
 - Known gap for Phase 3: **printing a SuperDoc document prints a blank page** — the print
   allowlist only shows `.folio-paper`.
 

@@ -71,29 +71,31 @@ describe("convex/ydoc", () => {
 
   describe("claimRoom", () => {
     it("creates once, makes a concurrent opener wait, then everyone joins", async () => {
-      expect(await alice().mutation(api.ydoc.claimRoom, { documentId })).toBe("create");
-      // Second tab before the first has written anything.
-      expect(await alice().mutation(api.ydoc.claimRoom, { documentId })).toBe("wait");
+      expect(await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "tab-a" })).toBe("create");
+      // The same editor remounting before it wrote anything keeps its claim.
+      expect(await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "tab-a" })).toBe("create");
+      // Another tab before the first has written anything has to wait.
+      expect(await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "tab-b" })).toBe("wait");
       await alice().mutation(api.ydoc.push, { documentId, update: typist()("hi") });
-      expect(await alice().mutation(api.ydoc.claimRoom, { documentId })).toBe("join");
+      expect(await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "tab-a" })).toBe("join");
     });
 
     it("lets a stale, never-written claim be taken over", async () => {
-      await alice().mutation(api.ydoc.claimRoom, { documentId });
+      await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "tab-a" });
       vi.advanceTimersByTime(STALE_CLAIM_MS + 1);
-      expect(await alice().mutation(api.ydoc.claimRoom, { documentId })).toBe("create");
+      expect(await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "tab-b" })).toBe("create");
     });
 
     it("refuses someone without access", async () => {
       await expect(
-        t.withIdentity(MALLORY).mutation(api.ydoc.claimRoom, { documentId }),
+        t.withIdentity(MALLORY).mutation(api.ydoc.claimRoom, { documentId, claimToken: "tab-a" }),
       ).rejects.toThrow("Not found");
     });
   });
 
   describe("push / head / since", () => {
     it("returns only rows after the given time, oldest first", async () => {
-      await alice().mutation(api.ydoc.claimRoom, { documentId });
+      await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "tab-a" });
       const type = typist();
       await alice().mutation(api.ydoc.push, { documentId, update: type("a") });
       vi.advanceTimersByTime(5);
@@ -111,7 +113,7 @@ describe("convex/ydoc", () => {
     });
 
     it("hides everything from someone without access", async () => {
-      await alice().mutation(api.ydoc.claimRoom, { documentId });
+      await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "tab-a" });
       await alice().mutation(api.ydoc.push, { documentId, update: typist()("secret") });
       const mallory = t.withIdentity(MALLORY);
       expect(await mallory.query(api.ydoc.head, { documentId })).toBeNull();
@@ -125,7 +127,7 @@ describe("convex/ydoc", () => {
       await expect(
         alice().mutation(api.ydoc.push, { documentId, update: typist()("x") }),
       ).rejects.toThrow(/NO_ROOM/);
-      await alice().mutation(api.ydoc.claimRoom, { documentId });
+      await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "tab-a" });
       await expect(
         alice().mutation(api.ydoc.push, {
           documentId,
@@ -137,7 +139,7 @@ describe("convex/ydoc", () => {
 
   describe("compaction", () => {
     it(`merges ${COMPACT_AT} updates into one inline snapshot without losing text`, async () => {
-      await alice().mutation(api.ydoc.claimRoom, { documentId });
+      await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "tab-a" });
       const type = typist();
       let expected = "";
       for (let i = 0; i < COMPACT_AT; i++) {
@@ -168,7 +170,7 @@ describe("convex/ydoc", () => {
     });
 
     it("moves a snapshot too big for a row into file storage", async () => {
-      await alice().mutation(api.ydoc.claimRoom, { documentId });
+      await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "tab-a" });
       const type = typist();
       const chunk = "x".repeat(Math.ceil(INLINE_SNAPSHOT_MAX_BYTES / COMPACT_AT) + 500);
       for (let i = 0; i < COMPACT_AT; i++) {
@@ -198,7 +200,7 @@ describe("convex/ydoc", () => {
     });
 
     it("keeps rows pushed after compaction loaded its input", async () => {
-      await alice().mutation(api.ydoc.claimRoom, { documentId });
+      await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "tab-a" });
       const type = typist();
       await alice().mutation(api.ydoc.push, { documentId, update: type("a") });
       const loaded = await t.query(internal.ydoc.loadForCompaction, { documentId });
@@ -213,7 +215,7 @@ describe("convex/ydoc", () => {
   });
 
   it("purging a deleted document removes its room, updates and blobs", async () => {
-    await alice().mutation(api.ydoc.claimRoom, { documentId });
+    await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "tab-a" });
     const type = typist();
     const chunk = "z".repeat(Math.ceil(INLINE_SNAPSHOT_MAX_BYTES / COMPACT_AT) + 500);
     for (let i = 0; i < COMPACT_AT; i++) {
