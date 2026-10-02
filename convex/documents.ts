@@ -301,9 +301,13 @@ export const purgeDeleted = internalMutation({
     for (const doc of docs) {
       if (doc.deletedAt === undefined || doc.deletedAt > cutoff) continue;
 
-      const [blocks, visits, reactions, messages, shares] = await Promise.all([
+      const [blocks, legacyBlocks, visits, reactions, messages, shares] = await Promise.all([
         ctx.db
           .query("blocks")
+          .withIndex("by_document", (q) => q.eq("documentId", doc._id))
+          .collect(),
+        ctx.db
+          .query("legacyBlocks")
           .withIndex("by_document", (q) => q.eq("documentId", doc._id))
           .collect(),
         ctx.db
@@ -326,6 +330,7 @@ export const purgeDeleted = internalMutation({
 
       await Promise.all([
         ...blocks.map((b) => ctx.db.delete(b._id)),
+        ...legacyBlocks.map((b) => ctx.db.delete(b._id)),
         ...visits.map((visit) => ctx.db.delete(visit._id)),
         ...reactions.map((r) => ctx.db.delete(r._id)),
         ...messages.map((m) => ctx.db.delete(m._id)),

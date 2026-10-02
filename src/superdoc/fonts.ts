@@ -43,6 +43,22 @@ export const DEFAULT_SUPERDOC_FONT = "Fraunces";
 
 export const SUPERDOC_FONT_DIR = "/superdoc/fonts";
 
+/** The DOCX a document starts from: Folio's styles (template built by
+ *  scripts/folio-docx-template.mjs) set in one font, so headings follow the
+ *  document's font too — SuperDoc can't restyle named styles afterwards. */
+export const templateUrl = (font: SuperDocFont): string =>
+  `/superdoc/templates/${font.slug}.docx`;
+
+export const defaultSuperDocFont = (): SuperDocFont =>
+  SUPERDOC_FONTS.find((f) => f.family === DEFAULT_SUPERDOC_FONT)!;
+
+/** The SuperDoc font for a TipTap document's font key (src/lib/fonts.ts).
+ *  Keys match slugs, except Source Serif's. Unknown/unset → the default. */
+export function fontForLegacyKey(key: string | undefined): SuperDocFont {
+  const slug = key === "source-serif" ? "source-serif-4" : key;
+  return SUPERDOC_FONTS.find((f) => f.slug === slug) ?? defaultSuperDocFont();
+}
+
 const styles = (font: SuperDocFont) =>
   font.italic ? (["normal", "italic"] as const) : (["normal"] as const);
 

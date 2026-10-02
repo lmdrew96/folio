@@ -12,6 +12,7 @@ import type * as access from "../access.js";
 import type * as apiKeys from "../apiKeys.js";
 import type * as blockContent from "../blockContent.js";
 import type * as blocks from "../blocks.js";
+import type * as conversion from "../conversion.js";
 import type * as crons from "../crons.js";
 import type * as diff from "../diff.js";
 import type * as documents from "../documents.js";
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   apiKeys: typeof apiKeys;
   blockContent: typeof blockContent;
   blocks: typeof blocks;
+  conversion: typeof conversion;
   crons: typeof crons;
   diff: typeof diff;
   documents: typeof documents;

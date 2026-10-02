@@ -26,6 +26,11 @@ const SuperDocEditor = dynamic(
   { ssr: false, loading: () => <p className="px-6 py-10 text-foreground/50">Opening…</p> },
 );
 
+/** Convert TipTap documents to SuperDoc on open. Dev-only while the
+ *  conversion is rehearsed; NODE_ENV is inlined at build time, so prod
+ *  bundles never convert. */
+const CONVERT_ON_OPEN = process.env.NODE_ENV === "development";
+
 /** Owner-only "Share" entry point in the header — hidden entirely for an
  *  editor viewing a shared document. */
 function ShareControl({ documentId }: { documentId: Id<"documents"> }) {
@@ -178,8 +183,17 @@ function DocBody({ documentId }: { documentId: Id<"documents"> }) {
   }
   // key on documentId → a doc switch fully remounts the editor (fresh refs),
   // so load/debounce/hash state never leaks between documents.
-  if (doc.editor === "superdoc") {
-    return <SuperDocEditor key={documentId} documentId={documentId} />;
+  // A TipTap document converts to SuperDoc when opened (migration phase 4)
+  // unless a conversion already failed. Same element either way, so the
+  // editor that converted it stays mounted once the flag flips.
+  if (doc.editor === "superdoc" || (CONVERT_ON_OPEN && !doc.conversionFailure)) {
+    return (
+      <SuperDocEditor
+        key={documentId}
+        documentId={documentId}
+        legacy={doc.editor === "superdoc" ? undefined : { fontKey: doc.fontFamily }}
+      />
+    );
   }
   return <DocEditor key={documentId} documentId={documentId} />;
 }

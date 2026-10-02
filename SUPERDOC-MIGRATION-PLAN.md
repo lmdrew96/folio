@@ -127,8 +127,8 @@ checked by hand on dev.**
 **Done when:** a SuperDoc doc has everything a TipTap doc has today, except the listed
 Cmd+Delete gap.
 
-**Status (2026-10-02): built on `superdoc-migration`, uncommitted; checked in Chrome on dev
-except printing.**
+**Status (2026-10-02): shipped on `superdoc-migration` as v0.55.0; checked in Chrome on dev,
+printing checked by Nae.**
 - Attribution: `src/superdoc/folioExtension.ts` block decorations
   (`data-superdoc-ext-folio-*`). SuperDoc doesn't decorate the continuous layout, so
   SuperDocEditor stamps the same attributes there itself. Tooltip computed on hover.
@@ -169,6 +169,33 @@ except printing.**
    gotcha: the open editor's flush overwrites migrated content).
 
 **Done when:** every document is flagged `superdoc`, verified, with its legacy snapshot kept.
+
+**Status (2026-10-02): built on `superdoc-migration` (v0.56.0). Rehearsed on the dev
+deployment: all 15 TipTap documents there converted and passed the check (nested lists,
+links, colours, emoji, Romanian); two fixtures covered footnotes, blockquotes, tables and
+highlights. Prod not touched.**
+- Trigger: `DocWorkspace` opens an unconverted document in `SuperDocEditor` with `legacy` set
+  (dev builds only — `CONVERT_ON_OPEN`). The editor converts it, then stays open as its editor.
+- Import (`src/superdoc/runConversion.ts`): rows → HTML (`legacyHtml.ts`) → `replace` into a
+  room started from the template in the document's own font (one template per font, built to
+  `public/superdoc/templates/`). Blockquotes get the Quote style. Footnote references travel as
+  `⟦fnN⟧` placeholders and are swapped for real DOCX footnotes; highlighted text travels between
+  `⟦hN⟧…⟦/h⟧` markers and gets its exact tint via `format.apply` (SuperDoc's HTML import turns
+  every highlight into Word yellow, and drops span backgrounds).
+- Check (`convertLegacy.ts` `alignBlocks`): each TipTap block's text, whitespace ignored, must
+  reappear in order across the SuperDoc blocks; footnote count must match. Failure →
+  `conversion.fail`: room dropped, reason stored in `documents.conversionFailure`, the document
+  stays on TipTap and isn't retried.
+- Switch (`convex/conversion.ts` `finish`, one transaction): refuses if a TipTap tab saved
+  since the content was read; copies the TipTap rows to `legacyBlocks`; writes the new rows
+  inheriting each source block's author and timestamps (attribution and "since you last
+  looked" carry over); keeps deletion tombstones; sets `editor: "superdoc"`.
+- By hand: `npx convex run conversion:status`, `conversion:revert '{"documentId": …}'`,
+  `conversion:clearFailure '{"documentId": …}'`.
+- Known losses: footnote text arrives unformatted; a footnote or highlight inside a table
+  cell fails the conversion (blocks.list doesn't reach cell text), leaving the doc on TipTap.
+- Dev rehearsal leftover: "PSYC 100 PollEv Questions" converted before the highlight fix, so its
+  highlights are Word yellow — `revert` it and reopen to convert again.
 
 ### Phase 5 — Cutover and cleanup
 

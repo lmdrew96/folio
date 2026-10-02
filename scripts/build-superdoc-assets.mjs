@@ -5,8 +5,8 @@
 //     Folio's Convex provider adapter, bundled into one module worker.
 //   - public/superdoc/fonts/*.woff2: the editor's fonts, copied from
 //     assets/superdoc-fonts/ (the list lives in src/superdoc/fonts.ts).
-//   - public/superdoc/folio-template.docx: the file new documents start from
-//     (scripts/folio-docx-template.mjs).
+//   - public/superdoc/templates/<font>.docx: the file a document starts from,
+//     one per font (scripts/folio-docx-template.mjs).
 import { build } from "esbuild";
 import { copyFile, mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -32,7 +32,7 @@ const fontsModule = await build({
   write: false,
   logLevel: "warning",
 });
-const { SUPERDOC_FONTS, DEFAULT_SUPERDOC_FONT, fontFiles } = await import(
+const { SUPERDOC_FONTS, fontFiles } = await import(
   "data:text/javascript;base64," + Buffer.from(fontsModule.outputFiles[0].text).toString("base64")
 );
 
@@ -45,7 +45,10 @@ for (const font of SUPERDOC_FONTS) {
   }
 }
 
-await writeFile(
-  "public/superdoc/folio-template.docx",
-  await buildFolioTemplate(DEFAULT_SUPERDOC_FONT),
-);
+const templateDir = "public/superdoc/templates";
+await rm(templateDir, { recursive: true, force: true });
+await rm("public/superdoc/folio-template.docx", { force: true }); // pre-v0.56 name
+await mkdir(templateDir, { recursive: true });
+for (const font of SUPERDOC_FONTS) {
+  await writeFile(path.join(templateDir, `${font.slug}.docx`), await buildFolioTemplate(font.family));
+}

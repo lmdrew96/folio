@@ -38,6 +38,10 @@ export default defineSchema({
     // such a document must never be opened by the TipTap editor again, or it
     // would write blocks the Y.Doc doesn't know about.
     editor: v.optional(v.literal("superdoc")),
+    // Set when converting this TipTap document to SuperDoc failed its check
+    // (convex/conversion.ts) — the document stays on TipTap and isn't retried
+    // until this is cleared.
+    conversionFailure: v.optional(v.object({ reason: v.string(), at: v.number() })),
   })
     .index("by_owner", ["ownerId"])
     .index("by_folder", ["folderId"]),
@@ -203,6 +207,25 @@ export default defineSchema({
     claimedAt: v.number(),
     pendingUpdates: v.number(), // update rows since the last compaction
     compactionScheduled: v.boolean(),
+  }).index("by_document", ["documentId"]),
+
+  // A converted document's TipTap block rows exactly as they were the moment
+  // it switched to SuperDoc (convex/conversion.ts) — the rollback copy.
+  // Same fields as `blocks`, plus when the conversion happened.
+  legacyBlocks: defineTable({
+    documentId: v.id("documents"),
+    blockId: v.string(),
+    order: v.number(),
+    type: v.string(),
+    content: v.any(),
+    author: v.optional(v.string()),
+    authorName: v.optional(v.string()),
+    createdAt: v.number(),
+    lastEditedAt: v.number(),
+    deletedAt: v.optional(v.number()),
+    previouslyDraftedBy: v.optional(v.string()),
+    previousContent: v.optional(v.any()),
+    convertedAt: v.number(),
   }).index("by_document", ["documentId"]),
 
   friends: defineTable({

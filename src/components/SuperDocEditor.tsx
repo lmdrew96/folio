@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { useMutation, useQuery } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import {
   SuperDocEditor as SuperDoc,
@@ -13,7 +13,14 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { registerPendingSaveFlush } from "@/lib/pendingSave";
 import { toReconcileBlocks, type SdBlock, type SdProjection } from "@/superdoc/extract";
-import { SUPERDOC_FONT_OPTIONS, superDocFontsConfig } from "@/superdoc/fonts";
+import {
+  defaultSuperDocFont,
+  fontForLegacyKey,
+  SUPERDOC_FONT_OPTIONS,
+  superDocFontsConfig,
+  templateUrl,
+} from "@/superdoc/fonts";
+import { convertInto } from "@/superdoc/runConversion";
 import { createFolioExtension, type BlockAttribution } from "@/superdoc/folioExtension";
 import {
   exportSuperDoc,
@@ -24,13 +31,24 @@ import { relativeTime } from "@/lib/time";
 import { replayTyping } from "@/superdoc/typography";
 import { countWords, SuperDocFooter, type OutlineHeading } from "./SuperDocFooter";
 
-/** Both built by scripts/build-superdoc-assets.mjs. */
+/** Built by scripts/build-superdoc-assets.mjs (as are the templates). */
 const COLLAB_WORKER_URL = "/superdoc/collab-worker.js";
-const FOLIO_TEMPLATE_URL = "/superdoc/folio-template.docx";
 /** Quiet time after an edit before the derived block rows are rebuilt. */
 const EXTRACT_DEBOUNCE_MS = 1000;
 /** How long to wait before re-claiming a room another tab is still creating. */
 const CLAIM_RETRY_MS = 2000;
+/** How often to check back while another tab converts this document. */
+const BUSY_RETRY_MS = 5000;
+/** How long a converted document's first save may take before giving up. */
+const SAVE_TIMEOUT_MS = 30_000;
+
+/** Converting a TipTap document on open (migration phase 4). */
+type ConversionPhase = "none" | "preparing" | "busy" | "converting" | "stuck";
+
+/** The TipTap document this editor is converting. */
+export type LegacySource = { fontKey?: string };
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type RoomMode = "create" | "join";
 type Connection = "connecting" | "synced" | "degraded" | "failed";
@@ -126,7 +144,15 @@ function createSession() {
  *     panel, attribution, Cleo and the MCP door keep working,
  *   - telling the writer when edits aren't reaching the server.
  */
-export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) {
+export function SuperDocEditor({
+  documentId,
+  legacy,
+}: {
+  documentId: Id<"documents">;
+  /** Set while the document is still on TipTap: it's converted on open,
+   *  and this editor stays open as its editor afterwards. */
+  legacy?: LegacySource;
+}) {
   const { getToken } = useAuth();
   // SuperDoc rebuilds the editor when `document` changes, so the token
   // resolver it holds must be stable. Clerk's getToken is (a useCallback on
@@ -136,8 +162,29 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
     [getToken],
   );
 
+  const convex = useConvex();
   const claimRoom = useMutation(api.ydoc.claimRoom);
   const reconcile = useMutation(api.blocks.reconcile);
+  const prepareConversion = useMutation(api.conversion.prepare);
+  const finishConversion = useMutation(api.conversion.finish);
+  const failConversion = useMutation(api.conversion.fail);
+
+  // ---- conversion state (phase 4) ----
+  // True until this document is on SuperDoc. While it is, the derived block
+  // rows still belong to TipTap, so extraction stays off.
+  const legacyRef = useRef(legacy !== undefined);
+  const [phase, setPhase] = useState<ConversionPhase>(legacy ? "preparing" : "none");
+  // The DOCX a new room starts from, in the document's font. Fixed at mount.
+  const [template] = useState(() =>
+    templateUrl(legacy ? fontForLegacyKey(legacy.fontKey) : defaultSuperDocFont()),
+  );
+  useEffect(() => {
+    // Converted (here or in another tab): an ordinary SuperDoc document now.
+    if (!legacy) legacyRef.current = false;
+  }, [legacy]);
+  // Waiting on a conversion that has since landed elsewhere → nothing to show.
+  const shownPhase: ConversionPhase =
+    !legacy && (phase === "preparing" || phase === "busy") ? "none" : phase;
 
   // ---- room claim (decided once, before SuperDoc mounts) ----
   const [roomMode, setRoomMode] = useState<RoomMode | null>(null);
@@ -150,6 +197,16 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
     let timer: ReturnType<typeof setTimeout> | undefined;
     const claim = async () => {
       try {
+        if (legacyRef.current) {
+          const state = await prepareConversion({ documentId, claimToken });
+          if (cancelled) return;
+          if (state === "failed") return; // DocWorkspace reopens it in TipTap
+          if (state === "busy") {
+            setPhase("busy");
+            timer = setTimeout(() => void claim(), BUSY_RETRY_MS);
+            return;
+          }
+        }
         const result = await claimRoom({ documentId, claimToken });
         if (cancelled) return;
         if (result === "wait") timer = setTimeout(() => void claim(), CLAIM_RETRY_MS);
@@ -164,6 +221,8 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
       cancelled = true;
       clearTimeout(timer);
     };
+    // prepareConversion is a stable mutation handle like claimRoom.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claimRoom, documentId, claimToken]);
 
   const document = useMemo(
@@ -173,9 +232,9 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
         : {
             type: "docx",
             // A room needs a base file. On create it's Folio's template (its
-            // styles become the document's: Fraunces, Folio headings); on
+            // styles become the document's: the font, Folio headings); on
             // join the Y.Doc's content replaces it.
-            url: FOLIO_TEMPLATE_URL,
+            url: template,
             collaboration: {
               providerType: "extension" as const,
               adapterId: "convex",
@@ -185,7 +244,7 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
               token: fetchToken,
             },
           },
-    [documentId, roomMode, fetchToken],
+    [documentId, roomMode, fetchToken, template],
   );
 
   // ---- connection state → save pill + unload guard ----
@@ -235,7 +294,7 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
       return extracting.current;
     }
     const { doc } = session.get();
-    if (!doc) return;
+    if (!doc || legacyRef.current) return;
     extracting.current = (async () => {
       do {
         extractAgain.current = false;
@@ -578,9 +637,61 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
     [layout],
   );
 
+  // ---- converting a TipTap document (phase 4) ----
+  const conversionStarted = useRef(false);
+
+  /** Wait until the converted Y.Doc has reached Convex and stopped changing. */
+  const waitForSave = async (): Promise<void> => {
+    const deadline = Date.now() + SAVE_TIMEOUT_MS;
+    let last: number | null = null;
+    while (Date.now() < deadline) {
+      await sleep(750);
+      const head = await convex.query(api.ydoc.head, { documentId });
+      if (connectionRef.current === "synced" && head && head.count > 0 && head.latest === last) return;
+      last = head?.latest ?? null;
+    }
+    throw new Error("the converted document didn't finish saving");
+  };
+
+  const giveUp = async (reason: string) => {
+    console.error(`Folio: couldn't convert this document to SuperDoc — ${reason}`);
+    try {
+      // Drops the room and records why; DocWorkspace reopens it in TipTap.
+      await failConversion({ documentId, reason });
+    } catch (e) {
+      console.error("Folio: couldn't record the failed conversion", e);
+      setPhase("stuck");
+    }
+  };
+
+  const convert = async (doc: DocApi) => {
+    setPhase("converting");
+    try {
+      // updatedAt first: if a TipTap tab saves after this, finish refuses.
+      const meta = await convex.query(api.documents.get, { documentId });
+      const rows = await convex.query(api.blocks.list, { documentId });
+      if (!meta) throw new Error("the document is unavailable");
+      const result = await convertInto(doc, rows);
+      if (!result.ok) return await giveUp(result.reason);
+      await waitForSave();
+      await finishConversion({ documentId, basedOn: meta.updatedAt, blocks: result.blocks });
+      legacyRef.current = false;
+      setPhase("none");
+      void extract();
+    } catch (e) {
+      const code = e instanceof ConvexError ? (e.data as { code?: string })?.code : undefined;
+      await giveUp(code ?? (e instanceof Error ? e.message : String(e)));
+    }
+  };
+
   const onReady = ({ superdoc }: SuperDocReadyEvent) => {
     const doc = (superdoc.activeEditor?.doc ?? null) as DocApi | null;
     session.attach({ superdoc: superdoc as unknown as SuperDocInstance, doc });
+    if (legacyRef.current && roomMode === "create" && doc && !conversionStarted.current) {
+      conversionStarted.current = true;
+      void convert(doc);
+      return;
+    }
     void extract();
   };
 
@@ -588,13 +699,17 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
     return <p className="px-6 py-10 text-foreground/60">{claimError}</p>;
   }
   if (!document) {
-    return <p className="px-6 py-10 text-foreground/50">Opening…</p>;
+    return (
+      <p className="px-6 py-10 text-foreground/50">
+        {shownPhase === "busy" ? "Another tab is moving this document to the new editor…" : "Opening…"}
+      </p>
+    );
   }
 
   return (
     <div
       ref={surfaceRef}
-      className="folio-superdoc flex min-h-0 flex-1 flex-col"
+      className="folio-superdoc relative flex min-h-0 flex-1 flex-col"
       onMouseOver={onAttributionHover}
     >
       <SuperDoc
@@ -622,6 +737,18 @@ export function SuperDocEditor({ documentId }: { documentId: Id<"documents"> }) 
         }}
         className="min-h-0 flex-1"
       />
+      {shownPhase !== "none" && (
+        // Covers the editor (toolbar too) so nothing is typed mid-check.
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-[var(--folio-backdrop)]/90">
+          <p className="text-sm text-foreground/60" aria-live="polite">
+            {shownPhase === "stuck"
+              ? "This document couldn't be moved to the new editor. Reload to try again."
+              : shownPhase === "busy"
+                ? "Another tab is moving this document to the new editor…"
+                : "Moving this document to the new editor…"}
+          </p>
+        </div>
+      )}
       {/* Same quiet pill the TipTap editor uses for its save story. */}
       <div
         className={`fixed bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-foreground shadow-sm transition-opacity duration-200 ${
