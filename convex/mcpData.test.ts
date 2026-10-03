@@ -195,3 +195,72 @@ describe("whatsNewForUser / markAllVisitedForUser", () => {
     expect(otherKey.documents).toHaveLength(2);
   });
 });
+
+describe("listDocumentsForUser filters / listFoldersForUser", () => {
+  async function filed() {
+    const { t, doc, share } = setup();
+    const ids = await t.run(async (ctx) => {
+      const classes = await ctx.db.insert("folders", { ownerId: ALICE, name: "Classes", createdAt: 1 });
+      const psych = await ctx.db.insert("folders", {
+        ownerId: ALICE, name: "Psycholinguistics", parentId: classes, createdAt: 1,
+      });
+      const misc = await ctx.db.insert("folders", { ownerId: ALICE, name: "Misc", createdAt: 1 });
+      return { classes, psych, misc };
+    });
+    await doc(ALICE, "Week 1", [{ blockId: "a", content: paragraph("a"), at: 100 }], {
+      folderId: ids.psych,
+    });
+    await doc(ALICE, "Syllabus", [{ blockId: "b", content: paragraph("b"), at: 200 }], {
+      folderId: ids.classes,
+    });
+    await doc(ALICE, "Loose", [{ blockId: "c", content: paragraph("c"), at: 300 }]);
+    const bobs = await doc(BOB, "Bob's", [{ blockId: "d", content: paragraph("d"), at: 400 }]);
+    await share(bobs, ALICE);
+    return { t, ids };
+  }
+
+  it("shows each document's folder path; shared documents read as unfiled", async () => {
+    const { t, ids } = await filed();
+    const docs = await t.query(internal.mcpData.listDocumentsForUser, { userId: ALICE });
+    expect(docs.map((d) => [d.title, d.folder?.path ?? null])).toEqual([
+      ["Bob's", null],
+      ["Loose", null],
+      ["Syllabus", "Classes"],
+      ["Week 1", "Classes / Psycholinguistics"],
+    ]);
+    expect(docs[3].folder!.id).toBe(ids.psych);
+  });
+
+  it("filters by folder (with subfolders) and by date", async () => {
+    const { t, ids } = await filed();
+    const inClasses = await t.query(internal.mcpData.listDocumentsForUser, {
+      userId: ALICE,
+      folderId: ids.classes,
+    });
+    expect(inClasses.map((d) => d.title)).toEqual(["Syllabus", "Week 1"]);
+
+    const recent = await t.query(internal.mcpData.listDocumentsForUser, {
+      userId: ALICE,
+      updatedAfter: new Date(200).toISOString(),
+      updatedBefore: new Date(300).toISOString(),
+    });
+    expect(recent.map((d) => d.title)).toEqual(["Loose", "Syllabus"]);
+
+    await expect(
+      t.query(internal.mcpData.listDocumentsForUser, { userId: ALICE, updatedAfter: "last week" }),
+    ).rejects.toThrow(/ISO 8601/);
+    await expect(
+      t.query(internal.mcpData.listDocumentsForUser, { userId: BOB, folderId: ids.classes }),
+    ).rejects.toThrow(/not found/);
+  });
+
+  it("lists the folder tree with paths and direct document counts", async () => {
+    const { t } = await filed();
+    const { folders } = await t.query(internal.mcpData.listFoldersForUser, { userId: ALICE });
+    expect(folders.map((f) => [f.path, f.documentCount])).toEqual([
+      ["Classes", 1],
+      ["Classes / Psycholinguistics", 1],
+      ["Misc", 0],
+    ]);
+  });
+});

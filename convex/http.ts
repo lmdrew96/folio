@@ -57,7 +57,30 @@ const TOOLS = [
   {
     name: "folio_list_documents",
     description:
-      "List the Folio documents this key can read — the user's own plus any shared with them (`shared: true`) — as id, title, createdAt, updatedAt, most-recently-edited first. Start here to get a document id for the other tools.",
+      "List the Folio documents this key can read — the user's own plus any shared with them (`shared: true`) — as id, title, folder ({ id, name, path } or null if unfiled; shared documents always read as unfiled), createdAt, updatedAt, most-recently-edited first. Optionally narrow by folder (subfolders included — get ids from folio_list_folders) and by last-edit time. Start here to get a document id for the other tools; to find documents by content, use folio_search.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        folderId: {
+          type: "string",
+          description: "Only documents in this folder or its subfolders (id from folio_list_folders).",
+        },
+        updatedAfter: {
+          type: "string",
+          description:
+            "Only documents last edited at or after this ISO 8601 date-time. Include the user's UTC offset (e.g. 2026-09-28T00:00:00-04:00) — a bare date means midnight UTC.",
+        },
+        updatedBefore: {
+          type: "string",
+          description: "Only documents last edited at or before this ISO 8601 date-time (same format).",
+        },
+      },
+    },
+  },
+  {
+    name: "folio_list_folders",
+    description:
+      "The user's folder tree, flat and sorted by path (\"Classes / Psycholinguistics\"), as id, name, path, parentId and documentCount (documents directly in that folder). Use it to turn a folder name into a folderId for folio_list_documents.",
     inputSchema: { type: "object", properties: {} },
   },
   {
@@ -148,8 +171,20 @@ async function dispatch(
 ) {
   switch (name) {
     case "folio_list_documents": {
-      const documents = await ctx.runQuery(internal.mcpData.listDocumentsForUser, { userId });
+      const optional = (key: string) =>
+        typeof args[key] === "string" && args[key] !== "" ? (args[key] as string) : undefined;
+      const documents = await ctx.runQuery(internal.mcpData.listDocumentsForUser, {
+        userId,
+        folderId: optional("folderId"),
+        updatedAfter: optional("updatedAfter"),
+        updatedBefore: optional("updatedBefore"),
+      });
       return textContent({ documents });
+    }
+
+    case "folio_list_folders": {
+      const result = await ctx.runQuery(internal.mcpData.listFoldersForUser, { userId });
+      return textContent(result);
     }
 
     case "folio_read_document": {

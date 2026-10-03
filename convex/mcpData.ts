@@ -218,16 +218,112 @@ const authorOf = (b: Doc<"blocks">): string =>
   // Cleo's blocks say "claude"; a human's carry their display name.
   b.author === "claude" ? "claude" : (b.authorName ?? "unknown");
 
+type FolderInfo = { id: Id<"folders">; name: string; path: string; parentId: Id<"folders"> | null };
+
+/** The user's folders keyed by id, each with its full "A / B / C" path. */
+async function folderMap(ctx: QueryCtx, userId: string): Promise<Map<string, FolderInfo>> {
+  const rows = await ctx.db
+    .query("folders")
+    .withIndex("by_owner", (q) => q.eq("ownerId", userId))
+    .take(2000);
+  const byId = new Map(rows.map((f) => [f._id as string, f]));
+  const pathOf = (f: Doc<"folders">): string => {
+    const names: string[] = [];
+    // Bounded walk: a parent cycle can't hang the query.
+    for (let cur: Doc<"folders"> | undefined = f, i = 0; cur && i < 64; i++) {
+      names.unshift(cur.name);
+      cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+    }
+    return names.join(" / ");
+  };
+  return new Map(
+    rows.map((f) => [
+      f._id as string,
+      { id: f._id, name: f.name, path: pathOf(f), parentId: f.parentId ?? null },
+    ]),
+  );
+}
+
+/** A timestamp filter: an ISO 8601 date/time (a bare date is midnight UTC). */
+function parseWhen(value: string | undefined, name: string): number | undefined {
+  if (value === undefined) return undefined;
+  const ms = Date.parse(value);
+  if (Number.isNaN(ms)) throw new Error(`${name} must be an ISO 8601 date or date-time`);
+  return ms;
+}
+
+/**
+ * The readable documents, optionally narrowed by folder (subfolders included)
+ * and by last-edit time. Each carries its folder — the OWNER's filing, so a
+ * document shared with the user reads as unfiled, as it does in the app.
+ */
 export const listDocumentsForUser = internalQuery({
+  args: {
+    userId: v.string(),
+    folderId: v.optional(v.string()),
+    updatedAfter: v.optional(v.string()),
+    updatedBefore: v.optional(v.string()),
+  },
+  handler: async (ctx, { userId, folderId, updatedAfter, updatedBefore }) => {
+    const after = parseWhen(updatedAfter, "updatedAfter");
+    const before = parseWhen(updatedBefore, "updatedBefore");
+    const folders = await folderMap(ctx, userId);
+
+    let inFolder: Set<string> | null = null;
+    if (folderId !== undefined) {
+      if (!folders.has(folderId)) throw new Error(`Folder ${folderId} not found`);
+      inFolder = new Set([folderId]);
+      // Pull in descendants until the set stops growing.
+      for (let grew = true; grew; ) {
+        grew = false;
+        for (const f of folders.values()) {
+          if (f.parentId && inFolder.has(f.parentId) && !inFolder.has(f.id)) {
+            inFolder.add(f.id);
+            grew = true;
+          }
+        }
+      }
+    }
+
+    return (await readableDocs(ctx, userId))
+      .map(({ doc, role }) => {
+        const folder = role === "owner" && doc.folderId ? folders.get(doc.folderId) : undefined;
+        return { doc, role, folder };
+      })
+      .filter(
+        ({ doc, folder }) =>
+          (!inFolder || (folder !== undefined && inFolder.has(folder.id))) &&
+          (after === undefined || doc.updatedAt >= after) &&
+          (before === undefined || doc.updatedAt <= before),
+      )
+      .map(({ doc, role, folder }) => ({
+        id: doc._id,
+        title: doc.title,
+        shared: role === "editor",
+        folder: folder ? { id: folder.id, name: folder.name, path: folder.path } : null,
+        createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt,
+      }));
+  },
+});
+
+/** The user's folder tree, flat and sorted by path, with how many of their
+ *  documents sit directly in each — enough to resolve a folder name to an id. */
+export const listFoldersForUser = internalQuery({
   args: { userId: v.string() },
   handler: async (ctx, { userId }) => {
-    return (await readableDocs(ctx, userId)).map(({ doc, role }) => ({
-      id: doc._id,
-      title: doc.title,
-      shared: role === "editor",
-      createdAt: doc.createdAt,
-      updatedAt: doc.updatedAt,
-    }));
+    const folders = await folderMap(ctx, userId);
+    const direct = new Map<string, number>();
+    for (const { doc, role } of await readableDocs(ctx, userId)) {
+      if (role === "owner" && doc.folderId) {
+        direct.set(doc.folderId, (direct.get(doc.folderId) ?? 0) + 1);
+      }
+    }
+    return {
+      folders: [...folders.values()]
+        .sort((a, b) => a.path.localeCompare(b.path))
+        .map((f) => ({ ...f, documentCount: direct.get(f.id) ?? 0 })),
+    };
   },
 });
 
