@@ -1,52 +1,52 @@
 [
   {
-    "hash": "f8fffde",
+    "hash": "0bd70e6",
     "date": "2026-10-02",
-    "subject": "v0.58.0: mobile — edit in Continuous, fit-to-width read-only page preview"
+    "subject": "v0.64.0: drag-and-drop filing on the desk"
   },
   {
-    "hash": "d3fe409",
+    "hash": "661f284",
     "date": "2026-10-02",
-    "subject": "v0.57.0: SuperDoc cutover — new documents and every open go through SuperDoc"
+    "subject": "v0.63.0: changes panel shows added/deleted blocks with their formatting"
   },
   {
-    "hash": "286e8dd",
+    "hash": "9e2365a",
     "date": "2026-10-02",
-    "subject": "v0.56.0: SuperDoc Phase 4 — convert TipTap documents on open (dev)"
+    "subject": "v0.62.3: keep dropdowns and dialogs inside the viewport"
   },
   {
-    "hash": "573bebc",
+    "hash": "43b9b10",
     "date": "2026-10-02",
-    "subject": "v0.55.0: SuperDoc Phase 3 — attribution, footer, export, typography, Folio template"
+    "subject": "v0.62.2: centre the save pill on the paper column, not the viewport"
   },
   {
-    "hash": "7e0b0e1",
-    "date": "2026-10-01",
-    "subject": "v0.54.0: SuperDoc look & feel — Folio theme, fonts, layout toggle"
+    "hash": "00bb5b2",
+    "date": "2026-10-02",
+    "subject": "v0.62.1: changes panel sets its own baseline on first open"
   },
   {
-    "hash": "51021b5",
-    "date": "2026-10-01",
-    "subject": "v0.53.0: SuperDoc editor behind a dev flag (migration phase 2)"
+    "hash": "f4e2a1f",
+    "date": "2026-10-02",
+    "subject": "v0.62.0: MCP block ranges on folio_read_document, empty blocks skipped"
   },
   {
-    "hash": "46098bd",
-    "date": "2026-09-30",
-    "subject": "v0.52.0: add SuperDoc storage foundation (migration phase 1)"
+    "hash": "62d22cb",
+    "date": "2026-10-02",
+    "subject": "v0.61.0: MCP folder + date filters on folio_list_documents, folio_list_folders"
   },
   {
-    "hash": "46c2c71",
-    "date": "2026-09-28",
-    "subject": "v0.51.3: check for updates when the app window regains focus"
+    "hash": "a2506f9",
+    "date": "2026-10-02",
+    "subject": "v0.60.0: MCP folio_whats_new + folio_mark_all_caught_up"
   },
   {
-    "hash": "31ed1f9",
-    "date": "2026-09-28",
-    "subject": "v0.51.2: regenerate the in-app changelog (stale since v0.36.0)"
+    "hash": "b79b043",
+    "date": "2026-10-02",
+    "subject": "v0.59.0: MCP folio_search — full-text search across documents"
   },
   {
-    "hash": "2572e69",
-    "date": "2026-09-28",
-    "subject": "v0.51.1: store block content as a JSON string so nested lists save"
+    "hash": "4b4e91f",
+    "date": "2026-10-02",
+    "subject": "v0.58.1: fix list-item text lost from SuperDoc's derived blocks"
   }
 ]

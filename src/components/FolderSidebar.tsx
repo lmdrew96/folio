@@ -6,6 +6,7 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { useDropdownMenu } from "@/lib/useDropdownMenu";
 import { useKeepInViewport } from "@/lib/useKeepInViewport";
+import { dragSource, useFilingDrop } from "@/lib/dragFiling";
 import {
   FOLDER_COLORS,
   flattenTree,
@@ -288,6 +289,42 @@ function FolderActions({
   );
 }
 
+/** A folder's row button: selects it, and is both draggable (to nest the
+ *  folder elsewhere) and a drop target (to file a document or folder into it). */
+function FolderButton({
+  folder,
+  tree,
+  active,
+  count,
+  onSelect,
+  onRename,
+}: {
+  folder: Folder;
+  tree: Children;
+  active: boolean;
+  count: number;
+  onSelect: () => void;
+  onRename: () => void;
+}) {
+  const drop = useFilingDrop(folder._id, tree, { color: folder.color });
+  return (
+    <button
+      type="button"
+      {...dragSource({ kind: "folder", id: folder._id, parentId: folder.parentId ?? null })}
+      {...drop.props}
+      style={drop.style}
+      onClick={onSelect}
+      onDoubleClick={onRename}
+      aria-current={active ? "page" : undefined}
+      className={`${ROW} ${active ? ROW_ACTIVE : ROW_IDLE}`}
+    >
+      <FolderDot color={folder.color} />
+      <span className="min-w-0 flex-1 truncate">{folder.name}</span>
+      {count > 0 && <span className="text-xs tabular-nums text-foreground/40">{count}</span>}
+    </button>
+  );
+}
+
 /**
  * The desk's folder column: All / Unfiled, then the owner's folder tree.
  * Selecting a row changes the view; each folder row carries its own ⋯ menu.
@@ -322,6 +359,10 @@ export function FolderSidebar({
   const [filter, setFilter] = useState("");
 
   const selectedId = view.kind === "folder" ? view.id : null;
+  // Drop a document on Unfiled to unfile it; a folder on the Folders
+  // header to move it to the top level.
+  const unfiledDrop = useFilingDrop(null, tree, { only: "doc" });
+  const topLevelDrop = useFilingDrop(null, tree, { only: "folder" });
 
   // Reveal a newly selected folder by expanding its ancestors — adjusted
   // during render when the selection changes (not in an effect), and only
@@ -451,17 +492,14 @@ export function FolderSidebar({
                   />
                 ) : (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => onSelect({ kind: "folder", id: f._id })}
-                      onDoubleClick={() => setRenamingId(f._id)}
-                      aria-current={selectedId === f._id ? "page" : undefined}
-                      className={`${ROW} ${selectedId === f._id ? ROW_ACTIVE : ROW_IDLE}`}
-                    >
-                      <FolderDot color={f.color} />
-                      <span className="min-w-0 flex-1 truncate">{f.name}</span>
-                      {count > 0 && <span className="text-xs tabular-nums text-foreground/40">{count}</span>}
-                    </button>
+                    <FolderButton
+                      folder={f}
+                      tree={tree}
+                      active={selectedId === f._id}
+                      count={count}
+                      onSelect={() => onSelect({ kind: "folder", id: f._id })}
+                      onRename={() => setRenamingId(f._id)}
+                    />
                     <FolderActions
                       folder={f}
                       folders={folders}
@@ -503,6 +541,8 @@ export function FolderSidebar({
         <li>
           <button
             type="button"
+            {...unfiledDrop.props}
+            style={unfiledDrop.style}
             onClick={() => onSelect({ kind: "unfiled" })}
             aria-current={view.kind === "unfiled" ? "page" : undefined}
             className={`${ROW} ${view.kind === "unfiled" ? ROW_ACTIVE : ROW_IDLE}`}
@@ -513,7 +553,11 @@ export function FolderSidebar({
         </li>
       </ul>
 
-      <div className="flex items-center justify-between gap-2 px-2">
+      <div
+        {...topLevelDrop.props}
+        style={topLevelDrop.style}
+        className="flex items-center justify-between gap-2 rounded-md px-2 py-0.5"
+      >
         <span className="text-xs font-medium uppercase tracking-wide text-foreground/45">Folders</span>
         <div className="flex items-center gap-1">
           {folders.length > 1 && (

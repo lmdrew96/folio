@@ -11,6 +11,7 @@
 import type * as access from "../access.js";
 import type * as apiKeys from "../apiKeys.js";
 import type * as blockContent from "../blockContent.js";
+import type * as blockMarkdown from "../blockMarkdown.js";
 import type * as blocks from "../blocks.js";
 import type * as conversion from "../conversion.js";
 import type * as crons from "../crons.js";
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   access: typeof access;
   apiKeys: typeof apiKeys;
   blockContent: typeof blockContent;
+  blockMarkdown: typeof blockMarkdown;
   blocks: typeof blocks;
   conversion: typeof conversion;
   crons: typeof crons;

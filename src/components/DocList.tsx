@@ -10,6 +10,7 @@ import { NewDocButton } from "./NewDocButton";
 import { FolderDot, FolderSidebar, type DeskView } from "./FolderSidebar";
 import { MoveToFolder } from "./MoveToFolder";
 import { ancestry, childrenMap, subtreeIds, type Folder, type FolderSort } from "@/lib/folders";
+import { dragSource, useFilingDrop } from "@/lib/dragFiling";
 
 const UNDO_MS = 8000;
 
@@ -194,6 +195,45 @@ function UndoToast({
         {undoing ? "…" : "Undo"}
       </button>
     </div>
+  );
+}
+
+/** A subfolder tile in folder view: opens the folder, and like a sidebar row
+ *  is draggable and accepts documents and folders dropped onto it. */
+function SubfolderTile({
+  folder,
+  tree,
+  inside,
+  nested,
+  onOpen,
+}: {
+  folder: Folder;
+  tree: Map<Id<"folders"> | null, Folder[]>;
+  inside: number;
+  nested: number;
+  onOpen: () => void;
+}) {
+  const drop = useFilingDrop(folder._id, tree, { color: folder.color });
+  return (
+    <button
+      type="button"
+      {...dragSource({ kind: "folder", id: folder._id, parentId: folder.parentId ?? null })}
+      {...drop.props}
+      style={drop.style}
+      onClick={onOpen}
+      className="folio-card flex w-full items-center gap-3 px-4 py-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--folio-attr-sibling)]"
+    >
+      <FolderDot color={folder.color} />
+      <span className="min-w-0 flex-1 truncate font-serif text-base text-foreground">{folder.name}</span>
+      <span className="shrink-0 text-xs text-foreground/45">
+        {[
+          inside > 0 && `${inside} doc${inside === 1 ? "" : "s"}`,
+          nested > 0 && `${nested} folder${nested === 1 ? "" : "s"}`,
+        ]
+          .filter(Boolean)
+          .join(" · ") || "empty"}
+      </span>
+    </button>
   );
 }
 
@@ -462,30 +502,17 @@ export function DocList() {
 
           {subfolders.length > 0 && (
             <ul className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {subfolders.map((f) => {
-                const inside = counts.get(f._id) ?? 0;
-                const nested = tree.get(f._id)?.length ?? 0;
-                return (
-                  <li key={f._id}>
-                    <button
-                      type="button"
-                      onClick={() => selectView({ kind: "folder", id: f._id })}
-                      className="folio-card flex w-full items-center gap-3 px-4 py-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--folio-attr-sibling)]"
-                    >
-                      <FolderDot color={f.color} />
-                      <span className="min-w-0 flex-1 truncate font-serif text-base text-foreground">{f.name}</span>
-                      <span className="shrink-0 text-xs text-foreground/45">
-                        {[
-                          inside > 0 && `${inside} doc${inside === 1 ? "" : "s"}`,
-                          nested > 0 && `${nested} folder${nested === 1 ? "" : "s"}`,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ") || "empty"}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
+              {subfolders.map((f) => (
+                <li key={f._id}>
+                  <SubfolderTile
+                    folder={f}
+                    tree={tree}
+                    inside={counts.get(f._id) ?? 0}
+                    nested={tree.get(f._id)?.length ?? 0}
+                    onOpen={() => selectView({ kind: "folder", id: f._id })}
+                  />
+                </li>
+              ))}
             </ul>
           )}
 
@@ -512,6 +539,12 @@ export function DocList() {
                   <li key={doc._id} className="relative">
                     <Link
                       href={`/doc/${doc._id}`}
+                      // Only your own documents are filed, so only they drag.
+                      // Replaces the link's native URL drag; a drag never
+                      // fires the click, so it can't also navigate.
+                      {...(doc.role === "owner"
+                        ? dragSource({ kind: "doc", id: doc._id, folderId: fid ?? null })
+                        : {})}
                       className="folio-card-link block focus:outline-none"
                     >
                       <div className="folio-card flex min-h-32 flex-col justify-between p-5 focus-visible:ring-2 focus-visible:ring-[var(--folio-attr-sibling)]">
