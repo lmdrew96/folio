@@ -124,10 +124,9 @@ export function DiffPanel({ documentId }: { documentId: Id<"documents"> }) {
         {diff === undefined ? (
           <p className="text-sm text-black/40 dark:text-white/40">Loading…</p>
         ) : !diff.hasWatermark ? (
+          // Momentary: opening the document sets the baseline (ensureVisited).
           <p className="text-sm text-black/50 dark:text-white/50">
-            Hit <span className="font-medium">Mark caught up</span> to set your
-            baseline. After that, anything added, edited, or deleted shows up
-            here.
+            Anything added, edited, or deleted from now on shows up here.
           </p>
         ) : total === 0 ? (
           <p className="text-sm text-black/50 dark:text-white/50">

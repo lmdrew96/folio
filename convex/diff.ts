@@ -69,7 +69,8 @@ type Diff = {
  *   - added:   created after the watermark, still live
  *   - edited:  created before, but last-edited after the watermark, still live
  *   - deleted: tombstoned after the watermark
- * No watermark yet (first touch) → empty, so the whole doc doesn't read as "new".
+ * No watermark yet → empty, so the whole doc doesn't read as "new". Opening a
+ * document sets one (ensureVisited), so that state only lasts a moment.
  */
 export const diffSince = query({
   args: { documentId: v.id("documents"), userId: v.string() },
@@ -154,6 +155,37 @@ export const markVisited = mutation({
       await ctx.db.insert("visits", { documentId, userId, lastVisitedAt: now });
     }
     return now;
+  },
+});
+
+/**
+ * Give the caller a watermark on first open, so the changes panel starts
+ * working without a manual "Mark caught up". Insert-only: an existing
+ * watermark is never moved. Keyed to the signed-in user — never Cleo's
+ * "claude" row or an MCP key's "mcp:<keyId>" row. Safe for the tombstone
+ * purge, which only deletes tombstones older than every watermark.
+ */
+export const ensureVisited = mutation({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, { documentId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+    if (!(await resolveAccess(ctx, documentId, identity))) return null;
+
+    const existing = await ctx.db
+      .query("visits")
+      .withIndex("by_doc_user", (q) =>
+        q.eq("documentId", documentId).eq("userId", identity.subject),
+      )
+      .unique();
+    if (!existing) {
+      await ctx.db.insert("visits", {
+        documentId,
+        userId: identity.subject,
+        lastVisitedAt: Date.now(),
+      });
+    }
+    return null;
   },
 });
 

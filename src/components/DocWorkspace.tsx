@@ -194,6 +194,19 @@ function DocBody({ documentId }: { documentId: Id<"documents"> }) {
   return <DocEditor key={documentId} documentId={documentId} />;
 }
 
+/** Sets the viewer's "since you last looked" baseline the first time they
+ *  open a document, so the changes panel works without a manual first
+ *  "Mark caught up". Renders nothing. */
+function VisitBaseline({ documentId }: { documentId: Id<"documents"> }) {
+  const ensureVisited = useMutation(api.diff.ensureVisited);
+  useEffect(() => {
+    ensureVisited({ documentId }).catch((e: unknown) =>
+      console.error("Folio: couldn't set the changes baseline", e),
+    );
+  }, [ensureVisited, documentId]);
+  return null;
+}
+
 export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
   const [panelOpen, setPanelOpen] = useState(false);
   const label = folioClaudeLabel();
@@ -244,6 +257,7 @@ export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
         {/* Editor + diff panel mount only once Convex auth is confirmed, so the
             first blocks/diff query results are always authenticated — no
             empty-then-real race on load. */}
+        <VisitBaseline documentId={documentId} />
         <div className="flex min-h-0 flex-1">
           <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <DocBody documentId={documentId} />
