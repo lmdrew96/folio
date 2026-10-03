@@ -6,6 +6,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { relativeTime } from "@/lib/time";
+import { Markdown } from "@/components/Markdown";
 
 type DiffPart = { value: string; added?: boolean; removed?: boolean };
 
@@ -14,6 +15,7 @@ type Item = {
   type: string;
   preview: string;
   diff?: DiffPart[];
+  markdown?: string;
   author?: string;
   authorName?: string;
   at: number;
@@ -65,6 +67,16 @@ function Row({ item, kind }: { item: Item; kind: keyof typeof KINDS }) {
       </div>
       {item.diff && item.diff.length > 0 ? (
         <DiffText parts={item.diff} />
+      ) : item.markdown ? (
+        // The block as written — headings, lists, tables, marks — kept to a
+        // compact excerpt; a long block fades out rather than filling the panel.
+        // The gradient is pinned to the 7rem cap, so only a block that
+        // actually overflows fades; shorter ones stay fully opaque.
+        <div className="max-h-28 overflow-hidden [mask-image:linear-gradient(to_bottom,black_5.5rem,transparent_7rem)]">
+          <Markdown className="prose-headings:my-0 prose-headings:text-sm prose-p:my-0 prose-ul:my-0 prose-ol:my-0 prose-li:my-0 prose-table:my-0">
+            {item.markdown}
+          </Markdown>
+        </div>
       ) : (
         <p className="line-clamp-2 break-words text-sm text-black/70 dark:text-white/70">
           {item.preview || <span className="italic opacity-60">({item.type})</span>}

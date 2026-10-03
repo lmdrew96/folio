@@ -7,9 +7,11 @@ import remarkGfm from "remark-gfm";
  * Shared markdown renderer for any AI- or user-authored text surface.
  * react-markdown escapes raw HTML by default (no rehype-raw), so this is XSS-safe.
  */
-export function Markdown({ children }: { children: string }) {
+export function Markdown({ children, className = "" }: { children: string; className?: string }) {
   return (
-    <div className="prose prose-sm prose-neutral max-w-none break-words dark:prose-invert">
+    <div
+      className={`prose prose-sm prose-neutral max-w-none break-words dark:prose-invert ${className}`}
+    >
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
     </div>
   );

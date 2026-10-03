@@ -2,27 +2,26 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { diffWords } from "diff";
 import { decodeContent } from "./blockContent";
+import { blockMarkdown, blockText } from "./blockMarkdown";
 import { resolveAccess } from "./access";
-
-/** Full plain text of a ProseMirror block's JSON. */
-function blockText(content: unknown): string {
-  const parts: string[] = [];
-  const walk = (n: unknown) => {
-    if (!n || typeof n !== "object") return;
-    const node = n as { type?: unknown; text?: unknown; content?: unknown };
-    if (typeof node.text === "string") parts.push(node.text);
-    if (Array.isArray(node.content)) for (const c of node.content) walk(c);
-    // Table cells are separate words, not one run: "Name" + "Age" ≠ "NameAge".
-    if (node.type === "tableCell" || node.type === "tableHeader") parts.push(" ");
-  };
-  walk(content);
-  return parts.join("").replace(/\s+/g, " ").trim();
-}
 
 /** Short preview for the diff panel. */
 function textPreview(content: unknown, max = 100): string {
   const text = blockText(content);
   return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+/** Strip the indent every line shares. A SuperDoc list item is one block
+ *  whose depth arrives as leading spaces; rendered on its own, 4+ of them
+ *  would read as a code block instead of a list item. */
+function dedent(md: string): string {
+  const lines = md.split("\n");
+  const indent = Math.min(
+    ...lines.filter((l) => l.trim()).map((l) => l.length - l.trimStart().length),
+  );
+  return Number.isFinite(indent) && indent > 0
+    ? lines.map((l) => l.slice(indent)).join("\n")
+    : md;
 }
 
 type DiffPart = { value: string; added?: boolean; removed?: boolean };
@@ -51,6 +50,9 @@ type DiffItem = {
   type: string;
   preview: string;
   diff?: DiffPart[]; // edited items only, when a prior snapshot exists
+  // Added/deleted items: the whole block as markdown, for the panel's
+  // Markdown renderer (underline dropped — it escapes raw HTML).
+  markdown?: string;
   author?: string;
   authorName?: string;
   at: number; // the timestamp relevant to the bucket (created / edited / deleted)
@@ -108,10 +110,12 @@ export const diffSince = query({
         author: b.author,
         authorName: b.authorName,
       };
+      const markdown = () =>
+        dedent(blockMarkdown(decodeContent(b.content), { underline: false }));
       if (b.deletedAt !== undefined) {
-        if (b.deletedAt > since) deleted.push({ ...base, at: b.deletedAt });
+        if (b.deletedAt > since) deleted.push({ ...base, markdown: markdown(), at: b.deletedAt });
       } else if (b.createdAt > since) {
-        added.push({ ...base, at: b.createdAt });
+        added.push({ ...base, markdown: markdown(), at: b.createdAt });
       } else if (b.lastEditedAt > since) {
         edited.push({
           ...base,
