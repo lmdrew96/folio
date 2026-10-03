@@ -86,11 +86,28 @@ const TOOLS = [
   {
     name: "folio_read_document",
     description:
-      "Read the full current content of one Folio document — its live blocks in order, each as markdown text (headings, lists, tables, bold/italic/links preserved) with author attribution (a person's display name, or \"claude\" for Folio's in-app assistant). Use after folio_list_documents.",
+      "Read the current content of one Folio document — its live blocks in order, each as markdown text (headings, lists, tables, bold/italic/links preserved) with author attribution (a person's display name, or \"claude\" for Folio's in-app assistant). Reads the whole document by default; pass fromBlockId + limit, or aroundBlockId + context (e.g. a blockId from folio_search), to read just a section — the response then says whether more blocks exist before/after. Empty blocks are left out unless includeEmpty is true; totalBlocks counts the blocks returned by a full read.",
     inputSchema: {
       type: "object",
       properties: {
         documentId: { type: "string", description: "Document id from folio_list_documents." },
+        fromBlockId: { type: "string", description: "Read forward starting at this block." },
+        limit: {
+          type: "number",
+          description: "With fromBlockId: how many blocks to read (default 20, max 200).",
+        },
+        aroundBlockId: {
+          type: "string",
+          description: "Read the blocks around this one (e.g. a folio_search hit).",
+        },
+        context: {
+          type: "number",
+          description: "With aroundBlockId: blocks to include on each side (default 5, max 200).",
+        },
+        includeEmpty: {
+          type: "boolean",
+          description: "Include empty blocks (blank lines). Default false.",
+        },
       },
       required: ["documentId"],
     },
@@ -161,6 +178,12 @@ function presentedKey(req: Request): string {
 const asDocId = (val: unknown): Id<"documents"> | undefined =>
   typeof val === "string" && val.length > 0 ? (val as Id<"documents">) : undefined;
 
+/** An optional tool argument of the right type ("" counts as absent). */
+const str = (args: Record<string, unknown>, key: string): string | undefined =>
+  typeof args[key] === "string" && args[key] !== "" ? args[key] : undefined;
+const num = (args: Record<string, unknown>, key: string): number | undefined =>
+  typeof args[key] === "number" ? args[key] : undefined;
+
 /** Route a tools/call to the matching internal read function. */
 async function dispatch(
   ctx: ActionCtx,
@@ -171,13 +194,11 @@ async function dispatch(
 ) {
   switch (name) {
     case "folio_list_documents": {
-      const optional = (key: string) =>
-        typeof args[key] === "string" && args[key] !== "" ? (args[key] as string) : undefined;
       const documents = await ctx.runQuery(internal.mcpData.listDocumentsForUser, {
         userId,
-        folderId: optional("folderId"),
-        updatedAfter: optional("updatedAfter"),
-        updatedBefore: optional("updatedBefore"),
+        folderId: str(args, "folderId"),
+        updatedAfter: str(args, "updatedAfter"),
+        updatedBefore: str(args, "updatedBefore"),
       });
       return textContent({ documents });
     }
@@ -193,6 +214,11 @@ async function dispatch(
       const doc = await ctx.runQuery(internal.mcpData.readDocumentForUser, {
         userId,
         documentId,
+        fromBlockId: str(args, "fromBlockId"),
+        limit: num(args, "limit"),
+        aroundBlockId: str(args, "aroundBlockId"),
+        context: num(args, "context"),
+        includeEmpty: args.includeEmpty === true ? true : undefined,
       });
       if (!doc) throw new Error(`Document ${String(args.documentId)} not found`);
       return textContent(doc);
@@ -203,7 +229,7 @@ async function dispatch(
       const result = await ctx.runQuery(internal.mcpData.searchForUser, {
         userId,
         query: args.query,
-        limit: typeof args.limit === "number" ? args.limit : undefined,
+        limit: num(args, "limit"),
       });
       return textContent(result);
     }

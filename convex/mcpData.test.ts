@@ -264,3 +264,53 @@ describe("listDocumentsForUser filters / listFoldersForUser", () => {
     ]);
   });
 });
+
+describe("readDocumentForUser ranges", () => {
+  async function tenBlocks() {
+    const { t, doc } = setup();
+    const blocks: Seed[] = [];
+    for (let i = 0; i < 10; i++) {
+      blocks.push({ blockId: `b${i}`, content: paragraph(`line ${i}`) });
+      if (i === 4) blocks.push({ blockId: "blank", content: paragraph("") });
+    }
+    const documentId = await doc(ALICE, "Long", blocks);
+    const read = (extra: object = {}) =>
+      t.query(internal.mcpData.readDocumentForUser, { userId: ALICE, documentId, ...extra });
+    return { read };
+  }
+  const ids = (r: { blocks: { blockId: string }[] } | null) => r!.blocks.map((b) => b.blockId);
+
+  it("reads everything but empty blocks by default", async () => {
+    const { read } = await tenBlocks();
+    const r = await read();
+    expect(r!.totalBlocks).toBe(10);
+    expect(r!.emptyBlocksOmitted).toBe(1);
+    expect(ids(r)).not.toContain("blank");
+    expect(r).not.toHaveProperty("hasMoreAfter");
+    expect(ids(await read({ includeEmpty: true }))).toContain("blank");
+  });
+
+  it("reads forward from a block", async () => {
+    const { read } = await tenBlocks();
+    const r = await read({ fromBlockId: "b3", limit: 3 });
+    expect(ids(r)).toEqual(["b3", "b4", "b5"]);
+    expect(r).toMatchObject({ hasMoreBefore: true, hasMoreAfter: true });
+    const tail = await read({ fromBlockId: "b8", limit: 50 });
+    expect(ids(tail)).toEqual(["b8", "b9"]);
+    expect(tail!.hasMoreAfter).toBe(false);
+  });
+
+  it("reads around a block, clamped at the edges", async () => {
+    const { read } = await tenBlocks();
+    expect(ids(await read({ aroundBlockId: "b5", context: 1 }))).toEqual(["b4", "b5", "b6"]);
+    const head = await read({ aroundBlockId: "b0", context: 2 });
+    expect(ids(head)).toEqual(["b0", "b1", "b2"]);
+    expect(head!.hasMoreBefore).toBe(false);
+  });
+
+  it("rejects an unknown anchor or both anchors at once", async () => {
+    const { read } = await tenBlocks();
+    await expect(read({ fromBlockId: "nope" })).rejects.toThrow(/not found/);
+    await expect(read({ fromBlockId: "b1", aroundBlockId: "b2" })).rejects.toThrow(/not both/);
+  });
+});

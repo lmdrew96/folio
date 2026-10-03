@@ -327,6 +327,10 @@ export const listFoldersForUser = internalQuery({
   },
 });
 
+const RANGE_LIMIT_DEFAULT = 20;
+const RANGE_CONTEXT_DEFAULT = 5;
+const RANGE_MAX = 200;
+
 /**
  * Full current content of a doc the user can open — live blocks in document order,
  * each as markdown text (list items one per line, bold/italic/headings as
@@ -339,20 +343,65 @@ export const listFoldersForUser = internalQuery({
  * doc reads correctly the moment this function ships, nothing to backfill.
  */
 export const readDocumentForUser = internalQuery({
-  args: { userId: v.string(), documentId: v.id("documents") },
-  handler: async (ctx, { userId, documentId }) => {
+  args: {
+    userId: v.string(),
+    documentId: v.id("documents"),
+    // Optional window: `fromBlockId` + `limit` reads forward from a block;
+    // `aroundBlockId` + `context` reads that many blocks either side of one.
+    fromBlockId: v.optional(v.string()),
+    limit: v.optional(v.number()),
+    aroundBlockId: v.optional(v.string()),
+    context: v.optional(v.number()),
+    includeEmpty: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const { userId, documentId, fromBlockId, aroundBlockId } = args;
+    if (fromBlockId !== undefined && aroundBlockId !== undefined) {
+      throw new Error("Pass fromBlockId or aroundBlockId, not both");
+    }
     const access = await resolveAccessForUser(ctx, documentId, userId);
     if (!access) return null;
     const { doc } = access;
 
-    const blocks = (await liveBlocks(ctx, documentId)).map((b) => ({
+    const all = (await liveBlocks(ctx, documentId)).map((b) => ({
       blockId: b.blockId,
       type: b.type,
       author: authorOf(b),
       text: blockMarkdown(decodeContent(b.content)),
     }));
+    // Blank lines are layout, not content — dropped unless asked for.
+    const blocks = args.includeEmpty ? all : all.filter((b) => b.text.trim() !== "");
 
-    return { id: doc._id, title: doc.title, updatedAt: doc.updatedAt, blocks };
+    let start = 0;
+    let end = blocks.length;
+    const anchor = fromBlockId ?? aroundBlockId;
+    if (anchor !== undefined) {
+      const at = blocks.findIndex((b) => b.blockId === anchor);
+      if (at === -1) throw new Error(`Block ${anchor} not found in this document`);
+      const count = (n: number | undefined, fallback: number) =>
+        Math.min(Math.max(0, Math.floor(n ?? fallback)), RANGE_MAX);
+      if (fromBlockId !== undefined) {
+        start = at;
+        end = at + Math.max(1, count(args.limit, RANGE_LIMIT_DEFAULT));
+      } else {
+        const context = count(args.context, RANGE_CONTEXT_DEFAULT);
+        start = Math.max(0, at - context);
+        end = at + context + 1;
+      }
+      end = Math.min(end, blocks.length);
+    }
+
+    return {
+      id: doc._id,
+      title: doc.title,
+      updatedAt: doc.updatedAt,
+      totalBlocks: blocks.length,
+      ...(anchor !== undefined
+        ? { range: { start, end }, hasMoreBefore: start > 0, hasMoreAfter: end < blocks.length }
+        : {}),
+      ...(args.includeEmpty ? {} : { emptyBlocksOmitted: all.length - blocks.length }),
+      blocks: blocks.slice(start, end),
+    };
   },
 });
 
