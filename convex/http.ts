@@ -73,6 +73,22 @@ const TOOLS = [
     },
   },
   {
+    name: "folio_search",
+    description:
+      "Full-text search across every Folio document this key can read (own + shared). Case-insensitive; every word of the query must appear in a block. Returns the best-matching blocks first — each with documentId, documentTitle, blockId, blockType, a short snippet around the match, author and updatedAt — plus totalHits. Use it to answer \"where did I write about X?\" without reading every document; follow up with folio_read_document for full context.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Words to find." },
+        limit: {
+          type: "number",
+          description: "Max hits to return (default 20, max 100).",
+        },
+      },
+      required: ["query"],
+    },
+  },
+  {
     name: "folio_diff_since_last_visit",
     description:
       "What changed in a document since YOU (this key) last looked — added / edited / deleted blocks, keyed to this key's own watermark and independent of the writer's and any other AI's. Empty on your first look; call folio_mark_caught_up to set your baseline. Each block carries a short preview — call folio_read_document for full text.",
@@ -133,6 +149,16 @@ async function dispatch(
       });
       if (!doc) throw new Error(`Document ${String(args.documentId)} not found`);
       return textContent(doc);
+    }
+
+    case "folio_search": {
+      if (typeof args.query !== "string") throw new Error("folio_search requires query");
+      const result = await ctx.runQuery(internal.mcpData.searchForUser, {
+        userId,
+        query: args.query,
+        limit: typeof args.limit === "number" ? args.limit : undefined,
+      });
+      return textContent(result);
     }
 
     case "folio_diff_since_last_visit": {

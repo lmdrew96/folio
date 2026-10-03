@@ -1,6 +1,6 @@
-import { internalMutation, internalQuery } from "./_generated/server";
+import { internalMutation, internalQuery, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { decodeContent } from "./blockContent";
 import { resolveAccessForUser } from "./access";
 
@@ -20,6 +20,8 @@ import { resolveAccessForUser } from "./access";
  * editor's own queries.
  */
 
+const SEPARATED = new Set(["tableCell", "tableHeader", "paragraph", "heading", "listItem"]);
+
 /** Plain text of a ProseMirror block's JSON (local copy — mirrors diff.ts).
  *  Flattens everything with no structural separator — fine as a last-resort
  *  fallback for unrecognized node types, but NOT for list content (see
@@ -31,8 +33,8 @@ function blockText(content: unknown): string {
     const node = n as { type?: unknown; text?: unknown; content?: unknown };
     if (typeof node.text === "string") parts.push(node.text);
     if (Array.isArray(node.content)) for (const c of node.content) walk(c);
-    // Table cells are separate words, not one run: "Name" + "Age" ≠ "NameAge".
-    if (node.type === "tableCell" || node.type === "tableHeader") parts.push(" ");
+    // Cells, items and lines are separate words, not one run: "Name" + "Age" ≠ "NameAge".
+    if (typeof node.type === "string" && SEPARATED.has(node.type)) parts.push(" ");
   };
   walk(content);
   return parts.join("").replace(/\s+/g, " ").trim();
@@ -169,39 +171,58 @@ function textPreview(content: unknown, max = 100): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
+type Readable = { doc: Doc<"documents">; role: "owner" | "editor" };
+
 /** Every document the user can open — owned plus accepted shares, trash
- *  excluded — most-recently-edited first. */
+ *  excluded — most-recently-edited first. The same rule as access.ts
+ *  resolveAccessForUser, applied to the whole set at once. */
+async function readableDocs(ctx: QueryCtx, userId: string): Promise<Readable[]> {
+  const owned = await ctx.db
+    .query("documents")
+    .withIndex("by_owner", (q) => q.eq("ownerId", userId))
+    .collect();
+  const shares = await ctx.db
+    .query("documentShares")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  const shared = await Promise.all(
+    shares.filter((s) => s.acceptedAt !== undefined).map((s) => ctx.db.get(s.documentId)),
+  );
+  const rows: Readable[] = [
+    ...owned.map((doc) => ({ doc, role: "owner" as const })),
+    ...shared
+      .filter((d): d is Doc<"documents"> => d !== null && d.ownerId !== userId)
+      .map((doc) => ({ doc, role: "editor" as const })),
+  ];
+  const seen = new Set<string>();
+  return rows
+    .filter(({ doc }) => doc.deletedAt === undefined && !seen.has(doc._id) && seen.add(doc._id))
+    .sort((a, b) => b.doc.updatedAt - a.doc.updatedAt);
+}
+
+/** Live blocks of one document, in document order. */
+async function liveBlocks(ctx: QueryCtx, documentId: Id<"documents">) {
+  const rows = await ctx.db
+    .query("blocks")
+    .withIndex("by_document", (q) => q.eq("documentId", documentId))
+    .collect();
+  return rows.filter((b) => b.deletedAt === undefined).sort((a, b) => a.order - b.order);
+}
+
+const authorOf = (b: Doc<"blocks">): string =>
+  // Cleo's blocks say "claude"; a human's carry their display name.
+  b.author === "claude" ? "claude" : (b.authorName ?? "unknown");
+
 export const listDocumentsForUser = internalQuery({
   args: { userId: v.string() },
   handler: async (ctx, { userId }) => {
-    const owned = await ctx.db
-      .query("documents")
-      .withIndex("by_owner", (q) => q.eq("ownerId", userId))
-      .collect();
-    const shares = await ctx.db
-      .query("documentShares")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    const shared = await Promise.all(
-      shares.filter((s) => s.acceptedAt !== undefined).map((s) => ctx.db.get(s.documentId)),
-    );
-    const rows: { doc: Doc<"documents">; role: "owner" | "editor" }[] = [
-      ...owned.map((doc) => ({ doc, role: "owner" as const })),
-      ...shared
-        .filter((d): d is Doc<"documents"> => d !== null && d.ownerId !== userId)
-        .map((doc) => ({ doc, role: "editor" as const })),
-    ];
-    const seen = new Set<string>();
-    return rows
-      .filter(({ doc }) => doc.deletedAt === undefined && !seen.has(doc._id) && seen.add(doc._id))
-      .sort((a, b) => b.doc.updatedAt - a.doc.updatedAt)
-      .map(({ doc, role }) => ({
-        id: doc._id,
-        title: doc.title,
-        shared: role === "editor",
-        createdAt: doc.createdAt,
-        updatedAt: doc.updatedAt,
-      }));
+    return (await readableDocs(ctx, userId)).map(({ doc, role }) => ({
+      id: doc._id,
+      title: doc.title,
+      shared: role === "editor",
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
+    }));
   },
 });
 
@@ -223,22 +244,96 @@ export const readDocumentForUser = internalQuery({
     if (!access) return null;
     const { doc } = access;
 
-    const rows = await ctx.db
-      .query("blocks")
-      .withIndex("by_document", (q) => q.eq("documentId", documentId))
-      .collect();
-    const blocks = rows
-      .filter((b) => b.deletedAt === undefined)
-      .sort((a, b) => a.order - b.order)
-      .map((b) => ({
-        blockId: b.blockId,
-        type: b.type,
-        // Cleo's blocks say "claude"; a human's carry their display name.
-        author: b.author === "claude" ? "claude" : (b.authorName ?? "unknown"),
-        text: blockMarkdown(decodeContent(b.content)),
-      }));
+    const blocks = (await liveBlocks(ctx, documentId)).map((b) => ({
+      blockId: b.blockId,
+      type: b.type,
+      author: authorOf(b),
+      text: blockMarkdown(decodeContent(b.content)),
+    }));
 
     return { id: doc._id, title: doc.title, updatedAt: doc.updatedAt, blocks };
+  },
+});
+
+const SEARCH_LIMIT_DEFAULT = 20;
+const SEARCH_LIMIT_MAX = 100;
+const SNIPPET_CHARS = 160;
+
+/** ~SNIPPET_CHARS of `text` centred on the match at [at, at + len). */
+function snippetAround(text: string, at: number, len: number): string {
+  const pad = Math.max(0, Math.floor((SNIPPET_CHARS - len) / 2));
+  const start = Math.max(0, at - pad);
+  const end = Math.min(text.length, at + len + pad);
+  return (start > 0 ? "…" : "") + text.slice(start, end).trim() + (end < text.length ? "…" : "");
+}
+
+const countOf = (haystack: string, needle: string): number => {
+  let n = 0;
+  for (let i = haystack.indexOf(needle); i !== -1; i = haystack.indexOf(needle, i + needle.length)) n++;
+  return n;
+};
+
+/**
+ * Full-text search over the live blocks of every document the user can open.
+ * Case-insensitive; every word of the query must appear in a block for it to
+ * hit. Ranked by relevance (the whole phrase appearing, then how often the
+ * words do, headings a little above body text), ties to the most recently
+ * edited block.
+ *
+ * A scan, not a Convex search index: blocks store ProseMirror JSON with no
+ * plain-text field to index, and Folio's library is small. If reads ever
+ * approach Convex's per-query limits, add a derived `text` field + searchIndex.
+ */
+export const searchForUser = internalQuery({
+  args: { userId: v.string(), query: v.string(), limit: v.optional(v.number()) },
+  handler: async (ctx, { userId, query, limit }) => {
+    const phrase = query.toLowerCase().replace(/\s+/g, " ").trim();
+    const words = [...new Set(phrase.split(" ").filter(Boolean))];
+    if (words.length === 0) throw new Error("folio_search requires a non-empty query");
+    const max = Math.min(Math.max(1, Math.floor(limit ?? SEARCH_LIMIT_DEFAULT)), SEARCH_LIMIT_MAX);
+
+    const hits: {
+      documentId: Id<"documents">;
+      documentTitle: string;
+      blockId: string;
+      blockType: string;
+      snippet: string;
+      author: string;
+      updatedAt: number;
+      score: number;
+    }[] = [];
+    for (const { doc } of await readableDocs(ctx, userId)) {
+      for (const b of await liveBlocks(ctx, doc._id)) {
+        const text = blockText(decodeContent(b.content));
+        if (!text) continue;
+        const lower = text.toLowerCase();
+        if (!words.every((w) => lower.includes(w))) continue;
+
+        const phraseAt = words.length > 1 ? lower.indexOf(phrase) : -1;
+        const at = phraseAt !== -1 ? phraseAt : lower.indexOf(words[0]);
+        const len = phraseAt !== -1 ? phrase.length : words[0].length;
+        const score =
+          (phraseAt !== -1 ? 10 : 0) +
+          words.reduce((sum, w) => sum + Math.min(countOf(lower, w), 5), 0) +
+          (b.type === "heading" ? 2 : 0);
+        hits.push({
+          documentId: doc._id,
+          documentTitle: doc.title,
+          blockId: b.blockId,
+          blockType: b.type,
+          snippet: snippetAround(text, at, len),
+          author: authorOf(b),
+          updatedAt: b.lastEditedAt,
+          score,
+        });
+      }
+    }
+    hits.sort((a, b) => b.score - a.score || b.updatedAt - a.updatedAt);
+    return {
+      query,
+      totalHits: hits.length,
+      hits: hits.slice(0, max).map((hit) => ({ ...hit, score: undefined })),
+    };
   },
 });
 
@@ -302,7 +397,7 @@ export const diffSinceForUser = internalQuery({
         blockId: b.blockId,
         type: b.type,
         preview: textPreview(decodeContent(b.content)),
-        author: b.author === "claude" ? "claude" : (b.authorName ?? "unknown"),
+        author: authorOf(b),
       };
       if (b.deletedAt !== undefined) {
         if (b.deletedAt > since) deleted.push({ ...base, at: b.deletedAt });

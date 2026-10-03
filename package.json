@@ -1,6 +1,6 @@
 {
   "name": "folio",
-  "version": "0.58.1",
+  "version": "0.59.0",
   "private": true,
   "scripts": {
     "dev": "pnpm superdoc:assets && next dev",
