@@ -780,9 +780,12 @@ export function SuperDocEditor({
           </p>
         </div>
       )}
-      {/* Same quiet pill the TipTap editor uses for its save story. */}
+      {/* Same quiet pill the TipTap editor uses for its save story. Absolute
+          in this column, not viewport-fixed, so it stays centred under the
+          paper whatever the dock's width; print:hidden because the print
+          stylesheet only hides chrome that's .fixed or outside this wrapper. */}
       <div
-        className={`fixed bottom-5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-foreground shadow-sm transition-opacity duration-200 ${
+        className={`absolute bottom-5 left-1/2 z-20 flex print:hidden -translate-x-1/2 items-center gap-2 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-foreground shadow-sm transition-opacity duration-200 ${
           unsynced ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       >
