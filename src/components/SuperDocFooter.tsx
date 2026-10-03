@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { InputPopover } from "./InputPopover";
+import { useKeepInViewport } from "@/lib/useKeepInViewport";
 
 /** Same key as the TipTap editor, so the preference carries over. */
 const WORD_COUNT_KEY = "folio:wordCount:visible";
@@ -127,6 +128,7 @@ function OutlineMenu({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const panelRef = useKeepInViewport<HTMLDivElement>(open);
 
   useEffect(() => {
     if (!open) return;
@@ -171,7 +173,9 @@ function OutlineMenu({
         </svg>
       </button>
       {open && (
-        <div className="absolute bottom-9 left-0 z-30 max-h-80 w-64 overflow-y-auto rounded-lg border border-foreground/10 bg-[var(--folio-paper)] p-2 shadow-md">
+        <div
+          ref={panelRef}
+          className="absolute bottom-9 left-0 z-30 max-h-80 w-64 overflow-y-auto rounded-lg border border-foreground/10 bg-[var(--folio-paper)] p-2 shadow-md">
           <ul className="flex flex-col gap-0.5">
             {headings.map((h) => (
               <li key={h.nodeId}>

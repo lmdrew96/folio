@@ -79,7 +79,7 @@ export function ShareDialog({
         role="dialog"
         aria-modal="true"
         aria-label="Share this document"
-        className="folio-card relative flex w-full max-w-sm flex-col gap-4 p-5"
+        className="folio-card relative flex max-h-[90dvh] w-full max-w-sm flex-col gap-4 overflow-y-auto p-5"
       >
         <div className="flex items-center justify-between">
           <h2 className="font-serif text-lg text-foreground">Share</h2>

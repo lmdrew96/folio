@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useDropdownMenu } from "@/lib/useDropdownMenu";
+import { useKeepInViewport } from "@/lib/useKeepInViewport";
 
 /**
  * "Ask for one short string, validate it, apply or clear" — the in-page
@@ -58,6 +59,7 @@ export function InputPopover({
 }) {
   const { open, setOpen, close, rootRef, triggerRef, onTriggerKeyDown, onPanelKeyDown } =
     useDropdownMenu();
+  const panelRef = useKeepInViewport<HTMLDivElement>(open);
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -135,6 +137,7 @@ export function InputPopover({
       </button>
       {open && (
         <div
+          ref={panelRef}
           role="dialog"
           aria-label={label}
           onKeyDown={onKeyDown}

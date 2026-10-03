@@ -5,6 +5,7 @@ import { useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { useDropdownMenu } from "@/lib/useDropdownMenu";
+import { useKeepInViewport } from "@/lib/useKeepInViewport";
 import {
   FOLDER_COLORS,
   flattenTree,
@@ -109,6 +110,7 @@ function FolderActions({
 }) {
   const { open, setOpen, close, rootRef, triggerRef, onTriggerKeyDown, onPanelKeyDown } =
     useDropdownMenu();
+  const panelRef = useKeepInViewport<HTMLDivElement>(open);
   const [mode, setMode] = useState<"main" | "move" | "delete">("main");
   const setColor = useMutation(api.folders.setColor);
   const move = useMutation(api.folders.move);
@@ -163,6 +165,7 @@ function FolderActions({
       </button>
       {open && (
         <div
+          ref={panelRef}
           role="menu"
           aria-label={`${folder.name} actions`}
           onKeyDown={onPanelKeyDown}

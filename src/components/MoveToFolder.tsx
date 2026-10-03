@@ -4,6 +4,7 @@ import { useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { useDropdownMenu } from "@/lib/useDropdownMenu";
+import { useKeepInViewport } from "@/lib/useKeepInViewport";
 import { flattenTree, type Folder } from "@/lib/folders";
 import { FolderDot } from "./FolderSidebar";
 
@@ -21,6 +22,7 @@ export function MoveToFolder({
 }) {
   const { open, setOpen, close, rootRef, triggerRef, onTriggerKeyDown, onPanelKeyDown } =
     useDropdownMenu();
+  const panelRef = useKeepInViewport<HTMLDivElement>(open);
   const moveToFolder = useMutation(api.documents.moveToFolder);
   const destinations = flattenTree(tree);
 
@@ -53,6 +55,7 @@ export function MoveToFolder({
       </button>
       {open && (
         <div
+          ref={panelRef}
           role="menu"
           aria-label="Move to folder"
           onKeyDown={onPanelKeyDown}

@@ -3,6 +3,7 @@
 import { useSyncExternalStore, type ReactNode } from "react";
 import { useTheme } from "next-themes";
 import { useDropdownMenu } from "@/lib/useDropdownMenu";
+import { useKeepInViewport } from "@/lib/useKeepInViewport";
 
 function Icon({ children }: { children: ReactNode }) {
   return (
@@ -64,6 +65,7 @@ export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   const { open, setOpen, close, rootRef, triggerRef, onTriggerKeyDown, onPanelKeyDown } =
     useDropdownMenu();
+  const panelRef = useKeepInViewport<HTMLDivElement>(open);
 
   // next-themes only knows the theme after mount — gate on this to avoid a
   // hydration mismatch on the active icon/checkmark. useSyncExternalStore gives
@@ -93,6 +95,7 @@ export function ThemeToggle() {
       </button>
       {open && (
         <div
+          ref={panelRef}
           role="menu"
           onKeyDown={onPanelKeyDown}
           className="absolute right-0 top-9 z-40 w-36 overflow-hidden rounded-lg border border-foreground/10 bg-[var(--folio-paper)] py-1 shadow-md"

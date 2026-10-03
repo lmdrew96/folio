@@ -5,6 +5,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { useKeepInViewport } from "@/lib/useKeepInViewport";
 
 const HEARTBEAT_MS = 15_000;
 // A little over 2x the heartbeat interval — survives one missed beat (a slow
@@ -31,6 +32,7 @@ export function PresenceBadge({ documentId }: { documentId: Id<"documents"> }) {
   // write, so no fresh query push) still fades out on schedule.
   const [now, setNow] = useState(() => Date.now());
   const [open, setOpen] = useState(false);
+  const panelRef = useKeepInViewport<HTMLDivElement>(open);
   const ref = useRef<HTMLDivElement>(null);
 
   // The `title` tooltip that reveals names never fires on touch — tapping
@@ -83,9 +85,13 @@ export function PresenceBadge({ documentId }: { documentId: Id<"documents"> }) {
         ))}
       </button>
       {open && (
-        <div className="absolute right-0 top-9 z-30 flex flex-col gap-1 whitespace-nowrap rounded-lg border border-foreground/10 bg-[var(--folio-paper)] px-3 py-2 text-sm text-foreground/80 shadow-md">
+        <div
+          ref={panelRef}
+          className="absolute right-0 top-9 z-30 flex max-w-[calc(100vw-1rem)] flex-col gap-1 whitespace-nowrap rounded-lg border border-foreground/10 bg-[var(--folio-paper)] px-3 py-2 text-sm text-foreground/80 shadow-md">
           {others.map((r) => (
-            <span key={r.userId}>{r.displayName}</span>
+            <span key={r.userId} className="truncate">
+              {r.displayName}
+            </span>
           ))}
         </div>
       )}
