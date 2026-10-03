@@ -11,8 +11,8 @@ import { KEY_PREFIX, sha256Hex, shouldTouch, watermarkId } from "./apiKeys";
  * Each user mints personal API keys in the app ("Connect an AI" on the desk,
  * convex/apiKeys.ts). A key reaches exactly what its owner can open in Folio —
  * their documents plus ones shared with them — and nothing else. Read-only is
- * a PREFERENCE, not a stage: the only write any tool performs is advancing the
- * key's own since-last-look watermark; no tool mutates a document.
+ * a PREFERENCE, not a stage: the only writes any tool performs advance the
+ * key's own since-last-look watermarks; no tool mutates a document.
  *
  * Two ways to present a key:
  *   https://<deployment>.convex.site/mcp/fo_…          (key in the path)
@@ -103,7 +103,7 @@ const TOOLS = [
   {
     name: "folio_mark_caught_up",
     description:
-      "Advance YOUR (this key's) watermark for a document to now — 'I've seen everything up to here.' Affects only your own since-last-visit diff. This is the only write the door allows, and it writes nothing to the document itself.",
+      "Advance YOUR (this key's) watermark for a document to now — 'I've seen everything up to here.' Affects only your own since-last-visit diff. Watermarks are the only thing the door writes — nothing is ever written to the document itself.",
     inputSchema: {
       type: "object",
       properties: {
@@ -111,6 +111,18 @@ const TOOLS = [
       },
       required: ["documentId"],
     },
+  },
+  {
+    name: "folio_whats_new",
+    description:
+      "One-call catch-up: every document this key can read that changed since YOU (this key) last looked at it, most recently changed first, with addedCount / editedCount / deletedCount blocks. Unchanged documents are left out. Documents you've never looked at appear with hasWatermark: false and null counts — mark them caught up to start tracking. Counts only; call folio_diff_since_last_visit on a document for the actual changes.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "folio_mark_all_caught_up",
+    description:
+      "Advance YOUR (this key's) watermark on every document you can read to now — folio_mark_caught_up for all of them at once. Affects only your own since-last-visit tracking; writes nothing to any document.",
+    inputSchema: { type: "object", properties: {} },
   },
 ] as const;
 
@@ -181,6 +193,19 @@ async function dispatch(
         watermark,
       });
       return textContent({ ok: true, watermark: at });
+    }
+
+    case "folio_whats_new": {
+      const result = await ctx.runQuery(internal.mcpData.whatsNewForUser, { userId, watermark });
+      return textContent(result);
+    }
+
+    case "folio_mark_all_caught_up": {
+      const result = await ctx.runMutation(internal.mcpData.markAllVisitedForUser, {
+        userId,
+        watermark,
+      });
+      return textContent({ ok: true, ...result });
     }
 
     default:

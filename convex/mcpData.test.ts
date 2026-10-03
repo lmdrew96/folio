@@ -130,3 +130,68 @@ describe("searchForUser", () => {
     ).rejects.toThrow(/non-empty/);
   });
 });
+
+describe("whatsNewForUser / markAllVisitedForUser", () => {
+  const WM = "mcp:key1";
+
+  it("counts changes per document, flags never-looked, omits unchanged", async () => {
+    const { t, doc } = setup();
+    const seen = await doc(ALICE, "Seen, changed", [
+      { blockId: "old", content: paragraph("old"), at: 10 },
+    ]);
+    const quiet = await doc(ALICE, "Seen, quiet", [{ blockId: "q", content: paragraph("q"), at: 10 }]);
+    await doc(ALICE, "Never looked", [{ blockId: "n", content: paragraph("n"), at: 10 }]);
+    await t.run(async (ctx) => {
+      for (const documentId of [seen, quiet]) {
+        await ctx.db.insert("visits", { documentId, userId: WM, lastVisitedAt: 50 });
+      }
+      // After the watermark: one edit, one add, one delete.
+      const [old] = await ctx.db
+        .query("blocks")
+        .withIndex("by_document_block", (q) => q.eq("documentId", seen).eq("blockId", "old"))
+        .collect();
+      await ctx.db.patch(old._id, { lastEditedAt: 60 });
+      await ctx.db.insert("blocks", {
+        documentId: seen, blockId: "new", order: 1, type: "paragraph",
+        content: paragraph("new"), createdAt: 70, lastEditedAt: 70,
+      });
+      await ctx.db.insert("blocks", {
+        documentId: seen, blockId: "gone", order: 2, type: "paragraph",
+        content: paragraph("gone"), createdAt: 1, lastEditedAt: 1, deletedAt: 80,
+      });
+      await ctx.db.patch(seen, { updatedAt: 80 });
+    });
+
+    const { documents } = await t.query(internal.mcpData.whatsNewForUser, {
+      userId: ALICE,
+      watermark: WM,
+    });
+    expect(documents).toEqual([
+      {
+        documentId: seen, title: "Seen, changed", updatedAt: 80, hasWatermark: true,
+        addedCount: 1, editedCount: 1, deletedCount: 1,
+      },
+      expect.objectContaining({ title: "Never looked", hasWatermark: false, addedCount: null }),
+    ]);
+  });
+
+  it("marks every readable document caught up for this key only", async () => {
+    const { t, doc } = setup();
+    await doc(ALICE, "A", [{ blockId: "a", content: paragraph("a"), at: 10 }]);
+    await doc(ALICE, "B", [{ blockId: "b", content: paragraph("b"), at: 10 }]);
+    await doc(BOB, "Not mine", [{ blockId: "c", content: paragraph("c"), at: 10 }]);
+
+    const res = await t.mutation(internal.mcpData.markAllVisitedForUser, {
+      userId: ALICE,
+      watermark: WM,
+    });
+    expect(res.documents).toBe(2);
+    const after = await t.query(internal.mcpData.whatsNewForUser, { userId: ALICE, watermark: WM });
+    expect(after.documents).toEqual([]);
+    const otherKey = await t.query(internal.mcpData.whatsNewForUser, {
+      userId: ALICE,
+      watermark: "mcp:key2",
+    });
+    expect(otherKey.documents).toHaveLength(2);
+  });
+});

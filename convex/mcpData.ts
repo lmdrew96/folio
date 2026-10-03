@@ -1,4 +1,9 @@
-import { internalMutation, internalQuery, type QueryCtx } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+  type QueryCtx,
+} from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { decodeContent } from "./blockContent";
@@ -351,6 +356,32 @@ type DiffResult = {
   hasWatermark: boolean;
 };
 
+type ChangeKind = "added" | "edited" | "deleted";
+
+/** How a block changed after `since`, if it did — the diff's one rule. */
+function changeOf(b: Doc<"blocks">, since: number): { kind: ChangeKind; at: number } | null {
+  if (b.deletedAt !== undefined) {
+    return b.deletedAt > since ? { kind: "deleted", at: b.deletedAt } : null;
+  }
+  if (b.createdAt > since) return { kind: "added", at: b.createdAt };
+  if (b.lastEditedAt > since) return { kind: "edited", at: b.lastEditedAt };
+  return null;
+}
+
+/** Every block row of a document, tombstones included (the diff needs them). */
+const allBlocks = (ctx: QueryCtx, documentId: Id<"documents">) =>
+  ctx.db
+    .query("blocks")
+    .withIndex("by_document", (q) => q.eq("documentId", documentId))
+    .collect();
+
+/** This key's watermark row for a document, if it has one. */
+const visitOf = (ctx: QueryCtx, documentId: Id<"documents">, watermark: string) =>
+  ctx.db
+    .query("visits")
+    .withIndex("by_doc_user", (q) => q.eq("documentId", documentId).eq("userId", watermark))
+    .unique();
+
 /**
  * What changed in a doc since this KEY last looked (`watermark`, "mcp:<keyId>").
  * Each key has its own watermark in the visits table — independent of the
@@ -374,39 +405,23 @@ export const diffSinceForUser = internalQuery({
 
     if (!(await resolveAccessForUser(ctx, documentId, userId))) return empty;
 
-    const visit = await ctx.db
-      .query("visits")
-      .withIndex("by_doc_user", (q) =>
-        q.eq("documentId", documentId).eq("userId", watermark),
-      )
-      .unique();
+    const visit = await visitOf(ctx, documentId, watermark);
     if (!visit) return empty;
     const since = visit.lastVisitedAt;
 
-    const rows = await ctx.db
-      .query("blocks")
-      .withIndex("by_document", (q) => q.eq("documentId", documentId))
-      .collect();
-
-    const added: DiffItem[] = [];
-    const edited: DiffItem[] = [];
-    const deleted: DiffItem[] = [];
-
-    for (const b of rows) {
-      const base = {
+    const lists: Record<ChangeKind, DiffItem[]> = { added: [], edited: [], deleted: [] };
+    for (const b of await allBlocks(ctx, documentId)) {
+      const change = changeOf(b, since);
+      if (!change) continue;
+      lists[change.kind].push({
         blockId: b.blockId,
         type: b.type,
         preview: textPreview(decodeContent(b.content)),
         author: authorOf(b),
-      };
-      if (b.deletedAt !== undefined) {
-        if (b.deletedAt > since) deleted.push({ ...base, at: b.deletedAt });
-      } else if (b.createdAt > since) {
-        added.push({ ...base, at: b.createdAt });
-      } else if (b.lastEditedAt > since) {
-        edited.push({ ...base, at: b.lastEditedAt });
-      }
+        at: change.at,
+      });
     }
+    const { added, edited, deleted } = lists;
 
     const recentFirst = (x: DiffItem, y: DiffItem) => y.at - x.at;
     added.sort(recentFirst);
@@ -432,21 +447,88 @@ export const markVisitedForUser = internalMutation({
     if (!(await resolveAccessForUser(ctx, documentId, userId))) throw new Error("Not found");
 
     const now = Date.now();
-    const existing = await ctx.db
-      .query("visits")
-      .withIndex("by_doc_user", (q) =>
-        q.eq("documentId", documentId).eq("userId", watermark),
-      )
-      .unique();
-    if (existing) {
-      await ctx.db.patch(existing._id, { lastVisitedAt: now });
-    } else {
-      await ctx.db.insert("visits", {
-        documentId,
-        userId: watermark,
-        lastVisitedAt: now,
+    await advanceWatermark(ctx, documentId, watermark, now);
+    return now;
+  },
+});
+
+async function advanceWatermark(
+  ctx: MutationCtx,
+  documentId: Id<"documents">,
+  watermark: string,
+  now: number,
+) {
+  const existing = await visitOf(ctx, documentId, watermark);
+  if (existing) {
+    await ctx.db.patch(existing._id, { lastVisitedAt: now });
+  } else {
+    await ctx.db.insert("visits", { documentId, userId: watermark, lastVisitedAt: now });
+  }
+}
+
+/**
+ * One-call catch-up across every readable document: which ones changed since
+ * this key last looked at each, with counts only (folio_diff_since_last_visit
+ * has the detail). A document this key has never looked at is included and
+ * flagged `hasWatermark: false` with null counts — "never looked" is signal,
+ * and without a baseline there's nothing to count against. Documents with no
+ * changes are left out. Most recently changed first.
+ */
+export const whatsNewForUser = internalQuery({
+  args: { userId: v.string(), watermark: v.string() },
+  handler: async (ctx, { userId, watermark }) => {
+    const out: {
+      documentId: Id<"documents">;
+      title: string;
+      updatedAt: number;
+      hasWatermark: boolean;
+      addedCount: number | null;
+      editedCount: number | null;
+      deletedCount: number | null;
+    }[] = [];
+    for (const { doc } of await readableDocs(ctx, userId)) {
+      const base = { documentId: doc._id, title: doc.title, updatedAt: doc.updatedAt };
+      const visit = await visitOf(ctx, doc._id, watermark);
+      if (!visit) {
+        out.push({
+          ...base,
+          hasWatermark: false,
+          addedCount: null,
+          editedCount: null,
+          deletedCount: null,
+        });
+        continue;
+      }
+      // Any block change bumps the document's updatedAt (blocks.reconcile),
+      // so an untouched document needs no block reads at all.
+      if (doc.updatedAt <= visit.lastVisitedAt) continue;
+      const counts: Record<ChangeKind, number> = { added: 0, edited: 0, deleted: 0 };
+      for (const b of await allBlocks(ctx, doc._id)) {
+        const change = changeOf(b, visit.lastVisitedAt);
+        if (change) counts[change.kind]++;
+      }
+      if (counts.added + counts.edited + counts.deleted === 0) continue;
+      out.push({
+        ...base,
+        hasWatermark: true,
+        addedCount: counts.added,
+        editedCount: counts.edited,
+        deletedCount: counts.deleted,
       });
     }
-    return now;
+    // readableDocs is already most-recently-edited first.
+    return { documents: out };
+  },
+});
+
+/** Advance this key's watermark on every readable document to now. Like
+ *  markVisitedForUser, it writes only the key's own visits rows. */
+export const markAllVisitedForUser = internalMutation({
+  args: { userId: v.string(), watermark: v.string() },
+  handler: async (ctx, { userId, watermark }) => {
+    const now = Date.now();
+    const docs = await readableDocs(ctx, userId);
+    for (const { doc } of docs) await advanceWatermark(ctx, doc._id, watermark, now);
+    return { watermark: now, documents: docs.length };
   },
 });
