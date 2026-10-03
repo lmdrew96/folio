@@ -24,6 +24,10 @@ const block = (nodeId: string, nodeType: string, extra: Partial<SdBlock> = {}): 
 const content = (rows: ReturnType<typeof toReconcileBlocks>, i: number) =>
   JSON.parse(rows[i].content);
 
+/** A list item's slice exactly as SuperDoc 2.18 projects it: HTML, not markdown. */
+const li = (label: string, inner: string) =>
+  `<li style="list-style-type:none"><span data-superdoc-list-label data-superdoc-list-suffix="tab">${label}&#9;</span>${inner}</li>`;
+
 describe("toReconcileBlocks", () => {
   it("carries inline formatting into ProseMirror marks", () => {
     const rows = toReconcileBlocks(
@@ -74,8 +78,8 @@ describe("toReconcileBlocks", () => {
       ],
       projection([
         ["h", "## What she *packed*"],
-        ["l1", "- Rope"],
-        ["l3", "    1. Checked **twice**"],
+        ["l1", li("•", "Rope")],
+        ["l3", li("1.", "Checked <strong>twice</strong>")],
       ]),
     );
     expect(content(rows, 0)).toEqual({
@@ -99,6 +103,61 @@ describe("toReconcileBlocks", () => {
         { type: "text", text: "twice", marks: [{ type: "bold" }] },
       ],
     });
+  });
+
+  it("reads a list item's own text and marks, not its label or nested items", () => {
+    const rows = toReconcileBlocks(
+      [
+        block("p", "listItem", {
+          text: "Second",
+          numbering: { marker: "•", path: [2], kind: "bullet" },
+        }),
+        block("c", "listItem", {
+          text: "a & b link code",
+          numbering: { marker: "◦", path: [2, 1], kind: "bullet" },
+        }),
+      ],
+      projection([
+        [
+          "p",
+          li("•", `Second<ul data-superdoc-list-labels="explicit">${li("◦", "Nested")}</ul>`),
+        ],
+        [
+          "c",
+          li(
+            "◦",
+            `<em>a &amp; b</em> <a href="https://x.test/?a=1&amp;b=2"><strong>link</strong></a> <code>code</code>`,
+          ),
+        ],
+      ]),
+    );
+    expect(content(rows, 0).content[0].content[0]).toEqual({
+      type: "paragraph",
+      content: [{ type: "text", text: "Second" }],
+    });
+    const child = content(rows, 1).content[0].content[0].content[0].content[0];
+    expect(child).toEqual({
+      type: "paragraph",
+      content: [
+        { type: "text", text: "a & b", marks: [{ type: "italic" }] },
+        { type: "text", text: " " },
+        {
+          type: "text",
+          text: "link",
+          marks: [{ type: "link", attrs: { href: "https://x.test/?a=1&b=2" } }, { type: "bold" }],
+        },
+        { type: "text", text: " " },
+        { type: "text", text: "code", marks: [{ type: "code" }] },
+      ],
+    });
+  });
+
+  it("falls back to plain text when a slice parses to nothing", () => {
+    const rows = toReconcileBlocks(
+      [block("x", "paragraph", { text: "still here" })],
+      projection([["x", "<div></div>"]]),
+    );
+    expect(content(rows, 0).content).toEqual([{ type: "text", text: "still here" }]);
   });
 
   it("turns a table slice into a ProseMirror table with a header row", () => {

@@ -15,7 +15,8 @@ import type { Nodes, PhrasingContent, Root, Table } from "mdast";
  *   - `projectMarkdown`  — the formatted text, with a map from block id to
  *                          its slice of the markdown
  * The markdown slice is parsed back into ProseMirror marks (bold, italic,
- * strike, underline, code, links) and tables. A block with no slice falls
+ * strike, underline, code, links) and tables. List items are the exception:
+ * SuperDoc projects them as `<li>` HTML, read by `listItemInline`. A block with no slice falls
  * back to its plain text, so extraction degrades rather than drops content.
  */
 
@@ -111,6 +112,77 @@ function inlineOf(md: string): PMNode[] {
   return [];
 }
 
+const ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+};
+const decodeEntities = (s: string): string =>
+  s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, e: string) => {
+    if (e[0] === "#") {
+      const code = e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : whole;
+    }
+    return ENTITIES[e.toLowerCase()] ?? whole;
+  });
+
+const HTML_MARKS: Record<string, string> = {
+  strong: "bold",
+  b: "bold",
+  em: "italic",
+  i: "italic",
+  s: "strike",
+  del: "strike",
+  strike: "strike",
+  u: "underline",
+  code: "code",
+};
+
+/** A list item's projection slice → its own inline content. SuperDoc projects
+ *  lists as HTML, not markdown: `<li><span data-superdoc-list-label>•&#9;</span>
+ *  First <em>item</em><ul>…nested items…</ul></li>`. The label is dropped,
+ *  and anything from the first nested list on belongs to other blocks (each
+ *  nested item is its own block with its own slice). */
+function listItemInline(html: string): PMNode[] {
+  const own = html
+    .replace(/^\s*<li\b[^>]*>/i, "")
+    .replace(/<span\b[^>]*data-superdoc-list-label[^>]*>[\s\S]*?<\/span>/i, "")
+    .split(/<(?:ul|ol)\b|<\/li>/i)[0];
+  const out: PMNode[] = [];
+  const marks: PMMark[] = [];
+  for (const [token, close, tag, attrs] of own.matchAll(/<(\/?)([a-z0-9]+)([^>]*)>|[^<]+/gi)) {
+    if (!tag) {
+      const text = decodeEntities(token);
+      // Code excludes every other mark in TipTap, as in `inline` above.
+      const active = marks.some((m) => m.type === "code") ? [{ type: "code" }] : [...marks];
+      if (text) out.push(textNode(text, active));
+      continue;
+    }
+    const name = tag.toLowerCase();
+    if (name === "br") {
+      out.push({ type: "hardBreak" });
+      continue;
+    }
+    const type = name === "a" ? "link" : HTML_MARKS[name];
+    if (!type) continue; // spans and other wrappers carry no mark
+    if (close) {
+      const i = marks.map((m) => m.type).lastIndexOf(type);
+      if (i !== -1) marks.splice(i, 1);
+    } else if (type === "link") {
+      const href = /\bhref\s*=\s*"([^"]*)"/i.exec(attrs)?.[1];
+      marks.push(href ? { type, attrs: { href: decodeEntities(href) } } : { type });
+    } else {
+      marks.push({ type });
+    }
+  }
+  return out;
+}
+
+const hasText = (nodes: PMNode[]): boolean => nodes.some((n) => n.text);
+
 function tableOf(md: string): PMNode | null {
   const table = parse(md).children.find((n): n is Table => n.type === "table");
   if (!table) return null;
@@ -141,7 +213,10 @@ function listNode(content: PMNode[], kind: "ordered" | "bullet", depth: number):
 
 function toNode(b: SdBlock, md: string | undefined): PMNode {
   const text = b.text ?? b.textPreview ?? "";
-  const content = md !== undefined ? inlineOf(md) : plain(text);
+  const parsed =
+    md === undefined ? plain(text) : /^\s*<li\b/i.test(md) ? listItemInline(md) : inlineOf(md);
+  // A slice in a shape the parser doesn't know must never cost the text.
+  const content = hasText(parsed) || !text ? parsed : plain(text);
   switch (b.nodeType) {
     case "heading":
       return { type: "heading", attrs: { level: b.headingLevel ?? 1 }, content };

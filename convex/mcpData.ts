@@ -102,7 +102,10 @@ function mdList(list: PMNode, depth = 0): string {
         firstLine = mdInline(child.content);
       }
     }
-    lines.push(indent + marker + firstLine);
+    // A SuperDoc-derived block is ONE item, its depth rebuilt as wrapper
+    // items with no text of their own (src/superdoc/extract.ts listNode) —
+    // those wrappers carry nesting only, so they get no empty "- " line.
+    if (firstLine !== "" || nested.length === 0) lines.push(indent + marker + firstLine);
     if (nested.length) lines.push(...nested);
   });
   return lines.join("\n");
