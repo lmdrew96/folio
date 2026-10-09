@@ -165,19 +165,20 @@ export const reconcile = mutation({
         content: v.any(),
       }),
     ),
-    // Which editor is writing. The SuperDoc editor sends "superdoc"; the
-    // TipTap editor sends nothing (including tabs running an older build).
-    source: v.optional(v.literal("superdoc")),
+    // Which editor is writing. The SuperDoc and BlockNote editors name
+    // themselves; the TipTap editor sends nothing (including tabs running an
+    // older build).
+    source: v.optional(v.union(v.literal("superdoc"), v.literal("blocknote"))),
   },
   handler: async (ctx, { documentId, blocks, source }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
     const access = await resolveAccess(ctx, documentId, identity);
     if (!access) throw new Error("Not found");
-    // A SuperDoc document's blocks are derived from its Y.Doc. A TipTap tab
-    // (say, a stale PWA) writing here would put content in blocks that the
-    // Y.Doc never sees — and the reverse would clobber a TipTap document.
-    if ((access.doc.editor === "superdoc") !== (source === "superdoc")) {
+    // A SuperDoc or BlockNote document's blocks are derived from its Y.Doc.
+    // Any other editor's tab (say, a stale PWA) writing here would put content
+    // in blocks that the Y.Doc never sees, or clobber the real owner's rows.
+    if (access.doc.editor !== source) {
       throw new ConvexError({ code: "EDITOR_MISMATCH" });
     }
 

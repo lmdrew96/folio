@@ -2,7 +2,7 @@ import { internalMutation, internalQuery, mutation, type MutationCtx } from "./_
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { resolveAccess } from "./access";
-import { deleteRoomData } from "./ydoc";
+import { deleteRoomData, hasAnyUpdate, roomFor } from "./ydoc";
 import { MAX_BLOCK_CONTENT_BYTES } from "./blockContent";
 
 /**
@@ -25,12 +25,8 @@ export const STALE_CONVERSION_MS = 2 * 60_000;
  *  text the diff panel shows still lines up with the converted block. */
 const ONE_TO_ONE_TYPES = new Set(["paragraph", "heading"]);
 
-async function roomOf(ctx: MutationCtx, documentId: Id<"documents">) {
-  return await ctx.db
-    .query("ydocRooms")
-    .withIndex("by_document", (q) => q.eq("documentId", documentId))
-    .unique();
-}
+/** The SuperDoc room — the one a TipTap document converts into. */
+const roomOf = (ctx: MutationCtx, documentId: Id<"documents">) => roomFor(ctx, documentId, undefined);
 
 async function editableDoc(ctx: MutationCtx, documentId: Id<"documents">): Promise<Doc<"documents">> {
   const identity = await ctx.auth.getUserIdentity();
@@ -48,7 +44,7 @@ export const prepare = mutation({
   args: { documentId: v.id("documents"), claimToken: v.string() },
   handler: async (ctx, { documentId, claimToken }) => {
     const doc = await editableDoc(ctx, documentId);
-    if (doc.editor === "superdoc") return "converted" as const;
+    if (doc.editor !== undefined) return "converted" as const;
     if (doc.conversionFailure) return "failed" as const;
     const room = await roomOf(ctx, documentId);
     if (room && room.claimToken !== claimToken) {
@@ -87,13 +83,9 @@ export const finish = mutation({
   },
   handler: async (ctx, { documentId, basedOn, blocks }) => {
     const doc = await editableDoc(ctx, documentId);
-    if (doc.editor === "superdoc") throw new ConvexError({ code: "ALREADY_CONVERTED" });
+    if (doc.editor !== undefined) throw new ConvexError({ code: "ALREADY_CONVERTED" });
     if (doc.updatedAt !== basedOn) throw new ConvexError({ code: "CHANGED_DURING_CONVERSION" });
-    const firstUpdate = await ctx.db
-      .query("ydocUpdates")
-      .withIndex("by_document", (q) => q.eq("documentId", documentId))
-      .first();
-    if (!firstUpdate) throw new ConvexError({ code: "NO_CONTENT" });
+    if (!(await hasAnyUpdate(ctx, documentId, undefined))) throw new ConvexError({ code: "NO_CONTENT" });
 
     const identity = (await ctx.auth.getUserIdentity())!;
     const account = await ctx.db
@@ -155,7 +147,7 @@ export const fail = mutation({
   args: { documentId: v.id("documents"), reason: v.string() },
   handler: async (ctx, { documentId, reason }) => {
     const doc = await editableDoc(ctx, documentId);
-    if (doc.editor === "superdoc") return;
+    if (doc.editor !== undefined) return;
     await deleteRoomData(ctx, documentId);
     await ctx.db.patch(documentId, {
       conversionFailure: { reason: reason.slice(0, 1000), at: Date.now() },
@@ -184,17 +176,18 @@ export const revert = internalMutation({
       await ctx.db.insert("blocks", row);
       await ctx.db.delete(_id);
     }
-    await deleteRoomData(ctx, documentId);
+    await deleteRoomData(ctx, documentId, "all");
     await ctx.db.patch(documentId, { editor: undefined, conversionFailure: undefined });
   },
 });
 
-/** Let a document whose conversion failed try again on its next open.
+/** Let a document whose conversion (to SuperDoc or to BlockNote) failed try
+ *  again on its next open.
  *  `npx convex run conversion:clearFailure '{"documentId": "…"}'` */
 export const clearFailure = internalMutation({
   args: { documentId: v.id("documents") },
   handler: async (ctx, { documentId }) => {
-    await ctx.db.patch(documentId, { conversionFailure: undefined });
+    await ctx.db.patch(documentId, { conversionFailure: undefined, blocknoteFailure: undefined });
   },
 });
 
@@ -209,7 +202,142 @@ export const status = internalQuery({
       documentId: d._id,
       title: d.title,
       editor: d.editor ?? "tiptap",
-      failure: d.conversionFailure?.reason,
+      failure: d.conversionFailure?.reason ?? d.blocknoteFailure?.reason,
     }));
+  },
+});
+
+// ---- SuperDoc → BlockNote ----
+//
+// Same shape as the TipTap → SuperDoc conversion above, run by the BlockNote
+// editor (src/components/BlockNoteEditor.tsx):
+//   1. `prepareBlockNote` clears a BlockNote room left by a conversion that
+//      never finished.
+//   2. The editor claims the BlockNote room, builds the document from the
+//      SuperDoc-derived block rows — keeping each block's id — and checks the
+//      text came through.
+//   3. `finishBlockNote` switches the document over.
+// The SuperDoc Y.Doc is never touched, so `revertBlockNote` only has to drop
+// the BlockNote room and flip the flag back.
+
+/** Before converting to BlockNote: may this editor start? */
+export const prepareBlockNote = mutation({
+  args: { documentId: v.id("documents"), claimToken: v.string() },
+  handler: async (ctx, { documentId, claimToken }) => {
+    const doc = await editableDoc(ctx, documentId);
+    if (doc.editor === "blocknote") return "converted" as const;
+    if (doc.editor !== "superdoc") return "unsupported" as const;
+    if (doc.blocknoteFailure) return "failed" as const;
+    const room = await roomFor(ctx, documentId, "blocknote");
+    if (room && room.claimToken !== claimToken) {
+      if (Date.now() - room.claimedAt < STALE_CONVERSION_MS) return "busy" as const;
+      await deleteRoomData(ctx, documentId, "blocknote");
+    }
+    return "ready" as const;
+  },
+});
+
+/**
+ * Switch a SuperDoc document to BlockNote. `blocks` are the BlockNote
+ * document's rows, exactly as the editor's own extraction produces them, so
+ * its first save is a no-op. Ids carry over from the SuperDoc rows, so each
+ * row keeps its author and timestamps — conversion isn't an edit. A row whose
+ * id didn't survive is dropped outright (its words are in another block; the
+ * editor's text check made sure of that), not tombstoned as a deletion.
+ */
+export const finishBlockNote = mutation({
+  args: {
+    documentId: v.id("documents"),
+    basedOn: v.number(),
+    blocks: v.array(v.object({ blockId: v.string(), type: v.string(), content: v.string() })),
+  },
+  handler: async (ctx, { documentId, basedOn, blocks }) => {
+    const doc = await editableDoc(ctx, documentId);
+    if (doc.editor !== "superdoc") throw new ConvexError({ code: "NOT_SUPERDOC" });
+    if (doc.updatedAt !== basedOn) throw new ConvexError({ code: "CHANGED_DURING_CONVERSION" });
+    if (!(await hasAnyUpdate(ctx, documentId, "blocknote"))) {
+      throw new ConvexError({ code: "NO_CONTENT" });
+    }
+
+    const identity = (await ctx.auth.getUserIdentity())!;
+    const account = await ctx.db
+      .query("users")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .unique();
+    const rows = await ctx.db
+      .query("blocks")
+      .withIndex("by_document", (q) => q.eq("documentId", documentId))
+      .collect();
+    const byId = new Map(rows.map((r) => [r.blockId, r]));
+    const kept = new Set<string>();
+    const now = Date.now();
+
+    for (let i = 0; i < blocks.length; i++) {
+      const b = blocks[i];
+      if (new TextEncoder().encode(b.content).length > MAX_BLOCK_CONTENT_BYTES) {
+        throw new ConvexError({ code: "BLOCK_TOO_LARGE", blockId: b.blockId });
+      }
+      kept.add(b.blockId);
+      const row = byId.get(b.blockId);
+      if (row && row.deletedAt === undefined) {
+        await ctx.db.patch(row._id, { order: i, type: b.type, content: b.content });
+        continue;
+      }
+      if (row) await ctx.db.delete(row._id); // a tombstone whose id is back
+      await ctx.db.insert("blocks", {
+        documentId,
+        blockId: b.blockId,
+        order: i,
+        type: b.type,
+        content: b.content,
+        author: identity.subject,
+        authorName: account?.displayName,
+        createdAt: now,
+        lastEditedAt: now,
+      });
+    }
+    for (const row of rows) {
+      if (row.deletedAt === undefined && !kept.has(row.blockId)) await ctx.db.delete(row._id);
+    }
+    // updatedAt is left alone: the words didn't change.
+    await ctx.db.patch(documentId, { editor: "blocknote" });
+  },
+});
+
+/** The conversion didn't check out: drop its BlockNote room and remember
+ *  why, so the document keeps opening in SuperDoc, untouched, and isn't
+ *  retried on every open. */
+export const failBlockNote = mutation({
+  args: { documentId: v.id("documents"), reason: v.string() },
+  handler: async (ctx, { documentId, reason }) => {
+    const doc = await editableDoc(ctx, documentId);
+    if (doc.editor !== "superdoc") return;
+    await deleteRoomData(ctx, documentId, "blocknote");
+    await ctx.db.patch(documentId, {
+      blocknoteFailure: { reason: reason.slice(0, 1000), at: Date.now() },
+    });
+  },
+});
+
+/** Put a BlockNote document back on SuperDoc. Its SuperDoc Y.Doc was never
+ *  touched, and the SuperDoc editor rebuilds the block rows from it on open.
+ *  Edits made in BlockNote since the conversion are discarded.
+ *  `npx convex run conversion:revertBlockNote '{"documentId": "…"}'` */
+export const revertBlockNote = internalMutation({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, { documentId }) => {
+    const doc = await ctx.db.get(documentId);
+    if (!doc) throw new ConvexError({ code: "NOT_FOUND" });
+    if (doc.editor === "superdoc") {
+      // A conversion that never finished — just clear its room.
+      await deleteRoomData(ctx, documentId, "blocknote");
+      return;
+    }
+    if (doc.editor !== "blocknote") throw new ConvexError({ code: "NOT_BLOCKNOTE" });
+    if (!(await hasAnyUpdate(ctx, documentId, undefined))) {
+      throw new ConvexError({ code: "NO_SUPERDOC_COPY" });
+    }
+    await deleteRoomData(ctx, documentId, "blocknote");
+    await ctx.db.patch(documentId, { editor: "superdoc", blocknoteFailure: undefined });
   },
 });

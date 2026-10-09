@@ -485,6 +485,95 @@ html:root {
   stroke: currentColor;
 }
 
+/* ── BlockNote editor ─────────────────────────────────────────────────────────
+   BlockNote themes itself through --bn-* variables on .bn-container. Its menus
+   render in their own .bn-container outside the editor, so these sit on every
+   container (only BlockNote makes them); `html body` outranks BlockNote's own
+   [data-color-scheme] rules. Every value reads a Folio token, so the editor
+   follows the light/dark switch like the rest of Folio. ── */
+html body .bn-container[data-color-scheme] {
+  --bn-colors-editor-text: var(--foreground);
+  --bn-colors-editor-background: transparent; /* the .folio-paper sheet shows through */
+  --bn-colors-menu-text: var(--foreground);
+  --bn-colors-menu-background: var(--folio-paper);
+  --bn-colors-tooltip-text: var(--foreground);
+  --bn-colors-tooltip-background: var(--folio-paper);
+  --bn-colors-hovered-text: var(--foreground);
+  --bn-colors-hovered-background: color-mix(in srgb, var(--foreground) 8%, transparent);
+  --bn-colors-selected-text: var(--folio-paper);
+  --bn-colors-selected-background: var(--foreground);
+  --bn-colors-disabled-text: color-mix(in srgb, var(--foreground) 40%, transparent);
+  --bn-colors-disabled-background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  --bn-colors-shadow: color-mix(in srgb, var(--foreground) 18%, transparent);
+  --bn-colors-border: var(--folio-paper-edge);
+  --bn-colors-side-menu: color-mix(in srgb, var(--foreground) 35%, transparent);
+  --bn-font-family: var(--font-sans);
+  --bn-border-radius: 8px;
+}
+
+/* The page: BlockNote's own inline padding leaves room for the block handles,
+   so the sheet needs less of its own. */
+.folio-blocknote .folio-paper {
+  padding-inline: clamp(0.25rem, 2vw, 1.5rem);
+}
+.folio-blocknote .bn-editor {
+  font-family: var(--folio-prose-font);
+  font-size: 1.0625rem;
+  line-height: 1.7;
+}
+/* Calm heading tiers for longform — BlockNote's defaults (3em/2em) shout. */
+.folio-blocknote .bn-block-content[data-content-type="heading"] {
+  font-family: var(--folio-prose-font);
+}
+.folio-blocknote .bn-block-content[data-content-type="heading"] :is(h1, h2, h3, h4, h5, h6) {
+  font-weight: 600;
+  line-height: 1.3;
+}
+.folio-blocknote .bn-block-content[data-content-type="heading"] h1 {
+  font-size: 1.75em;
+}
+.folio-blocknote .bn-block-content[data-content-type="heading"] h2 {
+  font-size: 1.4em;
+}
+.folio-blocknote .bn-block-content[data-content-type="heading"] h3 {
+  font-size: 1.2em;
+}
+.folio-blocknote .bn-block-content[data-content-type="heading"] :is(h4, h5, h6) {
+  font-size: 1.05em;
+}
+
+/* The block handles (⋮⋮ and +) stay quiet until reached for — the page is for
+   prose, not for showing off the block model. */
+.folio-blocknote .bn-side-menu {
+  opacity: 0.4;
+  transition: opacity 120ms ease;
+}
+.folio-blocknote .bn-side-menu:hover {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .folio-blocknote .bn-side-menu {
+    transition: none;
+  }
+}
+
+/* Attribution tick: the `.ProseMirror .folio-attr` rules above draw it; a
+   BlockNote block is a box with children, so pin the tick to its first line. */
+.folio-blocknote .ProseMirror .folio-attr::before {
+  top: 0.35em;
+}
+
+@media print {
+  .folio-blocknote .bn-side-menu,
+  .folio-blocknote .bn-formatting-toolbar {
+    display: none !important;
+  }
+  .folio-blocknote .folio-paper {
+    margin: 0 !important;
+    max-width: none !important;
+  }
+}
+
 /* ── Print: put just the paper on the page ────────────────────────────────────
    Cmd/Ctrl+P prints the document sheet alone. We hide the desk chrome (header,
    the changes/Cleo sidebar + drawer, the editor toolbar, the floating save

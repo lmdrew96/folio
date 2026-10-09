@@ -5,10 +5,11 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
 /**
- * Keeps one SuperDoc Y.Doc in sync with Convex (convex/ydoc.ts). Runs inside
- * SuperDoc's collaboration worker (collab-worker.ts registers it as the
- * "convex" provider adapter); kept free of worker globals so it can be tested
- * against a fake client.
+ * Keeps one Y.Doc in sync with Convex (convex/ydoc.ts). For SuperDoc it runs
+ * inside the collaboration worker (collab-worker.ts registers it as the
+ * "convex" provider adapter); for BlockNote it runs on the page beside the
+ * editor (`space: "blocknote"`). Kept free of worker globals so it can be
+ * tested against a fake client.
  *
  * Pull: subscribe to the cheap `head` marker; whenever it moves, fetch only
  * the rows since the last one seen and apply them. The fetch re-reads an
@@ -61,14 +62,21 @@ const defaultFetchBytes = async (url: string): Promise<Uint8Array> => {
 export function attachConvexSync({
   client,
   documentId,
+  space,
   ydoc,
   callbacks,
+  onSaveStatus,
   fetchBytes = defaultFetchBytes,
 }: {
   client: SyncClient;
   documentId: Id<"documents">;
+  /** Which editor's Y.Doc (convex/ydoc.ts). Unset = SuperDoc's. */
+  space?: "blocknote";
   ydoc: Y.Doc;
   callbacks: SyncCallbacks;
+  /** Whether local edits are still waiting to reach Convex — the BlockNote
+   *  editor holds navigation and guards unload on it. */
+  onSaveStatus?: (status: { unpushed: boolean }) => void;
   fetchBytes?: (url: string) => Promise<Uint8Array>;
 }): SyncHandle {
   let destroyed = false;
@@ -113,6 +121,7 @@ export function attachConvexSync({
         pullAgain = false;
         const rows = await client.query(api.ydoc.since, {
           documentId,
+          space,
           after: Math.max(0, lastSeen - OVERLAP_MS),
         });
         if (destroyed) return;
@@ -155,6 +164,10 @@ export function attachConvexSync({
   let pending: Uint8Array[] = [];
   let pushing: Promise<void> | null = null;
   let pushTimer = false;
+  // A batch the server refused for good (too large / no room) is not saved.
+  let refused = false;
+  const reportSaveStatus = () =>
+    onSaveStatus?.({ unpushed: refused || pending.length > 0 || pushing !== null });
 
   const flush = async (): Promise<void> => {
     while (pushing) await pushing;
@@ -162,12 +175,13 @@ export function attachConvexSync({
     const merged = Y.mergeUpdates(pending);
     pending = [];
     pushing = client
-      .mutation(api.ydoc.push, { documentId, update: toArrayBuffer(merged) })
+      .mutation(api.ydoc.push, { documentId, space, update: toArrayBuffer(merged) })
       .then(
         () => markHealthy(),
         (err: unknown) => {
           const code = errorCode(err);
-          if (code === "UPDATE_TOO_LARGE" || code === "NO_ROOM") {
+          if (code === "UPDATE_TOO_LARGE" || code === "NO_ROOM" || code === "EDITOR_MISMATCH") {
+            refused = true;
             callbacks.onFailed({ stage: "push", code });
             return;
           }
@@ -179,6 +193,7 @@ export function attachConvexSync({
       )
       .finally(() => {
         pushing = null;
+        reportSaveStatus();
       });
     await pushing;
   };
@@ -195,6 +210,7 @@ export function attachConvexSync({
   const onLocalUpdate = (update: Uint8Array, origin: unknown) => {
     if (origin === REMOTE) return;
     pending.push(update);
+    reportSaveStatus();
     schedulePush();
   };
   ydoc.on("update", onLocalUpdate);
@@ -202,7 +218,7 @@ export function attachConvexSync({
   // ---- subscriptions ----
   const unsubscribeHead = client.onUpdate(
     api.ydoc.head,
-    { documentId },
+    { documentId, space },
     (head) => {
       if (head === null) {
         callbacks.onFailed({ stage: "subscribe", reason: "no-access" });

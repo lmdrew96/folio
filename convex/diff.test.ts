@@ -85,3 +85,65 @@ describe("diff.diffSince markdown", () => {
     expect(md.l).toBe("- deep");
   });
 });
+
+describe("diff.diffSince blank blocks", () => {
+  it("leaves out blocks with no text when added or deleted, but keeps emptying one", async () => {
+    const t = convexTest(schema, modules);
+    const p = (text: string) =>
+      JSON.stringify({ type: "paragraph", content: text ? [{ type: "text", text }] : [] });
+    const documentId = await t.run(async (ctx) => {
+      const documentId = await ctx.db.insert("documents", {
+        ownerId: ALICE.subject, title: "T", createdAt: 1, updatedAt: 1,
+      });
+      await ctx.db.insert("visits", { documentId, userId: ALICE.subject, lastVisitedAt: 5 });
+      const row = (blockId: string, content: string, extra: object) =>
+        ctx.db.insert("blocks", {
+          documentId, blockId, order: 0, type: "paragraph", content,
+          author: ALICE.subject, createdAt: 10, lastEditedAt: 10, ...extra,
+        });
+      await row("new-blank", p(""), {});
+      await row("new-text", p("hello"), {});
+      await row("gone-blank", p(""), { createdAt: 1, deletedAt: 10 });
+      await row("emptied", p(""), { createdAt: 1, previousContent: p("was here") });
+      return documentId;
+    });
+    const diff = await t
+      .withIdentity(ALICE)
+      .query(api.diff.diffSince, { documentId, userId: ALICE.subject });
+    expect(diff.added.map((d) => d.blockId)).toEqual(["new-text"]);
+    expect(diff.deleted).toEqual([]);
+    expect(diff.edited.map((d) => d.blockId)).toEqual(["emptied"]);
+  });
+});
+
+describe("diff.reactionPayload blank blocks", () => {
+  it("doesn't hand Cleo blank blocks, on a first look or after one", async () => {
+    const t = convexTest(schema, modules);
+    const p = (text: string) =>
+      JSON.stringify({ type: "paragraph", content: text ? [{ type: "text", text }] : [] });
+    const documentId = await t.run(async (ctx) => {
+      const documentId = await ctx.db.insert("documents", {
+        ownerId: ALICE.subject, title: "T", createdAt: 1, updatedAt: 1,
+      });
+      const row = (blockId: string, content: string, order: number, extra: object = {}) =>
+        ctx.db.insert("blocks", {
+          documentId, blockId, order, type: "paragraph", content,
+          author: ALICE.subject, createdAt: 10, lastEditedAt: 10, ...extra,
+        });
+      await row("text", p("hello"), 0);
+      await row("blank", p(""), 1);
+      await row("gone-blank", p(""), 2, { createdAt: 1, deletedAt: 10 });
+      return documentId;
+    });
+    const payload = () => t.withIdentity(ALICE).query(api.diff.reactionPayload, { documentId });
+
+    const first = await payload();
+    expect(first.firstLook).toBe(true);
+    expect(first.added.map((a) => a.blockId)).toEqual(["text"]);
+
+    await t.run((ctx) => ctx.db.insert("visits", { documentId, userId: "claude", lastVisitedAt: 5 }));
+    const after = await payload();
+    expect(after.added.map((a) => a.blockId)).toEqual(["text"]);
+    expect(after.deleted).toEqual([]);
+  });
+});

@@ -233,4 +233,60 @@ describe("convex/ydoc", () => {
     }));
     expect(left).toEqual({ updates: [], rooms: [], blobs: [] });
   });
+
+  describe("spaces (BlockNote)", () => {
+    const toSuperDoc = () => t.run((ctx) => ctx.db.patch(documentId, { editor: "superdoc" }));
+    const toBlockNote = () => t.run((ctx) => ctx.db.patch(documentId, { editor: "blocknote" }));
+
+    it("keeps each editor's Y.Doc apart", async () => {
+      await toSuperDoc();
+      const superdoc = typist();
+      const blocknote = typist();
+      expect(await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "sd" })).toBe("create");
+      await alice().mutation(api.ydoc.push, { documentId, update: superdoc("old") });
+      // A SuperDoc room with content doesn't make the BlockNote room "join".
+      expect(
+        await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "bn", space: "blocknote" }),
+      ).toBe("create");
+      await alice().mutation(api.ydoc.push, { documentId, space: "blocknote", update: blocknote("new") });
+
+      const sd = await alice().query(api.ydoc.since, { documentId, after: 0 });
+      const bn = await alice().query(api.ydoc.since, { documentId, after: 0, space: "blocknote" });
+      expect(sd).toHaveLength(1);
+      expect(bn).toHaveLength(1);
+      expect(sd![0].id).not.toBe(bn![0].id);
+      expect((await alice().query(api.ydoc.head, { documentId, space: "blocknote" }))?.count).toBe(1);
+    });
+
+    it("refuses a stale SuperDoc tab once the document is on BlockNote", async () => {
+      await toSuperDoc();
+      await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "sd" });
+      await toBlockNote();
+      await expect(
+        alice().mutation(api.ydoc.push, { documentId, update: typist()("late") }),
+      ).rejects.toThrow(/EDITOR_MISMATCH/);
+      await expect(
+        alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "sd2" }),
+      ).rejects.toThrow(/EDITOR_MISMATCH/);
+    });
+
+    it("refuses a BlockNote room on a document that isn't on SuperDoc or BlockNote", async () => {
+      await expect(
+        alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "bn", space: "blocknote" }),
+      ).rejects.toThrow(/EDITOR_MISMATCH/);
+    });
+
+    it("compacts within one space", async () => {
+      await toBlockNote();
+      await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "bn", space: "blocknote" });
+      const type = typist();
+      for (let i = 0; i < COMPACT_AT; i++) {
+        await alice().mutation(api.ydoc.push, { documentId, space: "blocknote", update: type("x") });
+      }
+      await t.finishAllScheduledFunctions(vi.runAllTimers);
+      const rows = await t.run((ctx) => ctx.db.query("ydocUpdates").collect());
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ author: "compaction", space: "blocknote" });
+    });
+  });
 });

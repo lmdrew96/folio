@@ -1,6 +1,11 @@
 [
   {
-    "hash": "0bd70e6",
+    "hash": "ab612f6",
+    "date": "2026-10-08",
+    "subject": "v0.65.0: move Folio's editor from SuperDoc to BlockNote"
+  },
+  {
+    "hash": "c40bdd4",
     "date": "2026-10-02",
     "subject": "v0.64.0: drag-and-drop filing on the desk"
   },
@@ -43,10 +48,5 @@
     "hash": "b79b043",
     "date": "2026-10-02",
     "subject": "v0.59.0: MCP folio_search — full-text search across documents"
-  },
-  {
-    "hash": "4b4e91f",
-    "date": "2026-10-02",
-    "subject": "v0.58.1: fix list-item text lost from SuperDoc's derived blocks"
   }
 ]

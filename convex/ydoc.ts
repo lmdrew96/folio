@@ -30,6 +30,10 @@ import { resolveAccess } from "./access";
  *
  * Compaction merges a run of update rows into one snapshot row once enough
  * pile up, so opening a document never means replaying thousands of rows.
+ *
+ * Every function takes an optional `space`: unset is SuperDoc's Y.Doc,
+ * "blocknote" is BlockNote's (src/components/BlockNoteEditor.tsx). The two
+ * never mix — a document moving to BlockNote keeps its SuperDoc rows intact.
  */
 
 /** Update rows since the last compaction before another is scheduled. */
@@ -41,17 +45,34 @@ export const INLINE_SNAPSHOT_MAX_BYTES = 800_000;
 /** A "create" claim whose tab never wrote anything is abandoned after this. */
 export const STALE_CLAIM_MS = 60_000;
 
-const roomFor = (ctx: QueryCtx | MutationCtx, documentId: Id<"documents">) =>
+export type Space = "blocknote" | undefined;
+export const spaceArg = v.optional(v.literal("blocknote"));
+
+export const roomFor = (ctx: QueryCtx | MutationCtx, documentId: Id<"documents">, space: Space) =>
   ctx.db
     .query("ydocRooms")
-    .withIndex("by_document", (q) => q.eq("documentId", documentId))
+    .withIndex("by_document_and_space", (q) => q.eq("documentId", documentId).eq("space", space))
     .unique();
 
-const hasAnyUpdate = async (ctx: QueryCtx | MutationCtx, documentId: Id<"documents">) =>
-  (await ctx.db
+const updatesIn = (ctx: QueryCtx | MutationCtx, documentId: Id<"documents">, space: Space) =>
+  ctx.db
     .query("ydocUpdates")
-    .withIndex("by_document", (q) => q.eq("documentId", documentId))
-    .first()) !== null;
+    .withIndex("by_document_and_space", (q) => q.eq("documentId", documentId).eq("space", space));
+
+export const hasAnyUpdate = async (
+  ctx: QueryCtx | MutationCtx,
+  documentId: Id<"documents">,
+  space: Space,
+) => (await updatesIn(ctx, documentId, space).first()) !== null;
+
+/** Writing to a space the document has moved off would put edits where no
+ *  editor reads them. SuperDoc's space is closed once a document is on
+ *  BlockNote (a stale tab); BlockNote's is open while a SuperDoc document
+ *  converts and after. */
+const assertWritable = (editor: "superdoc" | "blocknote" | undefined, space: Space) => {
+  const ok = space === "blocknote" ? editor === "superdoc" || editor === "blocknote" : editor !== "blocknote";
+  if (!ok) throw new ConvexError({ code: "EDITOR_MISMATCH" });
+};
 
 /**
  * Decide, atomically, whether the caller creates this document's room or
@@ -66,14 +87,16 @@ const hasAnyUpdate = async (ctx: QueryCtx | MutationCtx, documentId: Id<"documen
  *                             unless the claim is stale — then take it over
  */
 export const claimRoom = mutation({
-  args: { documentId: v.id("documents"), claimToken: v.string() },
-  handler: async (ctx, { documentId, claimToken }): Promise<"create" | "join" | "wait"> => {
+  args: { documentId: v.id("documents"), claimToken: v.string(), space: spaceArg },
+  handler: async (ctx, { documentId, claimToken, space }): Promise<"create" | "join" | "wait"> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-    if (!(await resolveAccess(ctx, documentId, identity))) throw new Error("Not found");
+    const access = await resolveAccess(ctx, documentId, identity);
+    if (!access) throw new Error("Not found");
+    assertWritable(access.doc.editor, space);
 
     const now = Date.now();
-    const room = await roomFor(ctx, documentId);
+    const room = await roomFor(ctx, documentId, space);
     if (!room) {
       await ctx.db.insert("ydocRooms", {
         documentId,
@@ -82,10 +105,11 @@ export const claimRoom = mutation({
         claimedAt: now,
         pendingUpdates: 0,
         compactionScheduled: false,
+        ...(space ? { space } : {}),
       });
       return "create";
     }
-    if (await hasAnyUpdate(ctx, documentId)) return "join";
+    if (await hasAnyUpdate(ctx, documentId, space)) return "join";
     if (room.claimToken === claimToken) return "create";
     if (now - room.claimedAt < STALE_CLAIM_MS) return "wait";
     await ctx.db.patch(room._id, { claimedBy: identity.subject, claimToken, claimedAt: now });
@@ -98,15 +122,12 @@ export const claimRoom = mutation({
  *  newest (which wouldn't move `latest`) still wakes subscribers. Compaction
  *  keeps the row count small, so counting is cheap. Null for no access. */
 export const head = query({
-  args: { documentId: v.id("documents") },
-  handler: async (ctx, { documentId }) => {
+  args: { documentId: v.id("documents"), space: spaceArg },
+  handler: async (ctx, { documentId, space }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return null;
     if (!(await resolveAccess(ctx, documentId, identity))) return null;
-    const rows = await ctx.db
-      .query("ydocUpdates")
-      .withIndex("by_document", (q) => q.eq("documentId", documentId))
-      .collect();
+    const rows = await updatesIn(ctx, documentId, space).collect();
     return {
       latest: rows.length ? Math.max(...rows.map((r) => r._creationTime)) : null,
       count: rows.length,
@@ -117,15 +138,15 @@ export const head = query({
 /** Rows created after `after` (a _creationTime), oldest first. A snapshot
  *  held in file storage comes back as a URL for the client to fetch. */
 export const since = query({
-  args: { documentId: v.id("documents"), after: v.number() },
-  handler: async (ctx, { documentId, after }) => {
+  args: { documentId: v.id("documents"), after: v.number(), space: spaceArg },
+  handler: async (ctx, { documentId, after, space }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return null;
     if (!(await resolveAccess(ctx, documentId, identity))) return null;
     const rows = await ctx.db
       .query("ydocUpdates")
-      .withIndex("by_document", (q) =>
-        q.eq("documentId", documentId).gt("_creationTime", after),
+      .withIndex("by_document_and_space", (q) =>
+        q.eq("documentId", documentId).eq("space", space).gt("_creationTime", after),
       )
       .collect();
     return await Promise.all(
@@ -141,20 +162,27 @@ export const since = query({
 
 /** Append one (possibly merged) Yjs update from an editor. */
 export const push = mutation({
-  args: { documentId: v.id("documents"), update: v.bytes() },
-  handler: async (ctx, { documentId, update }) => {
+  args: { documentId: v.id("documents"), update: v.bytes(), space: spaceArg },
+  handler: async (ctx, { documentId, update, space }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
-    if (!(await resolveAccess(ctx, documentId, identity))) throw new Error("Not found");
+    const access = await resolveAccess(ctx, documentId, identity);
+    if (!access) throw new Error("Not found");
+    assertWritable(access.doc.editor, space);
     if (update.byteLength > MAX_UPDATE_BYTES) {
       // ConvexError, not Error: prod redacts plain messages, and the client
       // needs to know a retry can't help.
       throw new ConvexError({ code: "UPDATE_TOO_LARGE", bytes: update.byteLength });
     }
-    const room = await roomFor(ctx, documentId);
+    const room = await roomFor(ctx, documentId, space);
     if (!room) throw new ConvexError({ code: "NO_ROOM" });
 
-    await ctx.db.insert("ydocUpdates", { documentId, update, author: identity.subject });
+    await ctx.db.insert("ydocUpdates", {
+      documentId,
+      update,
+      author: identity.subject,
+      ...(space ? { space } : {}),
+    });
 
     const pendingUpdates = room.pendingUpdates + 1;
     const compact = pendingUpdates >= COMPACT_AT && !room.compactionScheduled;
@@ -162,19 +190,16 @@ export const push = mutation({
       pendingUpdates,
       ...(compact ? { compactionScheduled: true } : {}),
     });
-    if (compact) await ctx.scheduler.runAfter(0, internal.ydoc.compact, { documentId });
+    if (compact) await ctx.scheduler.runAfter(0, internal.ydoc.compact, { documentId, space });
   },
 });
 
 // --- compaction (internal) ---
 
 export const loadForCompaction = internalQuery({
-  args: { documentId: v.id("documents") },
-  handler: async (ctx, { documentId }) => {
-    const rows = await ctx.db
-      .query("ydocUpdates")
-      .withIndex("by_document", (q) => q.eq("documentId", documentId))
-      .collect();
+  args: { documentId: v.id("documents"), space: spaceArg },
+  handler: async (ctx, { documentId, space }) => {
+    const rows = await updatesIn(ctx, documentId, space).collect();
     return rows.map((r) => ({
       id: r._id,
       update: r.update ?? null,
@@ -190,11 +215,11 @@ export const loadForCompaction = internalQuery({
  * Rows pushed while this runs aren't in `replaced`, so they survive untouched.
  */
 export const compact = internalAction({
-  args: { documentId: v.id("documents") },
-  handler: async (ctx, { documentId }) => {
-    const rows = await ctx.runQuery(internal.ydoc.loadForCompaction, { documentId });
+  args: { documentId: v.id("documents"), space: spaceArg },
+  handler: async (ctx, { documentId, space }) => {
+    const rows = await ctx.runQuery(internal.ydoc.loadForCompaction, { documentId, space });
     if (rows.length < 2) {
-      await ctx.runMutation(internal.ydoc.commitCompaction, { documentId, replaced: [] });
+      await ctx.runMutation(internal.ydoc.commitCompaction, { documentId, space, replaced: [] });
       return;
     }
     const parts: Uint8Array[] = [];
@@ -217,12 +242,14 @@ export const compact = internalAction({
       const storageId = await ctx.storage.store(new Blob([bytes]));
       await ctx.runMutation(internal.ydoc.commitCompaction, {
         documentId,
+        space,
         replaced: rows.map((r) => r.id),
         storageId,
       });
     } else {
       await ctx.runMutation(internal.ydoc.commitCompaction, {
         documentId,
+        space,
         replaced: rows.map((r) => r.id),
         update: bytes,
       });
@@ -233,12 +260,13 @@ export const compact = internalAction({
 export const commitCompaction = internalMutation({
   args: {
     documentId: v.id("documents"),
+    space: spaceArg,
     replaced: v.array(v.id("ydocUpdates")),
     update: v.optional(v.bytes()),
     storageId: v.optional(v.id("_storage")),
   },
-  handler: async (ctx, { documentId, replaced, update, storageId }) => {
-    const room = await roomFor(ctx, documentId);
+  handler: async (ctx, { documentId, space, replaced, update, storageId }) => {
+    const room = await roomFor(ctx, documentId, space);
     if (!room) {
       // Document purged mid-compaction — don't leave an orphaned blob.
       if (storageId) await ctx.storage.delete(storageId);
@@ -252,6 +280,7 @@ export const commitCompaction = internalMutation({
         author: "compaction",
         ...(update ? { update } : {}),
         ...(storageId ? { storageId } : {}),
+        ...(space ? { space } : {}),
       });
       for (const id of replaced) {
         const row = await ctx.db.get(id);
@@ -260,10 +289,7 @@ export const commitCompaction = internalMutation({
         await ctx.db.delete(id);
       }
     }
-    const remaining = await ctx.db
-      .query("ydocUpdates")
-      .withIndex("by_document", (q) => q.eq("documentId", documentId))
-      .collect();
+    const remaining = await updatesIn(ctx, documentId, space).collect();
     await ctx.db.patch(room._id, {
       pendingUpdates: remaining.filter((r) => r.author !== "compaction").length,
       compactionScheduled: false,
@@ -271,17 +297,31 @@ export const commitCompaction = internalMutation({
   },
 });
 
-/** Hard-delete a document's room and every update/snapshot (and blob). Used
- *  by documents.purgeDeleted's cascade. */
-export async function deleteRoomData(ctx: MutationCtx, documentId: Id<"documents">) {
-  const rows = await ctx.db
-    .query("ydocUpdates")
-    .withIndex("by_document", (q) => q.eq("documentId", documentId))
-    .collect();
+/** Hard-delete a document's room and every update/snapshot (and blob) in one
+ *  space — or, with `space: "all"`, in every space (documents.purgeDeleted's
+ *  cascade). */
+export async function deleteRoomData(
+  ctx: MutationCtx,
+  documentId: Id<"documents">,
+  space: Space | "all" = undefined,
+) {
+  const rows =
+    space === "all"
+      ? await ctx.db
+          .query("ydocUpdates")
+          .withIndex("by_document", (q) => q.eq("documentId", documentId))
+          .collect()
+      : await updatesIn(ctx, documentId, space).collect();
   for (const r of rows) {
     if (r.storageId) await ctx.storage.delete(r.storageId);
     await ctx.db.delete(r._id);
   }
-  const room = await roomFor(ctx, documentId);
-  if (room) await ctx.db.delete(room._id);
+  const rooms =
+    space === "all"
+      ? await ctx.db
+          .query("ydocRooms")
+          .withIndex("by_document", (q) => q.eq("documentId", documentId))
+          .collect()
+      : [await roomFor(ctx, documentId, space)];
+  for (const room of rooms) if (room) await ctx.db.delete(room._id);
 }

@@ -25,6 +25,11 @@ const SuperDocEditor = dynamic(
   () => import("@/components/SuperDocEditor").then((m) => m.SuperDocEditor),
   { ssr: false, loading: () => <p className="px-6 py-10 text-foreground/50">Opening…</p> },
 );
+// BlockNote is browser-only too: ProseMirror needs the DOM.
+const BlockNoteEditor = dynamic(
+  () => import("@/components/BlockNoteEditor").then((m) => m.BlockNoteEditor),
+  { ssr: false, loading: () => <p className="px-6 py-10 text-foreground/50">Opening…</p> },
+);
 
 /** Owner-only "Share" entry point in the header — hidden entirely for an
  *  editor viewing a shared document. */
@@ -182,6 +187,19 @@ function DocBody({ documentId }: { documentId: Id<"documents"> }) {
   // Same element either way, so the editor that converted it stays mounted
   // once the flag flips. Only a document whose conversion failed still opens
   // in TipTap.
+  // BlockNote is Folio's editor: a SuperDoc document converts to it when
+  // opened (same element either way, so the converting editor stays mounted
+  // after the flip). One whose BlockNote conversion failed keeps opening in
+  // SuperDoc; a TipTap one goes through SuperDoc first, below.
+  if (doc.editor === "blocknote" || (doc.editor === "superdoc" && !doc.blocknoteFailure)) {
+    return (
+      <BlockNoteEditor
+        key={documentId}
+        documentId={documentId}
+        convert={doc.editor === "superdoc"}
+      />
+    );
+  }
   if (doc.editor === "superdoc" || !doc.conversionFailure) {
     return (
       <SuperDocEditor

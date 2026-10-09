@@ -112,9 +112,14 @@ export const diffSince = query({
       };
       const markdown = () =>
         dedent(blockMarkdown(decodeContent(b.content), { underline: false }));
+      // A block with no text (the empty line an editor keeps at the end, a
+      // blank line added or removed) isn't news. Emptying a block still shows
+      // below, as an edit.
+      const blank = base.preview === "";
       if (b.deletedAt !== undefined) {
-        if (b.deletedAt > since) deleted.push({ ...base, markdown: markdown(), at: b.deletedAt });
+        if (b.deletedAt > since && !blank) deleted.push({ ...base, markdown: markdown(), at: b.deletedAt });
       } else if (b.createdAt > since) {
+        if (blank) continue;
         added.push({ ...base, markdown: markdown(), at: b.createdAt });
       } else if (b.lastEditedAt > since) {
         edited.push({
@@ -269,7 +274,7 @@ export const reactionPayload = query({
     if (!visit) {
       const added = live
         .map((r) => withContext(r.blockId))
-        .filter((x): x is ReactionItem => x !== null);
+        .filter((x): x is ReactionItem => x !== null && x.text !== "");
       return {
         hasChanges: added.length > 0,
         firstLook: true,
@@ -284,9 +289,10 @@ export const reactionPayload = query({
     const edited: ReactionItem[] = [];
     const deleted: DeletedItem[] = [];
 
+    // Blank blocks added or removed aren't news, as in diffSince above.
     for (const r of rows) {
       if (r.deletedAt !== undefined) {
-        if (r.deletedAt > since) {
+        if (r.deletedAt > since && blockText(decodeContent(r.content)) !== "") {
           deleted.push({
             blockId: r.blockId,
             type: r.type,
@@ -296,7 +302,7 @@ export const reactionPayload = query({
         }
       } else if (r.createdAt > since) {
         const item = withContext(r.blockId);
-        if (item) added.push(item);
+        if (item && item.text !== "") added.push(item);
       } else if (r.lastEditedAt > since) {
         const item = withContext(r.blockId);
         if (item) edited.push(item);

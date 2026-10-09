@@ -1,6 +1,6 @@
 {
   "name": "folio",
-  "version": "0.64.0",
+  "version": "0.65.0",
   "private": true,
   "scripts": {
     "dev": "pnpm superdoc:assets && next dev",
@@ -13,7 +13,12 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
+    "@blocknote/core": "0.55.0",
+    "@blocknote/mantine": "0.55.0",
+    "@blocknote/react": "0.55.0",
     "@clerk/nextjs": "^7.5.2",
+    "@mantine/core": "9.6.2",
+    "@mantine/hooks": "9.6.2",
     "@superdoc-dev/react": "1.16.2",
     "@tiptap/core": "^3.26.1",
     "@tiptap/extension-color": "3.26.1",
@@ -41,6 +46,8 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "superdoc": "2.18.0",
+    "y-prosemirror": "1.3.7",
+    "y-protocols": "1.0.6",
     "yjs": "^13.6.33"
   },
   "devDependencies": {

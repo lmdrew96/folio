@@ -362,10 +362,13 @@ type ChangeKind = "added" | "edited" | "deleted";
 
 /** How a block changed after `since`, if it did — the diff's one rule. */
 function changeOf(b: Doc<"blocks">, since: number): { kind: ChangeKind; at: number } | null {
+  // Adding or removing a block with no text isn't news (same rule as the
+  // changes panel, convex/diff.ts); emptying one still counts as an edit.
+  const blank = () => blockText(decodeContent(b.content)) === "";
   if (b.deletedAt !== undefined) {
-    return b.deletedAt > since ? { kind: "deleted", at: b.deletedAt } : null;
+    return b.deletedAt > since && !blank() ? { kind: "deleted", at: b.deletedAt } : null;
   }
-  if (b.createdAt > since) return { kind: "added", at: b.createdAt };
+  if (b.createdAt > since) return blank() ? null : { kind: "added", at: b.createdAt };
   if (b.lastEditedAt > since) return { kind: "edited", at: b.lastEditedAt };
   return null;
 }

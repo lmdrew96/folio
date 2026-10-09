@@ -169,3 +169,136 @@ describe("conversion.prepare / fail", () => {
     expect(await nae.mutation(api.conversion.prepare, { documentId, claimToken: "x" })).toBe("failed");
   });
 });
+
+describe("conversion: SuperDoc → BlockNote", () => {
+  async function onSuperDoc() {
+    const ctx = await setup();
+    await ctx.t.run((c) => c.db.patch(ctx.documentId, { editor: "superdoc" }));
+    await ctx.seedRoom(); // the SuperDoc Y.Doc — must survive everything below
+    const seedBlockNote = (claimToken = "bn", claimedAt = Date.now()) =>
+      ctx.t.run(async (c) => {
+        await c.db.insert("ydocRooms", {
+          documentId: ctx.documentId,
+          claimedBy: NAE.subject,
+          claimToken,
+          claimedAt,
+          pendingUpdates: 1,
+          compactionScheduled: false,
+          space: "blocknote",
+        });
+        await c.db.insert("ydocUpdates", {
+          documentId: ctx.documentId,
+          update: new ArrayBuffer(4),
+          author: NAE.subject,
+          space: "blocknote",
+        });
+      });
+    const spaces = () =>
+      ctx.t.run(async (c) => (await c.db.query("ydocUpdates").collect()).map((r) => r.space ?? "superdoc").sort());
+    return { ...ctx, seedBlockNote, spaces };
+  }
+
+  // Same ids as the SuperDoc rows — BlockNote keeps them through conversion.
+  const converted = [
+    { blockId: "p1", type: "paragraph", content: paragraph("Cleo wrote this") },
+    { blockId: "list", type: "bulletList", content: "{}" },
+  ];
+
+  it("switches the document, keeping each row's author, timestamps and diff tombstones", async () => {
+    const { t, nae, documentId, updatedAt, seedBlockNote, blocks, spaces } = await onSuperDoc();
+    await seedBlockNote();
+    await nae.mutation(api.conversion.finishBlockNote, { documentId, basedOn: updatedAt, blocks: converted });
+
+    const doc = await t.run((ctx) => ctx.db.get(documentId));
+    expect(doc?.editor).toBe("blocknote");
+    expect(doc?.updatedAt).toBe(updatedAt);
+    const byId = new Map((await blocks()).map((r) => [r.blockId, r]));
+    expect(byId.get("p1")).toMatchObject({ author: "claude", createdAt: 10, lastEditedAt: 20, order: 0 });
+    expect(byId.get("p1")?.previousContent).toBe(paragraph("Cleo wrote"));
+    expect(byId.get("list")).toMatchObject({ author: NAE.subject, order: 1 });
+    expect(byId.get("gone")?.deletedAt).toBe(30);
+    expect(await spaces()).toEqual(["blocknote", "superdoc"]);
+  });
+
+  it("drops a live row whose id didn't come through, without a tombstone", async () => {
+    const { nae, documentId, updatedAt, seedBlockNote, blocks } = await onSuperDoc();
+    await seedBlockNote();
+    await nae.mutation(api.conversion.finishBlockNote, {
+      documentId,
+      basedOn: updatedAt,
+      blocks: [converted[0], { blockId: "new", type: "paragraph", content: paragraph("") }],
+    });
+    const byId = new Map((await blocks()).map((r) => [r.blockId, r]));
+    expect(byId.has("list")).toBe(false);
+    expect(byId.get("new")).toMatchObject({ author: NAE.subject });
+  });
+
+  it("refuses a stale read, an empty room, and a document not on SuperDoc", async () => {
+    const { t, nae, documentId, updatedAt, seedBlockNote } = await onSuperDoc();
+    await expect(
+      nae.mutation(api.conversion.finishBlockNote, { documentId, basedOn: updatedAt, blocks: converted }),
+    ).rejects.toThrow(/NO_CONTENT/);
+    await seedBlockNote();
+    await expect(
+      nae.mutation(api.conversion.finishBlockNote, { documentId, basedOn: updatedAt - 1, blocks: converted }),
+    ).rejects.toThrow(/CHANGED_DURING_CONVERSION/);
+    await t.run((ctx) => ctx.db.patch(documentId, { editor: undefined }));
+    await expect(
+      nae.mutation(api.conversion.finishBlockNote, { documentId, basedOn: updatedAt, blocks: converted }),
+    ).rejects.toThrow(/NOT_SUPERDOC/);
+  });
+
+  it("prepare waits on another tab's live conversion", async () => {
+    const { nae, documentId, seedBlockNote, spaces } = await onSuperDoc();
+    await seedBlockNote("other", Date.now());
+    expect(await nae.mutation(api.conversion.prepareBlockNote, { documentId, claimToken: "me" })).toBe("busy");
+    expect(await nae.mutation(api.conversion.prepareBlockNote, { documentId, claimToken: "other" })).toBe("ready");
+    expect(await spaces()).toEqual(["blocknote", "superdoc"]);
+  });
+
+  it("prepare clears a stale conversion's room, and only that", async () => {
+    const { nae, documentId, seedBlockNote, spaces } = await onSuperDoc();
+    await seedBlockNote("other", Date.now() - STALE_CONVERSION_MS - 1);
+    expect(await nae.mutation(api.conversion.prepareBlockNote, { documentId, claimToken: "me" })).toBe("ready");
+    expect(await spaces()).toEqual(["superdoc"]);
+  });
+
+  it("fail drops only the BlockNote room and stops retrying until cleared", async () => {
+    const { t, nae, documentId, seedBlockNote, spaces } = await onSuperDoc();
+    await seedBlockNote();
+    await nae.mutation(api.conversion.failBlockNote, { documentId, reason: "test" });
+    expect(await spaces()).toEqual(["superdoc"]);
+    const doc = await t.run((ctx) => ctx.db.get(documentId));
+    expect(doc?.editor).toBe("superdoc");
+    expect(doc?.blocknoteFailure?.reason).toBe("test");
+    expect(await nae.mutation(api.conversion.prepareBlockNote, { documentId, claimToken: "me" })).toBe("failed");
+    await t.mutation(internal.conversion.clearFailure, { documentId });
+    expect(await nae.mutation(api.conversion.prepareBlockNote, { documentId, claimToken: "me" })).toBe("ready");
+  });
+
+  it("starts every new document in BlockNote", async () => {
+    const { t, nae } = await onSuperDoc();
+    const id = await nae.mutation(api.documents.create, {});
+    expect((await t.run((ctx) => ctx.db.get(id)))?.editor).toBe("blocknote");
+  });
+
+  it("reverts to SuperDoc, dropping the BlockNote room", async () => {
+    const { t, nae, documentId, updatedAt, seedBlockNote, spaces } = await onSuperDoc();
+    await seedBlockNote();
+    await nae.mutation(api.conversion.finishBlockNote, { documentId, basedOn: updatedAt, blocks: converted });
+    await t.mutation(internal.conversion.revertBlockNote, { documentId });
+    expect((await t.run((ctx) => ctx.db.get(documentId)))?.editor).toBe("superdoc");
+    expect(await spaces()).toEqual(["superdoc"]);
+    const rooms = await t.run((ctx) => ctx.db.query("ydocRooms").collect());
+    expect(rooms.map((r) => r.space ?? "superdoc")).toEqual(["superdoc"]);
+  });
+
+  it("reconcile only accepts the editor the document is on", async () => {
+    const { t, nae, documentId } = await onSuperDoc();
+    await t.run((ctx) => ctx.db.patch(documentId, { editor: "blocknote" }));
+    await expect(
+      nae.mutation(api.blocks.reconcile, { documentId, blocks: converted, source: "superdoc" }),
+    ).rejects.toThrow(/EDITOR_MISMATCH/);
+    await nae.mutation(api.blocks.reconcile, { documentId, blocks: converted, source: "blocknote" });
+  });
+});

@@ -70,7 +70,7 @@ export const get = query({
 
 /** Create a fresh untitled document and return its id — filed straight into
  *  `folderId` when it's created from inside a folder. Every new document is a
- *  SuperDoc document (see schema.ts); `editor` is still accepted so a tab on
+ *  BlockNote document (see schema.ts); `editor` is still accepted so a tab on
  *  an older build can create one, but it no longer changes anything. */
 export const create = mutation({
   args: {
@@ -88,7 +88,7 @@ export const create = mutation({
       createdAt: now,
       updatedAt: now,
       folderId,
-      editor: "superdoc",
+      editor: "blocknote",
     });
   },
 });
@@ -336,7 +336,7 @@ export const purgeDeleted = internalMutation({
         ...reactions.map((r) => ctx.db.delete(r._id)),
         ...messages.map((m) => ctx.db.delete(m._id)),
         ...shares.map((s) => ctx.db.delete(s._id)),
-        deleteRoomData(ctx, doc._id), // SuperDoc Y.Doc log + snapshot blobs
+        deleteRoomData(ctx, doc._id, "all"), // every editor's Y.Doc log + snapshot blobs
         ctx.db.delete(doc._id),
       ]);
     }

@@ -66,6 +66,9 @@ export const viewport: Viewport = {
     { media: "(prefers-color-scheme: light)", color: "#f9f1eb" },
     { media: "(prefers-color-scheme: dark)", color: "#20161e" },
   ],
+  // The on-screen keyboard shrinks the page instead of covering it, so the
+  // line being typed stays visible (BlockNote's mobile requirement).
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

@@ -314,3 +314,38 @@ describe("readDocumentForUser ranges", () => {
     await expect(read({ fromBlockId: "b1", aroundBlockId: "b2" })).rejects.toThrow(/not both/);
   });
 });
+
+describe("diffSinceForUser / whatsNewForUser blank blocks", () => {
+  const WM = "mcp:key1";
+
+  it("leaves out blank blocks added or deleted, but keeps emptying one", async () => {
+    const { t, doc } = setup();
+    const documentId = await doc(ALICE, "Doc", [
+      { blockId: "emptied", content: paragraph(""), at: 1 },
+      { blockId: "new-blank", content: paragraph(""), at: 70 },
+      { blockId: "new-text", content: paragraph("hi"), at: 70 },
+    ]);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("visits", { documentId, userId: WM, lastVisitedAt: 50 });
+      const [emptied] = await ctx.db
+        .query("blocks")
+        .withIndex("by_document_block", (q) => q.eq("documentId", documentId).eq("blockId", "emptied"))
+        .collect();
+      await ctx.db.patch(emptied._id, { lastEditedAt: 60 });
+      await ctx.db.insert("blocks", {
+        documentId, blockId: "gone-blank", order: 3, type: "paragraph",
+        content: paragraph(""), createdAt: 1, lastEditedAt: 1, deletedAt: 80,
+      });
+    });
+
+    const diff = await t.query(internal.mcpData.diffSinceForUser, {
+      userId: ALICE, documentId, watermark: WM,
+    });
+    expect(diff.added.map((d) => d.blockId)).toEqual(["new-text"]);
+    expect(diff.edited.map((d) => d.blockId)).toEqual(["emptied"]);
+    expect(diff.deleted).toEqual([]);
+
+    const { documents } = await t.query(internal.mcpData.whatsNewForUser, { userId: ALICE, watermark: WM });
+    expect(documents[0]).toMatchObject({ addedCount: 1, editedCount: 1, deletedCount: 0 });
+  });
+});

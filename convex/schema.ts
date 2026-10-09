@@ -36,12 +36,18 @@ export default defineSchema({
     // with `blocks` as the source of truth. "superdoc" = the SuperDoc Y.Doc in
     // `ydocUpdates` is the source of truth and `blocks` is a derived copy —
     // such a document must never be opened by the TipTap editor again, or it
-    // would write blocks the Y.Doc doesn't know about.
-    editor: v.optional(v.literal("superdoc")),
+    // would write blocks the Y.Doc doesn't know about. "blocknote" = the same,
+    // with the BlockNote Y.Doc (the `space: "blocknote"` rows) as the source;
+    // its SuperDoc rows stay behind untouched as the rollback copy.
+    editor: v.optional(v.union(v.literal("superdoc"), v.literal("blocknote"))),
     // Set when converting this TipTap document to SuperDoc failed its check
     // (convex/conversion.ts) — the document stays on TipTap and isn't retried
     // until this is cleared.
     conversionFailure: v.optional(v.object({ reason: v.string(), at: v.number() })),
+    // Set when moving this SuperDoc document to BlockNote failed its check
+    // (convex/conversion.ts failBlockNote) — it keeps opening in SuperDoc and
+    // isn't retried until this is cleared (conversion:clearFailure).
+    blocknoteFailure: v.optional(v.object({ reason: v.string(), at: v.number() })),
   })
     .index("by_owner", ["ownerId"])
     .index("by_folder", ["folderId"]),
@@ -193,7 +199,13 @@ export default defineSchema({
     update: v.optional(v.bytes()),
     storageId: v.optional(v.id("_storage")),
     author: v.string(), // identity.subject, or "compaction" for a snapshot
-  }).index("by_document", ["documentId"]),
+    // Which editor's Y.Doc this row belongs to. Unset = SuperDoc's;
+    // "blocknote" = BlockNote's. A document converting from one to the other
+    // has both, kept apart so neither editor ever reads the other's.
+    space: v.optional(v.literal("blocknote")),
+  })
+    .index("by_document", ["documentId"])
+    .index("by_document_and_space", ["documentId", "space"]),
 
   // One row per document that has a SuperDoc room. Decides create-vs-join
   // atomically (ydoc.claimRoom) and tracks when to compact.
@@ -207,7 +219,10 @@ export default defineSchema({
     claimedAt: v.number(),
     pendingUpdates: v.number(), // update rows since the last compaction
     compactionScheduled: v.boolean(),
-  }).index("by_document", ["documentId"]),
+    space: v.optional(v.literal("blocknote")), // as on ydocUpdates
+  })
+    .index("by_document", ["documentId"])
+    .index("by_document_and_space", ["documentId", "space"]),
 
   // A converted document's TipTap block rows exactly as they were the moment
   // it switched to SuperDoc (convex/conversion.ts) — the rollback copy.
