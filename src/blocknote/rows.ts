@@ -59,9 +59,11 @@ const marksOf = (styles: Styles): PMMark[] => {
   if (styles.italic) marks.push({ type: "italic" });
   if (styles.underline) marks.push({ type: "underline" });
   if (styles.strike) marks.push({ type: "strike" });
-  if (typeof styles.textColor === "string" && styles.textColor !== "default") {
-    marks.push({ type: "textStyle", attrs: { color: styles.textColor } });
-  }
+  // Colour and font share TipTap's textStyle mark, as they did there.
+  const textStyle: Record<string, unknown> = {};
+  if (typeof styles.textColor === "string" && styles.textColor !== "default") textStyle.color = styles.textColor;
+  if (typeof styles.font === "string" && styles.font) textStyle.fontFamily = styles.font;
+  if (Object.keys(textStyle).length) marks.push({ type: "textStyle", attrs: textStyle });
   if (typeof styles.backgroundColor === "string" && styles.backgroundColor !== "default") {
     marks.push({ type: "highlight", attrs: { color: styles.backgroundColor } });
   }

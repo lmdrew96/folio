@@ -155,3 +155,12 @@ describe("rowsToBlocks (SuperDoc → BlockNote)", () => {
     expect(blocks[1].children?.map((b) => b.type)).toEqual(["bulletListItem"]);
   });
 });
+
+describe("toRows fonts", () => {
+  it("stores a per-selection font as a style-only textStyle mark, beside any colour", () => {
+    const [row] = toRows([block("p", "paragraph", [text("x", { font: "lora", textColor: "red" })])]);
+    expect(JSON.parse(row.content).content[0].marks).toEqual([
+      { type: "textStyle", attrs: { color: "red", fontFamily: "lora" } },
+    ]);
+  });
+});

@@ -1,6 +1,11 @@
 [
   {
-    "hash": "ab612f6",
+    "hash": "fa5a96e",
+    "date": "2026-10-09",
+    "subject": "v0.66.0: per-selection font menu in the editor's formatting toolbar"
+  },
+  {
+    "hash": "b33a4da",
     "date": "2026-10-08",
     "subject": "v0.65.0: move Folio's editor from SuperDoc to BlockNote"
   },
@@ -43,10 +48,5 @@
     "hash": "a2506f9",
     "date": "2026-10-02",
     "subject": "v0.60.0: MCP folio_whats_new + folio_mark_all_caught_up"
-  },
-  {
-    "hash": "b79b043",
-    "date": "2026-10-02",
-    "subject": "v0.59.0: MCP folio_search — full-text search across documents"
   }
 ]

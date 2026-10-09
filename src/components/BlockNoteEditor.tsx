@@ -15,6 +15,7 @@ import "@blocknote/mantine/style.css";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { blockText } from "@convex/blockMarkdown";
+import { folioSchema, FolioFormattingToolbar } from "@/blocknote/schema";
 import { attachConvexSync, type SyncHandle } from "@/superdoc/convexProvider";
 import { registerPendingSaveFlush } from "@/lib/pendingSave";
 import { fontCssValue } from "@/lib/fonts";
@@ -88,6 +89,7 @@ export function BlockNoteEditor({
   const [claimToken] = useState(() => crypto.randomUUID());
   const editor = useCreateBlockNote(
     withCollaboration({
+      schema: folioSchema,
       extensions: [smartTypographyExtension, attributionExtension, undoSelectionExtension],
       collaboration: {
         fragment: ydoc.getXmlFragment(FRAGMENT),
@@ -394,6 +396,9 @@ export function BlockNoteEditor({
   // The blank paper below the last line is still the page: a click there
   // puts the cursor at the end, like a word processor.
   const focusEndOnBlankPaper = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Only the sheet itself — not a menu or toolbar BlockNote opens on it,
+    // which can sit below the last line of a short document.
+    if (e.target !== e.currentTarget) return;
     const content = e.currentTarget.querySelector(".bn-editor");
     if (!content || e.clientY <= content.getBoundingClientRect().bottom) return;
     const last = editor.document.at(-1);
@@ -419,7 +424,10 @@ export function BlockNoteEditor({
             editor={editor}
             editable={phase === "none"} // nothing typed mid-conversion
             theme={resolvedTheme === "dark" ? "dark" : "light"}
-          />
+            formattingToolbar={false}
+          >
+            <FolioFormattingToolbar />
+          </BlockNoteView>
         </div>
       </div>
       {phase !== "none" && (
