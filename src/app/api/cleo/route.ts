@@ -123,6 +123,57 @@ function buildDiffReference(p: ReactionPayload): string | null {
   return lines.join("\n");
 }
 
+type ApplicationCheck = {
+  title: string;
+  prompt: string;
+  wordLimit: number | null;
+  imageUrl: string | null;
+  draft: string;
+  wordCount: number;
+};
+
+/** The ephemeral instruction turn for "check" mode — never persisted. The
+ *  prompt screenshot, when there is one, rides along as an image block. */
+function buildCheck(a: ApplicationCheck): Anthropic.MessageParam {
+  const limit =
+    a.wordLimit === null
+      ? `No word limit was given. The draft is ${a.wordCount} words.`
+      : `The limit is ${a.wordLimit} words; the draft is ${a.wordCount} words (${
+          a.wordCount > a.wordLimit
+            ? `${a.wordCount - a.wordLimit} over`
+            : `${a.wordLimit - a.wordCount} under`
+        }).`;
+  const text = [
+    "Nae is writing this document for an application. Check the draft against the application's prompt.",
+    "",
+    a.imageUrl
+      ? a.prompt
+        ? "## The prompt (the screenshot above, plus her pasted text)"
+        : "## The prompt is in the screenshot above."
+      : "## The prompt",
+    a.prompt,
+    "",
+    "## Word count",
+    limit,
+    "",
+    `## The draft — "${a.title || "Untitled"}"`,
+    a.draft || "(The document is empty.)",
+    "",
+    "Report, briefly and specifically:",
+    "1. Each part of the prompt (every question or requirement it asks for) and whether the draft answers it — quote or point to where it does.",
+    "2. What the prompt asks for that the draft doesn't cover yet.",
+    "3. The word count against the limit, as given above — don't recount.",
+    "This is feedback only: don't rewrite her draft or hand her replacement paragraphs.",
+  ].join("\n");
+  return {
+    role: "user",
+    content: [
+      ...(a.imageUrl ? [{ type: "image" as const, source: { type: "url" as const, url: a.imageUrl } }] : []),
+      { type: "text" as const, text },
+    ],
+  };
+}
+
 /** Terse note of what a reaction engaged with, stored alongside it for continuity. */
 function summarize(p: ReactionPayload): string {
   if (p.firstLook) return "the document for the first time";
@@ -162,16 +213,16 @@ export async function POST(req: Request) {
   if (!userId) return new Response("Unauthorized", { status: 401 });
 
   let documentId: string | undefined;
-  let mode: "reaction" | "chat" | undefined;
+  let mode: "reaction" | "chat" | "check" | undefined;
   try {
     const body = (await req.json()) as { documentId?: string; mode?: string };
     documentId = body.documentId;
-    if (body.mode === "reaction" || body.mode === "chat") mode = body.mode;
+    if (body.mode === "reaction" || body.mode === "chat" || body.mode === "check") mode = body.mode;
   } catch {
     // fall through to the missing-field checks
   }
   if (!documentId) return new Response("Missing documentId", { status: 400 });
-  if (!mode) return new Response('Missing mode ("reaction" | "chat")', { status: 400 });
+  if (!mode) return new Response('Missing mode ("reaction" | "chat" | "check")', { status: 400 });
 
   const token = await getToken({ template: "convex" });
   if (!token) return new Response("Missing Convex token", { status: 401 });
@@ -192,13 +243,16 @@ export async function POST(req: Request) {
   // conversation history, and her live edges (Nae's pctx context + her own
   // Tangle continuity). The edge fetches fail soft — composeSystemPrompt falls
   // back to baked text.
-  const [payload, history, naeContext, folioCanon] = await Promise.all([
+  const [payload, history, naeContext, folioCanon, application] = await Promise.all([
     convex.query(api.diff.reactionPayload, { documentId: docId }),
     convex.query(api.messages.history, { documentId: docId, limit: 40 }) as Promise<
       MessageRow[]
     >,
     fetchNaeContext(),
     fetchFolioCanon(),
+    mode === "check"
+      ? (convex.query(api.documents.applicationCheck, { documentId: docId }) as Promise<ApplicationCheck | null>)
+      : null,
   ]);
 
   const plain = { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" };
@@ -207,6 +261,9 @@ export async function POST(req: Request) {
     return new Response("Nothing has changed since Claude last looked.", {
       headers: { ...plain, "X-Cleo-Notice": "no-changes" },
     });
+  }
+  if (mode === "check" && !application) {
+    return new Response("Add the application prompt first.", { status: 400 });
   }
   if (mode === "chat" && history.length === 0) {
     return new Response("Missing conversation turn", { status: 400 });
@@ -230,7 +287,9 @@ export async function POST(req: Request) {
   const anthropicMessages =
     mode === "reaction"
       ? toAnthropicMessages([...history, { author: "nae", content: buildPrompt(payload) }])
-      : toAnthropicMessages(history);
+      : mode === "check" && application
+        ? [...toAnthropicMessages(history), buildCheck(application)]
+        : toAnthropicMessages(history);
 
   // Cache the growing conversation prefix too: mark the last message this
   // call sends, so the next call's identical prefix (this call's messages,

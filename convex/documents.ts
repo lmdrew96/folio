@@ -4,6 +4,9 @@ import { resolveAccess } from "./access";
 import { rememberFriend } from "./friends";
 import { ownFolder } from "./folders";
 import { deleteRoomData } from "./ydoc";
+import { liveBlocks } from "./mcpData";
+import { blockMarkdown, blockText } from "./blockMarkdown";
+import { decodeContent } from "./blockContent";
 import type { Doc } from "./_generated/dataModel";
 
 // How long a soft-deleted document stays recoverable before the daily purge
@@ -198,6 +201,108 @@ export const setWordGoal = mutation({
   },
 });
 
+/** An upload URL for an application-prompt screenshot (setApplication). */
+export const applicationUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/** Save what this document is written for — the application prompt (text,
+ *  a screenshot, or both) and its word limit. Any collaborator can, as with
+ *  the word goal. `imageId: null` removes the screenshot; omitted keeps it. */
+export const setApplication = mutation({
+  args: {
+    documentId: v.id("documents"),
+    prompt: v.string(),
+    wordLimit: v.union(v.number(), v.null()),
+    imageId: v.optional(v.union(v.id("_storage"), v.null())),
+  },
+  handler: async (ctx, { documentId, prompt, wordLimit, imageId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const access = await resolveAccess(ctx, documentId, identity);
+    if (!access) throw new Error("Not found");
+    if (wordLimit !== null && (!Number.isInteger(wordLimit) || wordLimit <= 0)) {
+      throw new Error("Word limit must be a whole number above 0");
+    }
+    const previous = access.doc.application?.imageId;
+    const nextImage = imageId === undefined ? previous : (imageId ?? undefined);
+    if (!prompt.trim() && !nextImage) throw new Error("Add the prompt's text or a screenshot of it");
+
+    if (previous && previous !== nextImage) await ctx.storage.delete(previous);
+    await ctx.db.patch(documentId, {
+      application: {
+        prompt: prompt.trim(),
+        ...(wordLimit !== null ? { wordLimit } : {}),
+        ...(nextImage ? { imageId: nextImage } : {}),
+      },
+    });
+  },
+});
+
+/** Forget the application prompt (and its screenshot). */
+export const clearApplication = mutation({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, { documentId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const access = await resolveAccess(ctx, documentId, identity);
+    if (!access) throw new Error("Not found");
+    const imageId = access.doc.application?.imageId;
+    if (imageId) await ctx.storage.delete(imageId);
+    await ctx.db.patch(documentId, { application: undefined });
+  },
+});
+
+/** The application prompt with a viewable screenshot URL — for the panel. */
+export const application = query({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, { documentId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+    const access = await resolveAccess(ctx, documentId, identity);
+    const app = access?.doc.application;
+    if (!app) return null;
+    return {
+      prompt: app.prompt,
+      wordLimit: app.wordLimit ?? null,
+      imageUrl: app.imageId ? await ctx.storage.getUrl(app.imageId) : null,
+    };
+  },
+});
+
+/** Everything Cleo's application check reads: the prompt, the screenshot's
+ *  URL, and the draft as markdown with its word count (whitespace-split, as
+ *  the editor's footer counts). */
+export const applicationCheck = query({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, { documentId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+    const access = await resolveAccess(ctx, documentId, identity);
+    const app = access?.doc.application;
+    if (!app) return null;
+    const contents = (await liveBlocks(ctx, documentId)).map((b) => decodeContent(b.content));
+    const draft = contents
+      .map((c) => blockMarkdown(c, { underline: false }))
+      .filter((t) => t.trim() !== "")
+      .join("\n\n");
+    const words = contents.map(blockText).join(" ").trim();
+    return {
+      title: access.doc.title,
+      prompt: app.prompt,
+      wordLimit: app.wordLimit ?? null,
+      imageUrl: app.imageId ? await ctx.storage.getUrl(app.imageId) : null,
+      draft,
+      wordCount: words ? words.split(/\s+/).length : 0,
+    };
+  },
+});
+
 /**
  * Invite someone onto a document by email — owner-only. If they already
  * have a Folio account (a `users` row for that email), the share resolves
@@ -337,6 +442,7 @@ export const purgeDeleted = internalMutation({
         ...messages.map((m) => ctx.db.delete(m._id)),
         ...shares.map((s) => ctx.db.delete(s._id)),
         deleteRoomData(ctx, doc._id, "all"), // every editor's Y.Doc log + snapshot blobs
+        ...(doc.application?.imageId ? [ctx.storage.delete(doc.application.imageId)] : []),
         ctx.db.delete(doc._id),
       ]);
     }

@@ -63,7 +63,7 @@ async function readableDocs(ctx: QueryCtx, userId: string): Promise<Readable[]> 
 }
 
 /** Live blocks of one document, in document order. */
-async function liveBlocks(ctx: QueryCtx, documentId: Id<"documents">) {
+export async function liveBlocks(ctx: QueryCtx, documentId: Id<"documents">) {
   const rows = await ctx.db
     .query("blocks")
     .withIndex("by_document", (q) => q.eq("documentId", documentId))

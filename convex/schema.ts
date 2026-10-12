@@ -48,6 +48,17 @@ export default defineSchema({
     // (convex/conversion.ts failBlockNote) — it keeps opening in SuperDoc and
     // isn't retried until this is cleared (conversion:clearFailure).
     blocknoteFailure: v.optional(v.object({ reason: v.string(), at: v.number() })),
+    // What this document is written for (an application essay), so Cleo can
+    // check the draft against it in one click (convex/documents.ts
+    // setApplication). The prompt can be pasted text, a screenshot, or both;
+    // `prompt` is "" when there's only a screenshot.
+    application: v.optional(
+      v.object({
+        prompt: v.string(),
+        wordLimit: v.optional(v.number()),
+        imageId: v.optional(v.id("_storage")),
+      }),
+    ),
   })
     .index("by_owner", ["ownerId"])
     .index("by_folder", ["folderId"]),
@@ -120,7 +131,8 @@ export default defineSchema({
     // widened so any collaborator, not just Nae, can be a turn's author.
     author: v.string(),
     authorName: v.optional(v.string()), // display name snapshotted at write time
-    kind: v.union(v.literal("chat"), v.literal("reaction")),
+    // "check" = Cleo's application check of the draft (see documents.application).
+    kind: v.union(v.literal("chat"), v.literal("reaction"), v.literal("check")),
     content: v.string(), // markdown
     summary: v.optional(v.string()), // set only on kind:"reaction" rows
     createdAt: v.number(),

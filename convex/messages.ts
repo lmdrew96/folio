@@ -52,7 +52,7 @@ export const recordReply = mutation({
   args: {
     documentId: v.id("documents"),
     content: v.string(),
-    kind: v.union(v.literal("chat"), v.literal("reaction")),
+    kind: v.union(v.literal("chat"), v.literal("reaction"), v.literal("check")),
     summary: v.optional(v.string()),
   },
   handler: async (ctx, { documentId, content, kind, summary }) => {
