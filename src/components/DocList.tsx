@@ -8,6 +8,7 @@ import type { Id } from "@convex/_generated/dataModel";
 import { relativeTime } from "@/lib/time";
 import { NewDocButton } from "./NewDocButton";
 import { ReviewSheetButton } from "./ReviewSheetButton";
+import { WeekRecap } from "./WeekRecap";
 import { FolderDot, FolderSidebar, type DeskView } from "./FolderSidebar";
 import { MoveToFolder } from "./MoveToFolder";
 import { ancestry, childrenMap, subtreeIds, type Folder, type FolderSort } from "@/lib/folders";
@@ -424,7 +425,8 @@ export function DocList() {
                 <span className="truncate">{heading}</span>
               </h2>
             </div>
-            <div className="flex shrink-0 items-start gap-2">
+            <div className="flex shrink-0 flex-wrap items-start justify-end gap-2">
+              <WeekRecap folderName={(id) => folderById.get(id)?.name} />
               {view.kind === "folder" && currentFolder && (
                 <ReviewSheetButton
                   key={currentFolder._id}

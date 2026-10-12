@@ -303,6 +303,65 @@ export const applicationCheck = query({
   },
 });
 
+const wordsIn = (content: unknown): number => {
+  const text = blockText(decodeContent(content));
+  return text ? text.split(/\s+/).length : 0;
+};
+
+/**
+ * The desk's look-back: every document touched or created since `since` (the
+ * client's local midnight six days ago), with roughly how many words the
+ * caller added to each — new blocks they wrote, plus growth in blocks they
+ * edited (a block keeps only its one previous version, so a block edited
+ * several times counts its last edit). Cleo's blocks don't count as theirs.
+ */
+export const weekRecap = query({
+  args: { since: v.number() },
+  handler: async (ctx, { since }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+    const me = identity.subject;
+
+    const owned = await ctx.db
+      .query("documents")
+      .withIndex("by_owner", (q) => q.eq("ownerId", me))
+      .collect();
+    const shares = await ctx.db
+      .query("documentShares")
+      .withIndex("by_user", (q) => q.eq("userId", me))
+      .collect();
+    const shared = await Promise.all(
+      shares.filter((sh) => sh.acceptedAt !== undefined).map((sh) => ctx.db.get(sh.documentId)),
+    );
+
+    const recap = [];
+    for (const doc of [...owned, ...shared]) {
+      if (!doc || doc.deletedAt !== undefined || doc.updatedAt < since) continue;
+      const blocks = await ctx.db
+        .query("blocks")
+        .withIndex("by_document", (q) => q.eq("documentId", doc._id))
+        .collect();
+      let wordsAdded = 0;
+      for (const b of blocks) {
+        if (b.author !== me || b.deletedAt !== undefined || b.lastEditedAt < since) continue;
+        if (b.createdAt >= since) wordsAdded += wordsIn(b.content);
+        else if (b.previousContent !== undefined) {
+          wordsAdded += Math.max(0, wordsIn(b.content) - wordsIn(b.previousContent));
+        }
+      }
+      recap.push({
+        id: doc._id,
+        title: doc.title,
+        created: doc.createdAt >= since,
+        updatedAt: doc.updatedAt,
+        wordsAdded,
+        folderId: doc.ownerId === me ? doc.folderId : undefined,
+      });
+    }
+    return recap.sort((a, b) => b.updatedAt - a.updatedAt);
+  },
+});
+
 /** How many documents one review sheet can draw on. */
 export const REVIEW_MAX_SOURCES = 10;
 

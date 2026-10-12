@@ -1,6 +1,36 @@
 [
   {
-    "hash": "fa5a96e",
+    "hash": "ed531f9",
+    "date": "2026-10-11",
+    "subject": "v0.70.0: \"This week on your desk\" recap of the last seven days"
+  },
+  {
+    "hash": "f15c9cd",
+    "date": "2026-10-11",
+    "subject": "v0.69.0: course review sheet — Cleo writes a study sheet from a folder's notes"
+  },
+  {
+    "hash": "bd2ce21",
+    "date": "2026-10-11",
+    "subject": "v0.68.0: application check — Cleo compares a draft against its prompt and word limit"
+  },
+  {
+    "hash": "822b777",
+    "date": "2026-10-11",
+    "subject": "v0.67.0: Export menu for BlockNote documents (PDF, Word, Markdown, RTF, HTML, text)"
+  },
+  {
+    "hash": "15ae496",
+    "date": "2026-10-11",
+    "subject": "v0.66.2: move Cleo to Sonnet 5.5 with the model id in src/lib/ai.ts"
+  },
+  {
+    "hash": "a2a5842",
+    "date": "2026-10-11",
+    "subject": "v0.66.1: count both words at a paragraph boundary in the selection word count"
+  },
+  {
+    "hash": "4750999",
     "date": "2026-10-09",
     "subject": "v0.66.0: per-selection font menu in the editor's formatting toolbar"
   },
@@ -18,35 +48,5 @@
     "hash": "661f284",
     "date": "2026-10-02",
     "subject": "v0.63.0: changes panel shows added/deleted blocks with their formatting"
-  },
-  {
-    "hash": "9e2365a",
-    "date": "2026-10-02",
-    "subject": "v0.62.3: keep dropdowns and dialogs inside the viewport"
-  },
-  {
-    "hash": "43b9b10",
-    "date": "2026-10-02",
-    "subject": "v0.62.2: centre the save pill on the paper column, not the viewport"
-  },
-  {
-    "hash": "00bb5b2",
-    "date": "2026-10-02",
-    "subject": "v0.62.1: changes panel sets its own baseline on first open"
-  },
-  {
-    "hash": "f4e2a1f",
-    "date": "2026-10-02",
-    "subject": "v0.62.0: MCP block ranges on folio_read_document, empty blocks skipped"
-  },
-  {
-    "hash": "62d22cb",
-    "date": "2026-10-02",
-    "subject": "v0.61.0: MCP folder + date filters on folio_list_documents, folio_list_folders"
-  },
-  {
-    "hash": "a2506f9",
-    "date": "2026-10-02",
-    "subject": "v0.60.0: MCP folio_whats_new + folio_mark_all_caught_up"
   }
 ]
