@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BlockNoteEditor, type PartialBlock } from "@blocknote/core";
-import { selectionText } from "./rows";
+import { blockText } from "../../convex/blockMarkdown";
+import { blockPlainText, flatten, selectionText, toRows, type BnBlock } from "./rows";
 
 // Same rule as the footer's countWords (SuperDocFooter.tsx).
 const countWords = (t: string) => (t.trim() ? t.trim().split(/\s+/).length : 0);
@@ -34,5 +35,23 @@ describe("selectionText", () => {
       if (node.text === "gamma delta") to = pos + "gam".length;
     });
     expect(countWords(selectionText(doc, from, to))).toBe(2);
+  });
+
+  it("counts table text the same in the footer, a select-all and the application check", () => {
+    const editor = editorWith([
+      p("Intro line here."),
+      {
+        type: "table",
+        content: { type: "tableContent", rows: [{ cells: ["Name", "Words"] }, { cells: ["Personal statement", "330"] }] },
+      },
+    ]);
+    const doc = editor.prosemirrorState.doc;
+    const blocks = editor.document as unknown as BnBlock[];
+    // The footer's total (BlockNoteEditor), the server's (documents.applicationCheck).
+    const footer = flatten(blocks).reduce((n, b) => n + countWords(blockPlainText(b)), 0);
+    const server = countWords(toRows(blocks).map((r) => blockText(JSON.parse(r.content))).join(" "));
+    expect(footer).toBe(8);
+    expect(countWords(selectionText(doc, 0, doc.content.size))).toBe(footer);
+    expect(server).toBe(footer);
   });
 });

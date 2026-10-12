@@ -178,13 +178,21 @@ export function toRows(blocks: BnBlock[]): ReconcileBlock[] {
   return rows;
 }
 
-/** Plain text of a block's own line (not its children) — word count, outline. */
-export const blockPlainText = (b: BnBlock): string =>
-  Array.isArray(b.content)
-    ? b.content
-        .map((n) => (n.type === "text" ? (n as BnText).text : n.type === "link" ? (n as BnLink).content.map((t) => t.text).join("") : ""))
-        .join("")
-    : "";
+const inlineText = (content: BnInline[]): string =>
+  content
+    .map((n) => (n.type === "text" ? (n as BnText).text : n.type === "link" ? (n as BnLink).content.map((t) => t.text).join("") : ""))
+    .join("");
+
+/** Plain text of a block's own line (not its children) — word count, outline.
+ *  A table's cells are joined with
+ *  spaces, so neighbouring cells stay separate words. */
+export const blockPlainText = (b: BnBlock): string => {
+  if (Array.isArray(b.content)) return inlineText(b.content);
+  if (b.content?.type === "tableContent") {
+    return b.content.rows.flatMap((row) => row.cells.map((cell) => inlineText(cellInline(cell)))).join(" ");
+  }
+  return "";
+};
 
 /** Every block in reading order, nested ones included. */
 export function flatten(blocks: BnBlock[]): BnBlock[] {
