@@ -3,6 +3,7 @@ import { ConvexHttpClient } from "convex/browser";
 import Anthropic from "@anthropic-ai/sdk";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { SONNET_MODEL } from "@/lib/ai";
 import { composeSystemPrompt } from "@/lib/identity";
 import { fetchNaeContext, fetchFolioCanon } from "@/lib/edges";
 
@@ -243,8 +244,12 @@ export async function POST(req: Request) {
 
   const anthropic = new Anthropic();
   const llm = anthropic.messages.stream({
-    model: "claude-sonnet-4-6",
-    max_tokens: 2048,
+    model: SONNET_MODEL,
+    // Sonnet 5.5 thinks by default (Sonnet 4.6 didn't). `low` is the chat
+    // setting: it skips thinking on most replies. Thinking counts toward
+    // max_tokens, so there's headroom past the ~2k-token replies.
+    max_tokens: 8192,
+    output_config: { effort: "low" },
     system: systemBlocks,
     messages: anthropicMessages,
   });
@@ -266,10 +271,19 @@ export async function POST(req: Request) {
         // Cheap, ongoing visibility into whether prompt caching is actually
         // landing — no dedicated usage table for this (see Cha(t)os's
         // tokenUsage) since Folio is single-app-scale; a log line is enough.
-        const usage = (await llm.finalMessage()).usage;
+        const final = await llm.finalMessage();
+        const usage = final.usage;
         console.log(
           `Folio: Cleo usage — cache_read=${usage.cache_read_input_tokens ?? 0} cache_write=${usage.cache_creation_input_tokens ?? 0} input=${usage.input_tokens} output=${usage.output_tokens}`,
         );
+
+        // A safety decline is a 200 with no (or a partial) reply — don't save
+        // it as Cleo's turn or advance the watermark.
+        if (final.stop_reason === "refusal") {
+          console.warn(`Folio: Cleo declined — category=${final.stop_details?.category ?? "none"}`);
+          controller.enqueue(encoder.encode("\n\n_(Claude declined to reply to this one.)_"));
+          return;
+        }
 
         // Persist the reply and, for a reaction, advance Claude's watermark —
         // both only after a successful stream.
