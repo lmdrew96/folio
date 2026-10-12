@@ -1,6 +1,16 @@
 [
   {
-    "hash": "ed531f9",
+    "hash": "619f552",
+    "date": "2026-10-12",
+    "subject": "v0.70.2: leave Cleo's review sheets out of the weekly recap"
+  },
+  {
+    "hash": "81d718a",
+    "date": "2026-10-11",
+    "subject": "v0.70.1: count table text in the editor's word count"
+  },
+  {
+    "hash": "c592631",
     "date": "2026-10-11",
     "subject": "v0.70.0: \"This week on your desk\" recap of the last seven days"
   },
@@ -38,15 +48,5 @@
     "hash": "b33a4da",
     "date": "2026-10-08",
     "subject": "v0.65.0: move Folio's editor from SuperDoc to BlockNote"
-  },
-  {
-    "hash": "c40bdd4",
-    "date": "2026-10-02",
-    "subject": "v0.64.0: drag-and-drop filing on the desk"
-  },
-  {
-    "hash": "661f284",
-    "date": "2026-10-02",
-    "subject": "v0.63.0: changes panel shows added/deleted blocks with their formatting"
   }
 ]

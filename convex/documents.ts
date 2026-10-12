@@ -313,7 +313,8 @@ const wordsIn = (content: unknown): number => {
  * client's local midnight six days ago), with roughly how many words the
  * caller added to each — new blocks they wrote, plus growth in blocks they
  * edited (a block keeps only its one previous version, so a block edited
- * several times counts its last edit). Cleo's blocks don't count as theirs.
+ * several times counts its last edit). Cleo's blocks don't count as theirs,
+ * and the review sheets she writes are left out altogether.
  */
 export const weekRecap = query({
   args: { since: v.number() },
@@ -337,6 +338,7 @@ export const weekRecap = query({
     const recap = [];
     for (const doc of [...owned, ...shared]) {
       if (!doc || doc.deletedAt !== undefined || doc.updatedAt < since) continue;
+      if (doc.kind === "reviewSheet") continue; // Cleo's writing, not yours
       const blocks = await ctx.db
         .query("blocks")
         .withIndex("by_document", (q) => q.eq("documentId", doc._id))
@@ -422,6 +424,7 @@ export const createReviewSheet = mutation({
       updatedAt: now,
       folderId,
       editor: "blocknote",
+      kind: "reviewSheet",
     });
     for (const [i, b] of blocks.entries()) {
       const content = b.content; // already the stored string form (blockContent.ts)

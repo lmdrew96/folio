@@ -59,6 +59,10 @@ export default defineSchema({
         imageId: v.optional(v.id("_storage")),
       }),
     ),
+    // Set on documents Cleo wrote for the owner (documents.createReviewSheet).
+    // They're the owner's to edit, but not the owner's writing — the weekly
+    // recap leaves them out. Unset = an ordinary document.
+    kind: v.optional(v.literal("reviewSheet")),
   })
     .index("by_owner", ["ownerId"])
     .index("by_folder", ["folderId"]),
