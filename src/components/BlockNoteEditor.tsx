@@ -19,9 +19,11 @@ import { folioSchema, FolioFormattingToolbar } from "@/blocknote/schema";
 import { attachConvexSync, type SyncHandle } from "@/superdoc/convexProvider";
 import { registerPendingSaveFlush } from "@/lib/pendingSave";
 import { fontCssValue } from "@/lib/fonts";
+import { exportBlockNote, type ExportFormat } from "@/lib/export";
 import {
   blockPlainText,
   selectionText,
+  toTipTapDoc,
   flatten,
   rowsToBlocks,
   toRows,
@@ -461,6 +463,10 @@ export function BlockNoteEditor({
         wordCount={wordCount}
         selectedWordCount={selectedWordCount}
         onJump={jumpTo}
+        onExport={(format: ExportFormat) => {
+          const blocks = editor.document as unknown as BnBlock[];
+          return exportBlockNote(toTipTapDoc(blocks), editor.blocksToHTMLLossy(), meta?.title || "Untitled", format);
+        }}
       />
     </div>
   );

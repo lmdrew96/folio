@@ -350,3 +350,38 @@ export const selectionText = (
   from: number,
   to: number,
 ): string => doc.textBetween(from, to, "\n", " ");
+
+/**
+ * The whole document as one TipTap-shaped doc, for export. Unlike `toRows`
+ * (one row per block, each list item wrapped in its own lists), consecutive
+ * list items share one list and a block's children nest inside its item, so
+ * src/lib/export.ts's Markdown / RTF / Word serializers read it as they read
+ * a TipTap document.
+ */
+export function toTipTapDoc(blocks: BnBlock[]): PMNode {
+  const convert = (list: BnBlock[]): PMNode[] => {
+    const out: PMNode[] = [];
+    let open = null as PMNode | null; // the list the previous item went into
+    for (const b of list) {
+      const listType = LIST_TYPES[b.type];
+      if (!listType) {
+        open = null;
+        out.push(blockToPM(b, 0), ...convert(b.children ?? []));
+        continue;
+      }
+      if (open?.type !== listType) {
+        const start = Number(b.props.start);
+        open = { type: listType, ...(start > 1 ? { attrs: { start } } : {}), content: [] };
+        out.push(open);
+      }
+      const inline = Array.isArray(b.content) ? inlineToPM(b.content) : [];
+      const box = b.type === "checkListItem" ? [{ type: "text", text: b.props.checked ? "☑ " : "☐ " }] : [];
+      open.content!.push({
+        type: "listItem",
+        content: [{ type: "paragraph", content: [...box, ...inline] }, ...convert(b.children ?? [])],
+      });
+    }
+    return out;
+  };
+  return { type: "doc", content: convert(blocks) };
+}

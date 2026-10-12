@@ -223,7 +223,7 @@ function mdTable(table: Node): string {
   );
 }
 
-const toMarkdown = (doc: Node) =>
+export const toMarkdown = (doc: Node) =>
   mdBlocks(doc.content).join("\n\n").trim() + "\n";
 
 // ── Rich Text Format (.rtf) ──────────────────────────────────────────────────
@@ -749,5 +749,85 @@ export async function exportDocument(
       );
       return;
     }
+  }
+}
+
+// ── BlockNote ────────────────────────────────────────────────────────────────
+
+/** Plain text from a TipTap-shaped doc: blank line between blocks, one line
+ *  per list item (indented by depth), one tab-separated line per table row. */
+function txtBlocks(nodes: Node[] | undefined, depth = 0): string[] {
+  const out: string[] = [];
+  for (const node of nodes ?? []) {
+    switch (node.type) {
+      case "bulletList":
+      case "orderedList": {
+        const start = typeof node.attrs?.start === "number" ? node.attrs.start : 1;
+        const lines = (node.content ?? []).flatMap((item, i) => {
+          const [first, ...rest] = item.content ?? [];
+          const marker = node.type === "orderedList" ? `${start + i}. ` : "• ";
+          return [
+            "  ".repeat(depth) + marker + (first ? textOf(first) : ""),
+            ...txtBlocks(rest, depth + 1),
+          ];
+        });
+        out.push(lines.join("\n"));
+        break;
+      }
+      case "table":
+        out.push(
+          tableRows(node)
+            .map((cells) => cells.map((c) => textOf(c.node).trim()).join("\t"))
+            .join("\n"),
+        );
+        break;
+      case "blockquote":
+        out.push(...txtBlocks(node.content, depth));
+        break;
+      case "horizontalRule":
+        break;
+      default:
+        out.push(textOf(node));
+    }
+  }
+  return out;
+}
+
+/**
+ * Export a BlockNote document. `doc` is its TipTap-shaped JSON
+ * (src/blocknote/rows.ts `toTipTapDoc`), which the Markdown, RTF and Word
+ * serializers above already read; `bodyHtml` is BlockNote's own HTML.
+ */
+export async function exportBlockNote(
+  doc: JSONContent,
+  bodyHtml: string,
+  title: string,
+  format: ExportFormat,
+): Promise<void> {
+  if (format === "pdf") {
+    window.print();
+    return;
+  }
+  const base = slugify(title);
+  switch (format) {
+    case "txt":
+      download(txtBlocks(doc.content).join("\n\n").trim() + "\n", `${base}.txt`, "text/plain;charset=utf-8");
+      return;
+    case "html":
+      download(standaloneHtml(title, bodyHtml), `${base}.html`, "text/html;charset=utf-8");
+      return;
+    case "md":
+      download(toMarkdown(doc), `${base}.md`, "text/markdown;charset=utf-8");
+      return;
+    case "rtf":
+      download(toRtf(doc), `${base}.rtf`, "application/rtf");
+      return;
+    case "docx":
+      download(
+        await toDocxBlob(doc, title),
+        `${base}.docx`,
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      );
+      return;
   }
 }

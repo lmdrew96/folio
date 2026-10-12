@@ -6,6 +6,7 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { InputPopover } from "./InputPopover";
 import { useKeepInViewport } from "@/lib/useKeepInViewport";
+import { EXPORT_FORMATS, type ExportFormat } from "@/lib/export";
 
 /** Same key as the TipTap editor, so the preference carries over. */
 const WORD_COUNT_KEY = "folio:wordCount:visible";
@@ -32,6 +33,7 @@ export function SuperDocFooter({
   selectedWordCount,
   onJump,
   pagePreview,
+  onExport,
 }: {
   documentId: Id<"documents">;
   headings: OutlineHeading[];
@@ -41,6 +43,8 @@ export function SuperDocFooter({
   /** On mobile the layout switch lives here, not in the toolbar's overflow
    *  menu: Pages is a read-only preview, Continuous is where you edit. */
   pagePreview?: { active: boolean; toggle: () => void };
+  /** BlockNote has no toolbar to hold Export, so it lives here. */
+  onExport?: (format: ExportFormat) => Promise<void>;
 }) {
   const doc = useQuery(api.documents.get, { documentId });
   const setWordGoal = useMutation(api.documents.setWordGoal);
@@ -65,6 +69,7 @@ export function SuperDocFooter({
   return (
     <div className="fixed bottom-5 left-5 z-20 flex items-center gap-2">
       <OutlineMenu headings={headings} onJump={onJump} />
+      {onExport && <ExportMenu onExport={onExport} />}
       <button
         onClick={toggle}
         aria-pressed={visible}
@@ -193,6 +198,90 @@ function OutlineMenu({
               </li>
             ))}
           </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Export formats, from the footer — same list as the TipTap toolbar's menu. */
+function ExportMenu({ onExport }: { onExport: (format: ExportFormat) => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState<ExportFormat | null>(null);
+  const [failed, setFailed] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const panelRef = useKeepInViewport<HTMLDivElement>(open);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const pick = async (format: ExportFormat) => {
+    setBusy(format);
+    setFailed(false);
+    try {
+      // Close first so the menu isn't on the page when PDF opens the print dialog.
+      if (format === "pdf") setOpen(false);
+      await onExport(format);
+      setOpen(false);
+    } catch (err) {
+      console.error(`Folio: ${format} export failed`, err);
+      setFailed(true);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          setFailed(false);
+          setOpen((o) => !o);
+        }}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-foreground/60 shadow-sm transition hover:text-foreground"
+      >
+        Export
+      </button>
+      {open && (
+        <div
+          ref={panelRef}
+          role="menu"
+          className="absolute bottom-9 left-0 z-30 w-44 rounded-lg border border-foreground/10 bg-[var(--folio-paper)] p-2 shadow-md"
+        >
+          {EXPORT_FORMATS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              role="menuitem"
+              disabled={busy !== null}
+              onClick={() => void pick(f.id)}
+              className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-sm text-foreground/70 transition hover:bg-black/5 hover:text-foreground disabled:opacity-50 dark:hover:bg-white/10"
+            >
+              <span>{busy === f.id ? "Exporting…" : f.label}</span>
+              <span className="text-xs text-foreground/40">.{f.ext}</span>
+            </button>
+          ))}
+          {failed && (
+            <p className="px-2 pt-1 text-xs text-foreground/60" role="alert">
+              That export didn&apos;t work — try again.
+            </p>
+          )}
         </div>
       )}
     </div>
