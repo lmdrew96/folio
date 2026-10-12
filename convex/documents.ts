@@ -6,7 +6,7 @@ import { ownFolder } from "./folders";
 import { deleteRoomData } from "./ydoc";
 import { liveBlocks } from "./mcpData";
 import { blockMarkdown, blockText } from "./blockMarkdown";
-import { decodeContent } from "./blockContent";
+import { decodeContent, MAX_BLOCK_CONTENT_BYTES } from "./blockContent";
 import type { Doc } from "./_generated/dataModel";
 
 // How long a soft-deleted document stays recoverable before the daily purge
@@ -300,6 +300,87 @@ export const applicationCheck = query({
       draft,
       wordCount: words ? words.split(/\s+/).length : 0,
     };
+  },
+});
+
+/** How many documents one review sheet can draw on. */
+export const REVIEW_MAX_SOURCES = 10;
+
+/** The notes a review sheet is built from: each document's title, dates and
+ *  text as markdown, in the order given. Documents the caller can't open are
+ *  left out. */
+export const reviewSources = query({
+  args: { documentIds: v.array(v.id("documents")) },
+  handler: async (ctx, { documentIds }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return [];
+    if (documentIds.length > REVIEW_MAX_SOURCES) {
+      throw new Error(`A review sheet can use up to ${REVIEW_MAX_SOURCES} documents`);
+    }
+    const sources = [];
+    for (const documentId of documentIds) {
+      const access = await resolveAccess(ctx, documentId, identity);
+      if (!access || access.doc.deletedAt !== undefined) continue;
+      const markdown = (await liveBlocks(ctx, documentId))
+        .map((b) => blockMarkdown(decodeContent(b.content), { underline: false }))
+        .filter((t) => t.trim() !== "")
+        .join("\n\n");
+      sources.push({
+        id: access.doc._id,
+        title: access.doc.title,
+        createdAt: access.doc.createdAt,
+        updatedAt: access.doc.updatedAt,
+        markdown,
+      });
+    }
+    return sources;
+  },
+});
+
+/**
+ * A new document holding a review sheet Cleo wrote, filed in `folderId`.
+ * The caller owns it, so it can be edited like any other document, but its
+ * blocks are authored by Cleo ("claude"). `blocks` are the BlockNote rows of
+ * the sheet (src/blocknote/rows.ts toRows); the editor seeds the document's
+ * Y.Doc from them the first time it's opened.
+ */
+export const createReviewSheet = mutation({
+  args: {
+    folderId: v.optional(v.id("folders")),
+    title: v.string(),
+    blocks: v.array(v.object({ blockId: v.string(), type: v.string(), content: v.string() })),
+  },
+  handler: async (ctx, { folderId, title, blocks }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    if (folderId) await ownFolder(ctx, folderId, identity.subject);
+    if (blocks.length === 0) throw new Error("The review sheet is empty");
+    const now = Date.now();
+    const documentId = await ctx.db.insert("documents", {
+      ownerId: identity.subject,
+      title: title.trim() || "Review sheet",
+      createdAt: now,
+      updatedAt: now,
+      folderId,
+      editor: "blocknote",
+    });
+    for (const [i, b] of blocks.entries()) {
+      const content = b.content; // already the stored string form (blockContent.ts)
+      if (new TextEncoder().encode(content).length > MAX_BLOCK_CONTENT_BYTES) {
+        throw new Error("A section of the review sheet is too long to save");
+      }
+      await ctx.db.insert("blocks", {
+        documentId,
+        blockId: b.blockId,
+        order: i + 1,
+        type: b.type,
+        content,
+        author: "claude",
+        createdAt: now,
+        lastEditedAt: now,
+      });
+    }
+    return documentId;
   },
 });
 

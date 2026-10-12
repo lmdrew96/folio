@@ -289,6 +289,15 @@ export function BlockNoteEditor({
           timer = setTimeout(() => void open(), CLAIM_RETRY_MS);
           return;
         }
+        // A BlockNote document with rows but no Y.Doc yet was written
+        // server-side (a review sheet, documents.createReviewSheet): its first
+        // opener builds the Y.Doc from them. Fetched before syncing so it's
+        // in place before anything can be typed or extracted.
+        const seed =
+          mode === "create" && !converting.current
+            ? await convex.query(api.blocks.list, { documentId })
+            : [];
+        if (cancelled) return;
         const client = new ConvexClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
         client.setAuth(fetchToken);
         sync = attachConvexSync({
@@ -301,6 +310,11 @@ export function BlockNoteEditor({
               setState("synced");
               if (synced.current) return;
               synced.current = true;
+              if (seed.length && ydoc.getXmlFragment(FRAGMENT).length === 0) {
+                // Same rows → blocks path as converting, ids kept, so the
+                // extraction this triggers leaves the rows (and their author) as is.
+                editor.replaceBlocks(editor.document, rowsToBlocks(seed) as Parameters<typeof editor.replaceBlocks>[1]);
+              }
               setLiveBlocks(editor.document as unknown as BnBlock[]);
               if (converting.current) void convertNow();
             },
@@ -327,7 +341,7 @@ export function BlockNoteEditor({
       // Sends any edits still waiting before closing the connection.
       void sync?.destroy();
     };
-  }, [claimRoom, claimToken, convertNow, documentId, editor, fetchToken, prepareBlockNote, ydoc]);
+  }, [claimRoom, claimToken, convertNow, convex, documentId, editor, fetchToken, prepareBlockNote, ydoc]);
 
   // Closing or reloading the tab can't wait for a save, so it asks instead.
   useEffect(() => {

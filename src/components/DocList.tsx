@@ -7,6 +7,7 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { relativeTime } from "@/lib/time";
 import { NewDocButton } from "./NewDocButton";
+import { ReviewSheetButton } from "./ReviewSheetButton";
 import { FolderDot, FolderSidebar, type DeskView } from "./FolderSidebar";
 import { MoveToFolder } from "./MoveToFolder";
 import { ancestry, childrenMap, subtreeIds, type Folder, type FolderSort } from "@/lib/folders";
@@ -423,7 +424,17 @@ export function DocList() {
                 <span className="truncate">{heading}</span>
               </h2>
             </div>
-            <NewDocButton folderId={currentFolder?._id} />
+            <div className="flex shrink-0 items-start gap-2">
+              {view.kind === "folder" && currentFolder && (
+                <ReviewSheetButton
+                  key={currentFolder._id}
+                  folderId={currentFolder._id}
+                  folderName={currentFolder.name}
+                  docs={docs.filter((d) => folderOf(d) === currentFolder._id)}
+                />
+              )}
+              <NewDocButton folderId={currentFolder?._id} />
+            </div>
           </div>
 
           {/* Below lg: the folder list folds behind one toggle. */}
