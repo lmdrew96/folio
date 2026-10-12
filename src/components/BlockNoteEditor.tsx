@@ -21,6 +21,7 @@ import { registerPendingSaveFlush } from "@/lib/pendingSave";
 import { fontCssValue } from "@/lib/fonts";
 import {
   blockPlainText,
+  selectionText,
   flatten,
   rowsToBlocks,
   toRows,
@@ -189,7 +190,9 @@ export function BlockNoteEditor({
       viewTimer = setTimeout(() => setLiveBlocks(editor.document as unknown as BnBlock[]), 300);
     });
     const offSelection = editor.onSelectionChange(() =>
-      setSelectedWordCount(countWords(editor.getSelectedText())),
+      setSelectedWordCount(
+        countWords(editor.transact((tr) => selectionText(tr.doc, tr.selection.from, tr.selection.to))),
+      ),
     );
     return () => {
       clearTimeout(viewTimer);

@@ -339,3 +339,14 @@ export function rowsToBlocks(rows: { blockId: string; content: unknown }[]): BnP
   }
   return top;
 }
+
+/**
+ * The text a selection covers, for the selection word count. BlockNote's own
+ * `getSelectedText()` joins blocks with no separator, so the last word of one
+ * paragraph and the first of the next count as one ("millions.I").
+ */
+export const selectionText = (
+  doc: { textBetween: (from: number, to: number, blockSeparator?: string, leafText?: string) => string },
+  from: number,
+  to: number,
+): string => doc.textBetween(from, to, "\n", " ");
