@@ -31,8 +31,8 @@ const APP_VERSION =
 // reach `next build`, so these are the fallback. Locally, .env.local is loaded
 // first and its dev values win. Keep in sync with `vars` in wrangler.jsonc.
 const PROD_PUBLIC = {
-  NEXT_PUBLIC_CONVEX_URL: "https://utmost-jackal-339.convex.cloud/",
-  NEXT_PUBLIC_CONVEX_SITE_URL: "https://utmost-jackal-339.convex.site/",
+  NEXT_PUBLIC_CONVEX_URL: "https://utmost-jackal-339.convex.cloud",
+  NEXT_PUBLIC_CONVEX_SITE_URL: "https://utmost-jackal-339.convex.site",
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_live_Y2xlcmsuZm9saW8uYWRoZGVzaWducy5kZXYk",
 };
 

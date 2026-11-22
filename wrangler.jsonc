@@ -18,8 +18,8 @@
   // Public values only. Secrets (CLERK_SECRET_KEY, ANTHROPIC_API_KEY,
   // PCTX_MCP_URL, TANGLE_MCP_URL) are Worker secrets set in the dashboard.
   "vars": {
-    "NEXT_PUBLIC_CONVEX_URL": "https://utmost-jackal-339.convex.cloud/",
-    "NEXT_PUBLIC_CONVEX_SITE_URL": "https://utmost-jackal-339.convex.site/",
+    "NEXT_PUBLIC_CONVEX_URL": "https://utmost-jackal-339.convex.cloud",
+    "NEXT_PUBLIC_CONVEX_SITE_URL": "https://utmost-jackal-339.convex.site",
     "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsuZm9saW8uYWRoZGVzaWducy5kZXYk"
   }
 }

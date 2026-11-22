@@ -1,5 +1,10 @@
 [
   {
+    "hash": "be89600",
+    "date": "2026-11-22",
+    "subject": "v0.71.2: move folio.adhdesigns.dev to the Cloudflare Worker"
+  },
+  {
     "hash": "95b8340",
     "date": "2026-11-22",
     "subject": "v0.71.1: serve the Cloudflare Worker on cf.folio.adhdesigns.dev"
@@ -43,10 +48,5 @@
     "hash": "15ae496",
     "date": "2026-10-11",
     "subject": "v0.66.2: move Cleo to Sonnet 5.5 with the model id in src/lib/ai.ts"
-  },
-  {
-    "hash": "a2a5842",
-    "date": "2026-10-11",
-    "subject": "v0.66.1: count both words at a paragraph boundary in the selection word count"
   }
 ]
