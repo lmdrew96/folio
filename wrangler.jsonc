@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "folio",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  // next-themes ships its pre-paint script via Function.prototype.toString();
+  // esbuild's __name wrappers break it in the browser without this.
+  "keep_names": false,
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "folio" }],
+  "observability": { "enabled": true },
+  // Verify on workers.dev first. At cutover, add the custom domain HERE (not
+  // only in the dashboard) — deploys drop any route not declared in this file:
+  //   "routes": [{ "pattern": "folio.adhdesigns.dev", "custom_domain": true }],
+  "workers_dev": true,
+  // Public values only. Secrets (CLERK_SECRET_KEY, ANTHROPIC_API_KEY,
+  // PCTX_MCP_URL, TANGLE_MCP_URL) are Worker secrets set in the dashboard.
+  "vars": {
+    "NEXT_PUBLIC_CONVEX_URL": "https://utmost-jackal-339.convex.cloud/",
+    "NEXT_PUBLIC_CONVEX_SITE_URL": "https://utmost-jackal-339.convex.site/",
+    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsuZm9saW8uYWRoZGVzaWducy5kZXYk"
+  }
+}

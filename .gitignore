@@ -49,3 +49,8 @@ next-env.d.ts
 
 # SuperDoc worker + fonts — built by scripts/build-superdoc-assets.mjs
 /public/superdoc/
+
+# Cloudflare / OpenNext
+.open-next
+.wrangler
+.dev.vars*
