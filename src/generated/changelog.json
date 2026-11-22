@@ -1,5 +1,10 @@
 [
   {
+    "hash": "95b8340",
+    "date": "2026-11-22",
+    "subject": "v0.71.1: serve the Cloudflare Worker on cf.folio.adhdesigns.dev"
+  },
+  {
     "hash": "b52615b",
     "date": "2026-11-22",
     "subject": "v0.71.0: prepare Folio to run on Cloudflare Workers"
@@ -43,10 +48,5 @@
     "hash": "a2a5842",
     "date": "2026-10-11",
     "subject": "v0.66.1: count both words at a paragraph boundary in the selection word count"
-  },
-  {
-    "hash": "4750999",
-    "date": "2026-10-09",
-    "subject": "v0.66.0: per-selection font menu in the editor's formatting toolbar"
   }
 ]
