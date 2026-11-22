@@ -1,5 +1,10 @@
 [
   {
+    "hash": "b52615b",
+    "date": "2026-11-22",
+    "subject": "v0.71.0: prepare Folio to run on Cloudflare Workers"
+  },
+  {
     "hash": "0646812",
     "date": "2026-10-12",
     "subject": "v0.70.2: leave Cleo's review sheets out of the weekly recap"
@@ -43,10 +48,5 @@
     "hash": "4750999",
     "date": "2026-10-09",
     "subject": "v0.66.0: per-selection font menu in the editor's formatting toolbar"
-  },
-  {
-    "hash": "b33a4da",
-    "date": "2026-10-08",
-    "subject": "v0.65.0: move Folio's editor from SuperDoc to BlockNote"
   }
 ]

@@ -10,9 +10,11 @@
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
   "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "folio" }],
   "observability": { "enabled": true },
-  // Verify on workers.dev first. At cutover, add the custom domain HERE (not
-  // only in the dashboard) — deploys drop any route not declared in this file:
-  //   "routes": [{ "pattern": "folio.adhdesigns.dev", "custom_domain": true }],
+  // Clerk production keys only work on folio.adhdesigns.dev or its
+  // subdomains, so sign-in is verified on cf.folio.adhdesigns.dev while the
+  // main domain still points at Vercel. At cutover, ADD folio.adhdesigns.dev
+  // here (not only in the dashboard) — deploys drop undeclared routes.
+  "routes": [{ "pattern": "cf.folio.adhdesigns.dev", "custom_domain": true }],
   "workers_dev": true,
   // Public values only. Secrets (CLERK_SECRET_KEY, ANTHROPIC_API_KEY,
   // PCTX_MCP_URL, TANGLE_MCP_URL) are Worker secrets set in the dashboard.
