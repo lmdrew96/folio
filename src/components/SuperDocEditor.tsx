@@ -676,8 +676,8 @@ export function SuperDocEditor({
     while (Date.now() < deadline) {
       await sleep(750);
       const head = await convex.query(api.ydoc.head, { documentId });
-      if (connectionRef.current === "synced" && head && head.count > 0 && head.latest === last) return;
-      last = head?.latest ?? null;
+      if (connectionRef.current === "synced" && head && head.hasAny && head.version === last) return;
+      last = head?.version ?? null;
     }
     throw new Error("the converted document didn't finish saving");
   };

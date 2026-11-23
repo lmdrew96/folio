@@ -246,7 +246,7 @@ export function BlockNoteEditor({
 
       if (!(await waitUntilSaved())) return await giveUp("the converted document didn't finish saving");
       const head = await convex.query(api.ydoc.head, { documentId, space: "blocknote" });
-      if (!head?.count) return await giveUp("the converted document never reached the server");
+      if (!head?.hasAny) return await giveUp("the converted document never reached the server");
 
       await finishBlockNote({ documentId, basedOn: doc.updatedAt, blocks: converted });
       converting.current = false;

@@ -235,6 +235,9 @@ export default defineSchema({
     claimedAt: v.number(),
     pendingUpdates: v.number(), // update rows since the last compaction
     compactionScheduled: v.boolean(),
+    // Bumped by every push; ydoc.head returns it so subscribers wake without
+    // reading the update log. Unset on rooms not written since it was added.
+    version: v.optional(v.number()),
     space: v.optional(v.literal("blocknote")), // as on ydocUpdates
   })
     .index("by_document", ["documentId"])

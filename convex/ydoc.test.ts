@@ -109,7 +109,33 @@ describe("convex/ydoc", () => {
       expect(later.map((r) => r.id)).toEqual([all[1].id]);
 
       const head = await alice().query(api.ydoc.head, { documentId });
-      expect(head).toEqual({ latest: all[1].createdAt, count: 2 });
+      expect(head).toEqual({ version: 2, hasAny: true });
+    });
+
+    it("head moves on every push and reports an empty room as empty", async () => {
+      await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "tab-a" });
+      expect(await alice().query(api.ydoc.head, { documentId })).toEqual({ version: 0, hasAny: false });
+      const type = typist();
+      await alice().mutation(api.ydoc.push, { documentId, update: type("a") });
+      const first = await alice().query(api.ydoc.head, { documentId });
+      await alice().mutation(api.ydoc.push, { documentId, update: type("b") });
+      const second = await alice().query(api.ydoc.head, { documentId });
+      expect(first).toEqual({ version: 1, hasAny: true });
+      expect(second).toEqual({ version: 2, hasAny: true });
+    });
+
+    it("head still sees content in a room written before `version` existed", async () => {
+      await alice().mutation(api.ydoc.claimRoom, { documentId, claimToken: "tab-a" });
+      await alice().mutation(api.ydoc.push, { documentId, update: typist()("old") });
+      // What a pre-v0.74.1 room looks like: rows, but no version on the room.
+      await t.run(async (ctx) => {
+        const room = await ctx.db
+          .query("ydocRooms")
+          .withIndex("by_document", (q) => q.eq("documentId", documentId))
+          .unique();
+        await ctx.db.patch(room!._id, { version: undefined });
+      });
+      expect(await alice().query(api.ydoc.head, { documentId })).toEqual({ version: 0, hasAny: true });
     });
 
     it("hides everything from someone without access", async () => {
@@ -255,7 +281,7 @@ describe("convex/ydoc", () => {
       expect(sd).toHaveLength(1);
       expect(bn).toHaveLength(1);
       expect(sd![0].id).not.toBe(bn![0].id);
-      expect((await alice().query(api.ydoc.head, { documentId, space: "blocknote" }))?.count).toBe(1);
+      expect(await alice().query(api.ydoc.head, { documentId, space: "blocknote" })).toEqual({ version: 1, hasAny: true });
     });
 
     it("refuses a stale SuperDoc tab once the document is on BlockNote", async () => {

@@ -118,20 +118,27 @@ export const claimRoom = mutation({
 });
 
 /** A small marker that changes on every write — what clients subscribe to.
- *  `count` is there so a row that commits with an *older* timestamp than the
- *  newest (which wouldn't move `latest`) still wakes subscribers. Compaction
- *  keeps the row count small, so counting is cheap. Null for no access. */
+ *  It reads only the room row, never an update row: those carry Yjs bytes
+ *  (a compaction snapshot can be ~800 KB), and reading the log here re-sent
+ *  the whole thing to every open editor on every save — 89% of Folio's
+ *  Convex bandwidth before v0.74.1.
+ *  `version` is bumped by every `push`. Pushes all patch the room row, so
+ *  they serialize and each commit gets its own version — including one whose
+ *  row lands with an older `_creationTime` than the newest. `hasAny` says
+ *  whether the room has content. Null for no access or no room. */
 export const head = query({
   args: { documentId: v.id("documents"), space: spaceArg },
   handler: async (ctx, { documentId, space }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) return null;
     if (!(await resolveAccess(ctx, documentId, identity))) return null;
-    const rows = await updatesIn(ctx, documentId, space).collect();
-    return {
-      latest: rows.length ? Math.max(...rows.map((r) => r._creationTime)) : null,
-      count: rows.length,
-    };
+    const room = await roomFor(ctx, documentId, space);
+    if (!room) return { version: 0, hasAny: false };
+    const version = room.version ?? 0;
+    // Rooms written before `version` existed get one on their next push;
+    // until then, look for a single row.
+    const hasAny = version > 0 || (await hasAnyUpdate(ctx, documentId, space));
+    return { version, hasAny };
   },
 });
 
@@ -188,6 +195,7 @@ export const push = mutation({
     const compact = pendingUpdates >= COMPACT_AT && !room.compactionScheduled;
     await ctx.db.patch(room._id, {
       pendingUpdates,
+      version: (room.version ?? 0) + 1, // wakes every `head` subscriber
       ...(compact ? { compactionScheduled: true } : {}),
     });
     if (compact) await ctx.scheduler.runAfter(0, internal.ydoc.compact, { documentId, space });
