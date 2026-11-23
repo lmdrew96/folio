@@ -1,6 +1,11 @@
 [
   {
-    "hash": "c3e6919",
+    "hash": "0d44bbb",
+    "date": "2026-11-22",
+    "subject": "v0.73.0: always-visible formatting toolbar and live word count"
+  },
+  {
+    "hash": "d437f0b",
     "date": "2026-11-22",
     "subject": "v0.72.0: retheme Folio as Squid Ink (dark) and Mist (light)"
   },
@@ -43,10 +48,5 @@
     "hash": "f15c9cd",
     "date": "2026-10-11",
     "subject": "v0.69.0: course review sheet — Cleo writes a study sheet from a folder's notes"
-  },
-  {
-    "hash": "bd2ce21",
-    "date": "2026-10-11",
-    "subject": "v0.68.0: application check — Cleo compares a draft against its prompt and word limit"
   }
 ]

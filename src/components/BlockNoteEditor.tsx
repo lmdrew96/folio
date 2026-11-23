@@ -36,7 +36,8 @@ import {
   undoSelectionExtension,
   type BlockAttribution,
 } from "@/blocknote/extensions";
-import { countWords, SuperDocFooter, type OutlineHeading } from "./SuperDocFooter";
+import { countWords, type OutlineHeading } from "./SuperDocFooter";
+import { EditorToolbar, OutlineRail } from "./EditorToolbar";
 
 /** Where BlockNote keeps the document inside its Y.Doc. */
 const FRAGMENT = "blocknote";
@@ -48,6 +49,8 @@ const CLAIM_RETRY_MS = 2000;
 const BUSY_RETRY_MS = 5000;
 /** Longest a save-dependent step (conversion, the update toast) waits. */
 const SAVE_WAIT_MS = 30_000;
+/** Whether the outline rail beside the page is shown (per device). */
+const OUTLINE_KEY = "folio:outline:visible";
 
 type Connection = "connecting" | "synced" | "degraded" | "failed";
 /** Moving a SuperDoc document onto BlockNote. */
@@ -396,7 +399,23 @@ export function BlockNoteEditor({
     }
   }, [editor, rows]);
 
-  // ---- footer: word count + outline ----
+  // ---- toolbar: word count + outline ----
+  const [outlineOpen, setOutlineOpen] = useState(() => {
+    try {
+      return localStorage.getItem(OUTLINE_KEY) !== "0";
+    } catch {
+      return true;
+    }
+  });
+  const toggleOutline = () =>
+    setOutlineOpen((prev) => {
+      try {
+        localStorage.setItem(OUTLINE_KEY, prev ? "0" : "1");
+      } catch {
+        // not persisted; still toggles for this session
+      }
+      return !prev;
+    });
   const all = useMemo(() => flatten(liveBlocks), [liveBlocks]);
   const wordCount = useMemo(() => all.reduce((n, b) => n + countWords(blockPlainText(b)), 0), [all]);
   const headings = useMemo<OutlineHeading[]>(
@@ -431,11 +450,26 @@ export function BlockNoteEditor({
 
   return (
     <div className="folio-blocknote relative flex min-h-0 flex-1 flex-col">
+      <EditorToolbar
+        editor={editor}
+        documentId={documentId}
+        editable={phase === "none"}
+        wordCount={wordCount}
+        selectedWordCount={selectedWordCount}
+        outlineOpen={outlineOpen}
+        onToggleOutline={toggleOutline}
+        onExport={(format: ExportFormat) => {
+          const blocks = editor.document as unknown as BnBlock[];
+          return exportBlockNote(toTipTapDoc(blocks), editor.blocksToHTMLLossy(), meta?.title || "Untitled", format);
+        }}
+      />
       {/* A column, so the sheet (flex-1) reaches the bottom of the view even
-          when the text is short, and grows with it when it's long. */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          when the text is short, and grows with it when it's long. The outline
+          rail sits beside it on wider screens, above it on a phone. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto pt-6 sm:pt-10 md:flex-row md:px-6">
+        {outlineOpen && <OutlineRail headings={headings} onJump={jumpTo} />}
         <div
-          className="folio-paper mx-auto my-6 w-full max-w-3xl flex-1 cursor-text sm:my-10"
+          className="folio-paper mx-auto mb-6 w-full max-w-3xl flex-1 cursor-text sm:mb-10"
           style={{ "--folio-prose-font": fontCssValue(meta?.fontFamily) } as React.CSSProperties}
           onMouseDown={focusEndOnBlankPaper}
         >
@@ -471,17 +505,6 @@ export function BlockNoteEditor({
           {connection === "failed" ? "Not saved — this document can't sync right now" : "Not saved — reconnecting…"}
         </span>
       </div>
-      <SuperDocFooter
-        documentId={documentId}
-        headings={headings}
-        wordCount={wordCount}
-        selectedWordCount={selectedWordCount}
-        onJump={jumpTo}
-        onExport={(format: ExportFormat) => {
-          const blocks = editor.document as unknown as BnBlock[];
-          return exportBlockNote(toTipTapDoc(blocks), editor.blocksToHTMLLossy(), meta?.title || "Untitled", format);
-        }}
-      />
     </div>
   );
 }

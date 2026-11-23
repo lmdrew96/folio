@@ -204,8 +204,21 @@ function OutlineMenu({
   );
 }
 
-/** Export formats, from the footer — same list as the TipTap toolbar's menu. */
-function ExportMenu({ onExport }: { onExport: (format: ExportFormat) => Promise<void> }) {
+/** Export formats — same list as the TipTap toolbar's menu. The SuperDoc
+ *  footer shows it as an "Export" pill opening upward; the BlockNote toolbar
+ *  as a ⋯ menu opening downward. */
+export function ExportMenu({
+  onExport,
+  placement = "above",
+  trigger,
+  label,
+}: {
+  onExport: (format: ExportFormat) => Promise<void>;
+  placement?: "above" | "below";
+  /** Replaces the "Export" pill; `label` then names it. */
+  trigger?: string;
+  label?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<ExportFormat | null>(null);
   const [failed, setFailed] = useState(false);
@@ -254,16 +267,26 @@ function ExportMenu({ onExport }: { onExport: (format: ExportFormat) => Promise<
         }}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-muted shadow-sm transition hover:text-foreground"
+        aria-label={trigger ? label : undefined}
+        title={trigger ? label : undefined}
+        className={
+          trigger
+            ? "inline-flex min-h-9 min-w-9 items-center justify-center rounded-md px-2 text-sm text-foreground transition hover:bg-chip aria-expanded:bg-chip"
+            : "rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-muted shadow-sm transition hover:text-foreground"
+        }
       >
-        Export
+        {trigger ?? "Export"}
       </button>
       {open && (
         <div
           ref={panelRef}
           role="menu"
-          className="absolute bottom-9 left-0 z-30 w-44 rounded-lg border border-foreground/10 bg-[var(--folio-paper)] p-2 shadow-md"
+          aria-label="Export"
+          className={`absolute z-30 w-44 rounded-lg border border-foreground/10 bg-[var(--folio-paper)] p-2 shadow-md ${
+            placement === "below" ? "right-0 top-11" : "bottom-9 left-0"
+          }`}
         >
+          {trigger && <p className="px-2 pb-1 text-xs text-muted">Export as</p>}
           {EXPORT_FORMATS.map((f) => (
             <button
               key={f.id}

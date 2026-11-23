@@ -67,17 +67,28 @@ function FontSelect() {
   );
 }
 
+/** Controls the always-visible row (components/EditorToolbar.tsx) already
+ *  has; the selection bubble leaves them out so no control shows twice. */
+const IN_STATIC_TOOLBAR = new Set([
+  "blockTypeSelect",
+  "boldStyleButton",
+  "italicStyleButton",
+  "underlineStyleButton",
+  "strikeStyleButton",
+  "createLinkButton",
+]);
+
 const FolioToolbar = () => {
-  const [blockTypeSelect, ...rest] = getFormattingToolbarItems();
+  const rest = getFormattingToolbarItems().filter((item) => !IN_STATIC_TOOLBAR.has(String(item.key)));
   return (
     <FormattingToolbar>
-      {blockTypeSelect}
       <FontSelect key="fontSelect" />
       {rest}
     </FormattingToolbar>
   );
 };
 
-/** BlockNote's formatting toolbar with Folio's font menu. Render inside
+/** The selection bubble: Folio's font menu plus what the static row doesn't
+ *  carry (colors, alignment, nesting, table and file tools). Render inside
  *  BlockNoteView with `formattingToolbar={false}`. */
 export const FolioFormattingToolbar = () => <FormattingToolbarController formattingToolbar={FolioToolbar} />;

@@ -517,6 +517,9 @@ html body .bn-container[data-color-scheme] {
   --bn-colors-shadow: color-mix(in srgb, var(--foreground) 18%, transparent);
   --bn-colors-border: var(--folio-paper-edge);
   --bn-colors-side-menu: color-mix(in srgb, var(--foreground) 35%, transparent);
+  /* The toolbar's Highlight button applies BlockNote's "orange" background
+     (components/EditorToolbar.tsx): paint it as the theme's coral wash. */
+  --bn-colors-highlights-orange-background: var(--folio-highlight);
   --bn-font-family: var(--font-sans);
   --bn-border-radius: 8px;
 }
