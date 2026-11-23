@@ -32,6 +32,7 @@ const SORT_KEY = "folio:desk:sort";
 const FILTER_KEY = "folio:desk:filter";
 const VIEW_KEY = "folio:desk:view";
 const FOLDER_SORT_KEY = "folio:desk:folderSort";
+const MANAGE_KEY = "folio:desk:manageFolders";
 
 /** The remembered view is "all", "unfiled", or a folder id — a stale id (the
  *  folder was deleted elsewhere) is caught at render and falls back to All. */
@@ -202,6 +203,38 @@ function UndoToast({
 
 /** A subfolder tile in folder view: opens the folder, and like a sidebar row
  *  is draggable and accepts documents and folders dropped onto it. */
+const CHIP =
+  "inline-flex min-h-10 items-center gap-2 rounded-full border border-line px-3.5 text-sm text-foreground transition hover:bg-chip aria-pressed:bg-chip";
+
+/** A folder filter chip beside search. Also a drop target: drag a document
+ *  onto it to file it there, same as the folder manager's rows. */
+function FolderChip({
+  folder,
+  tree,
+  active,
+  onSelect,
+}: {
+  folder: Folder;
+  tree: Map<Id<"folders"> | null, Folder[]>;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const drop = useFilingDrop(folder._id, tree, { color: folder.color });
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onSelect}
+      {...drop.props}
+      style={drop.style}
+      className={CHIP}
+    >
+      <FolderDot color={folder.color} />
+      <span className="max-w-40 truncate">{folder.name}</span>
+    </button>
+  );
+}
+
 function SubfolderTile({
   folder,
   tree,
@@ -252,8 +285,14 @@ export function DocList() {
     readPref<FolderSort>(FOLDER_SORT_KEY, { az: "", newest: "" }, "az"),
   );
   const [storedView, setStoredView] = useState<DeskView>(readView);
-  // Below lg the folder list folds away behind a toggle, above the grid.
-  const [foldersOpen, setFoldersOpen] = useState(false);
+  // The folder manager (tree, rename, nesting) opens from the Manage chip.
+  const [manageOpen, setManageOpen] = useState(() => readPref<"open" | "closed">(MANAGE_KEY, { open: "", closed: "" }, "closed") === "open");
+  const toggleManage = () => {
+    setManageOpen((prev) => {
+      writePref(MANAGE_KEY, prev ? "closed" : "open");
+      return !prev;
+    });
+  };
   const [pendingUndo, setPendingUndo] = useState<{
     documentId: Id<"documents">;
     title: string;
@@ -279,7 +318,6 @@ export function DocList() {
 
   const selectView = (next: DeskView) => {
     setStoredView(next);
-    setFoldersOpen(false);
     writePref(VIEW_KEY, next.kind === "folder" ? next.id : next.kind);
   };
 
@@ -395,9 +433,11 @@ export function DocList() {
   return (
     <>
       <div className="mx-auto flex w-full max-w-6xl gap-8 px-6 py-10">
-        <div className="hidden w-56 shrink-0 lg:block">
-          <div className="sticky top-6">{sidebar}</div>
-        </div>
+        {manageOpen && (
+          <div className="hidden w-56 shrink-0 lg:block">
+            <div className="sticky top-6">{sidebar}</div>
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <div className="mb-6 flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -439,27 +479,9 @@ export function DocList() {
             </div>
           </div>
 
-          {/* Below lg: the folder list folds behind one toggle. */}
-          <div className="mb-5 lg:hidden">
-            <button
-              type="button"
-              onClick={() => setFoldersOpen((o) => !o)}
-              aria-expanded={foldersOpen}
-              className="flex items-center gap-2 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1.5 text-xs text-foreground/70 transition hover:text-foreground"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
-              </svg>
-              {foldersOpen ? "Hide folders" : "Folders"}
-            </button>
-            {foldersOpen && (
-              <div className="mt-3 rounded-lg border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] p-3">
-                {sidebar}
-              </div>
-            )}
-          </div>
-
-          <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-3">
+          {/* Search, then a chip per top-level folder; Manage opens the full
+              folder manager (beside the grid on wide screens, here below lg). */}
+          <div className="mb-4 flex flex-wrap items-center gap-2.5">
             <label className="sr-only" htmlFor="folio-doc-search">
               Search documents
             </label>
@@ -469,8 +491,45 @@ export function DocList() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={currentFolder ? `Search in ${currentFolder.name}…` : "Search documents…"}
-              className="w-full max-w-xs rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-4 py-2 text-sm text-foreground outline-none transition placeholder:text-muted focus:ring-2 focus:ring-[var(--folio-attr-sibling)]"
+              className="min-h-11 w-full flex-[1_1_16rem] rounded-lg border border-line bg-page px-4 text-sm text-foreground outline-none transition placeholder:text-muted focus:ring-2 focus:ring-[var(--folio-attr-sibling)] sm:max-w-sm [@media(pointer:coarse)]:text-base"
             />
+            <div role="group" aria-label="Folders" className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                aria-pressed={view.kind === "all"}
+                onClick={() => selectView({ kind: "all" })}
+                className={CHIP}
+              >
+                <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full bg-foreground" />
+                All
+              </button>
+              {(tree.get(null) ?? []).map((f) => (
+                <FolderChip
+                  key={f._id}
+                  folder={f}
+                  tree={tree}
+                  active={view.kind === "folder" && view.id === f._id}
+                  onSelect={() => selectView({ kind: "folder", id: f._id })}
+                />
+              ))}
+              <button
+                type="button"
+                aria-expanded={manageOpen}
+                onClick={toggleManage}
+                className={`${CHIP} text-muted aria-expanded:bg-chip aria-expanded:text-foreground`}
+              >
+                Manage
+              </button>
+            </div>
+          </div>
+
+          {manageOpen && (
+            <div className="mb-5 rounded-lg bg-page p-3 shadow-[var(--folio-paper-shadow)] lg:hidden">
+              {sidebar}
+            </div>
+          )}
+
+          <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-3">
             {showFilter && (
               <div role="group" aria-label="Show" className="flex items-center gap-0.5 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] p-0.5">
                 {(Object.keys(FILTERS) as FilterKey[]).map((key) => (
@@ -564,7 +623,7 @@ export function DocList() {
                         <div
                           className={`flex items-start justify-between gap-2 ${doc.role === "owner" ? "pr-14" : "pr-6"}`}
                         >
-                          <h3 className="line-clamp-2 font-serif text-lg text-foreground">
+                          <h3 className="line-clamp-2 font-serif text-[23px] leading-tight text-foreground">
                             {doc.title || "Untitled"}
                           </h3>
                           {doc.role === "editor" && (

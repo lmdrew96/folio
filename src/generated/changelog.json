@@ -1,6 +1,11 @@
 [
   {
-    "hash": "0d44bbb",
+    "hash": "08f41d8",
+    "date": "2026-11-22",
+    "subject": "v0.74.0: folder chips beside search on the desk"
+  },
+  {
+    "hash": "a1d3296",
     "date": "2026-11-22",
     "subject": "v0.73.0: always-visible formatting toolbar and live word count"
   },
@@ -43,10 +48,5 @@
     "hash": "c592631",
     "date": "2026-10-11",
     "subject": "v0.70.0: \"This week on your desk\" recap of the last seven days"
-  },
-  {
-    "hash": "f15c9cd",
-    "date": "2026-10-11",
-    "subject": "v0.69.0: course review sheet — Cleo writes a study sheet from a folder's notes"
   }
 ]
