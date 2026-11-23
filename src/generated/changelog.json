@@ -1,6 +1,11 @@
 [
   {
-    "hash": "6f82ce5",
+    "hash": "b10fb40",
+    "date": "2026-11-22",
+    "subject": "v0.75.1: drop the GitHub source link from What's New"
+  },
+  {
+    "hash": "06a826c",
     "date": "2026-11-22",
     "subject": "v0.75.0: remove the TipTap and SuperDoc editors"
   },
@@ -43,10 +48,5 @@
     "hash": "b52615b",
     "date": "2026-11-22",
     "subject": "v0.71.0: prepare Folio to run on Cloudflare Workers"
-  },
-  {
-    "hash": "0646812",
-    "date": "2026-10-12",
-    "subject": "v0.70.2: leave Cleo's review sheets out of the weekly recap"
   }
 ]

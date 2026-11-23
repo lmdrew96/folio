@@ -85,21 +85,6 @@ export function ChangeLog() {
                 );
               })}
             </ul>
-
-            {/* Added when SuperDoc's AGPL engine required a source link; that
-                requirement left with SuperDoc in v0.75.0. */}
-            <p className="border-t border-black/10 pt-3 text-xs text-muted dark:border-white/10">
-              Folio is open source —{" "}
-              <a
-                href="https://github.com/lmdrew96/folio"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline decoration-foreground/20 underline-offset-2 hover:text-foreground"
-              >
-                view the code on GitHub
-              </a>
-              .
-            </p>
           </div>
         </div>
       )}
