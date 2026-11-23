@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { blockMarkdown } from "../../convex/blockMarkdown";
-import { toReconcileBlocks, type SdBlock } from "../superdoc/extract";
 import { rowsToBlocks, toRows, type BnBlock, type BnPartial } from "./rows";
 
 const text = (t: string, styles: Record<string, unknown> = {}) => ({ type: "text" as const, text: t, styles });
@@ -72,20 +71,20 @@ describe("toRows", () => {
   });
 });
 
-describe("rowsToBlocks (SuperDoc → BlockNote)", () => {
-  // Real SuperDoc-shaped rows, straight from the extractor the SuperDoc
-  // editor writes them with.
-  const sd: SdBlock[] = [
-    { nodeId: "H", nodeType: "heading", text: "Plan", textPreview: null, headingLevel: 1 },
-    { nodeId: "P", nodeType: "paragraph", text: "Intro", textPreview: null },
-    { nodeId: "A", nodeType: "listItem", text: "a", textPreview: null, numbering: { marker: "•", path: [1], kind: "bullet" } },
-    { nodeId: "B", nodeType: "listItem", text: "b", textPreview: null, numbering: { marker: "◦", path: [1, 1], kind: "bullet" } },
-    { nodeId: "C", nodeType: "listItem", text: "c", textPreview: null, numbering: { marker: "▪", path: [1, 1, 1], kind: "bullet" } },
-    { nodeId: "D", nodeType: "listItem", text: "d", textPreview: null, numbering: { marker: "•", path: [2], kind: "bullet" } },
-    { nodeId: "N", nodeType: "listItem", text: "one", textPreview: null, numbering: { marker: "1.", path: [1], kind: "ordered" } },
-    { nodeId: "Q", nodeType: "paragraph", text: "Outro", textPreview: null },
+describe("rowsToBlocks (stored rows → BlockNote)", () => {
+  // Rows as the retired SuperDoc extractor wrote them (heading, paragraphs,
+  // a bullet list nested three deep, a numbered item) — frozen here when
+  // src/superdoc/ was removed; prod documents still carry rows of this shape.
+  const rows = [
+    {"blockId": "H", "type": "heading", "content": "{\"type\":\"heading\",\"attrs\":{\"level\":1},\"content\":[{\"type\":\"text\",\"text\":\"Plan\"}]}"},
+    {"blockId": "P", "type": "paragraph", "content": "{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Intro\"}]}"},
+    {"blockId": "A", "type": "bulletList", "content": "{\"type\":\"bulletList\",\"content\":[{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"a\"}]}]}]}"},
+    {"blockId": "B", "type": "bulletList", "content": "{\"type\":\"bulletList\",\"content\":[{\"type\":\"listItem\",\"content\":[{\"type\":\"bulletList\",\"content\":[{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"b\"}]}]}]}]}]}"},
+    {"blockId": "C", "type": "bulletList", "content": "{\"type\":\"bulletList\",\"content\":[{\"type\":\"listItem\",\"content\":[{\"type\":\"bulletList\",\"content\":[{\"type\":\"listItem\",\"content\":[{\"type\":\"bulletList\",\"content\":[{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"c\"}]}]}]}]}]}]}]}"},
+    {"blockId": "D", "type": "bulletList", "content": "{\"type\":\"bulletList\",\"content\":[{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"d\"}]}]}]}"},
+    {"blockId": "N", "type": "orderedList", "content": "{\"type\":\"orderedList\",\"content\":[{\"type\":\"listItem\",\"content\":[{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"one\"}]}]}]}"},
+    {"blockId": "Q", "type": "paragraph", "content": "{\"type\":\"paragraph\",\"content\":[{\"type\":\"text\",\"text\":\"Outro\"}]}"},
   ];
-  const rows = toReconcileBlocks(sd, null);
 
   it("keeps every id and rebuilds list nesting from the rows' depth", () => {
     const blocks = rowsToBlocks(rows);

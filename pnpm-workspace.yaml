@@ -4,8 +4,9 @@ onlyBuiltDependencies:
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
-# One ProseMirror for both editors: BlockNote and the legacy TipTap
-# editor share prosemirror-state, so two models/views mix and crash.
+# One ProseMirror for everything: Folio's BlockNote extensions import
+# @tiptap/pm 3.26 directly while BlockNote brings its own @tiptap/pm, and they
+# share prosemirror-state, so two models/views would mix and crash.
 overrides:
   prosemirror-model: 1.25.12
   prosemirror-view: 1.42.6

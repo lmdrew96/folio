@@ -5,11 +5,9 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
 /**
- * Keeps one Y.Doc in sync with Convex (convex/ydoc.ts). For SuperDoc it runs
- * inside the collaboration worker (collab-worker.ts registers it as the
- * "convex" provider adapter); for BlockNote it runs on the page beside the
- * editor (`space: "blocknote"`). Kept free of worker globals so it can be
- * tested against a fake client.
+ * Keeps one Y.Doc in sync with Convex (convex/ydoc.ts). BlockNote runs it on
+ * the page beside the editor (`space: "blocknote"`). Kept free of React and
+ * page globals so it can be tested against a fake client.
  *
  * Pull: subscribe to the cheap `head` marker; whenever it moves, fetch only
  * the rows since the last one seen and apply them. The fetch re-reads an
@@ -70,7 +68,7 @@ export function attachConvexSync({
 }: {
   client: SyncClient;
   documentId: Id<"documents">;
-  /** Which editor's Y.Doc (convex/ydoc.ts). Unset = SuperDoc's. */
+  /** Which Y.Doc (convex/ydoc.ts): BlockNote's is "blocknote"; unset is the retired SuperDoc one. */
   space?: "blocknote";
   ydoc: Y.Doc;
   callbacks: SyncCallbacks;
@@ -152,7 +150,7 @@ export function attachConvexSync({
       }
       markHealthy();
     } catch (err) {
-      console.error("[superdoc-sync] pull failed", err);
+      console.error("[folio-sync] pull failed", err);
       markDegraded();
       later(() => void pull(), RETRY_MS);
     } finally {
@@ -185,7 +183,7 @@ export function attachConvexSync({
             callbacks.onFailed({ stage: "push", code });
             return;
           }
-          console.error("[superdoc-sync] push failed, will retry", err);
+          console.error("[folio-sync] push failed, will retry", err);
           pending = [merged, ...pending]; // keep order: this batch goes first
           markDegraded();
           if (!destroyed && !closing) later(() => schedulePush(), RETRY_MS);
@@ -227,7 +225,7 @@ export function attachConvexSync({
       void pull();
     },
     (err) => {
-      console.error("[superdoc-sync] head subscription error", err);
+      console.error("[folio-sync] head subscription error", err);
       markDegraded();
     },
   );

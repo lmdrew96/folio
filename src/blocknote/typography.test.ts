@@ -1,25 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { replayTyping, smartTypography } from "./typography";
-
-describe("replayTyping", () => {
-  it("catches up on several characters typed between checks", () => {
-    // `"a" --> it's` typed in one burst after `x `.
-    expect(replayTyping("x ", '"a" --> it\'s')).toEqual({ from: 2, insert: "“a” → it’s" });
-  });
-
-  it("can rewrite into the prefix (en dash + hyphen → em dash)", () => {
-    expect(replayTyping("a –", "-")).toEqual({ from: 2, insert: "—" });
-  });
-
-  it("returns null when nothing changes", () => {
-    expect(replayTyping("plain ", "text")).toBeNull();
-  });
-
-  it("only touches what was typed — an earlier straight quote stays", () => {
-    // The `"` in the prefix was typed before (and maybe deliberately undone).
-    expect(replayTyping('say "', "hi")).toBeNull();
-  });
-});
+import { smartTypography } from "./typography";
 
 /** Simulate typing `input` one character at a time, applying each fix the
  *  way the editor does (replace the trailing characters at the caret). */

@@ -1,6 +1,11 @@
 [
   {
-    "hash": "1e96a40",
+    "hash": "6f82ce5",
+    "date": "2026-11-22",
+    "subject": "v0.75.0: remove the TipTap and SuperDoc editors"
+  },
+  {
+    "hash": "70caca2",
     "date": "2026-11-22",
     "subject": "v0.74.1: stop ydoc.head re-reading the whole Yjs log on every save"
   },
@@ -43,10 +48,5 @@
     "hash": "0646812",
     "date": "2026-10-12",
     "subject": "v0.70.2: leave Cleo's review sheets out of the weekly recap"
-  },
-  {
-    "hash": "81d718a",
-    "date": "2026-10-11",
-    "subject": "v0.70.1: count table text in the editor's word count"
   }
 ]

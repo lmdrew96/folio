@@ -7,7 +7,6 @@ import { Authenticated, AuthLoading, useMutation, useQuery } from "convex/react"
 import { UserButton, useAuth } from "@clerk/nextjs";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import { DocEditor } from "@/components/DocEditor";
 import { DiffPanel } from "@/components/DiffPanel";
 import { ClaudeReaction } from "@/components/ClaudeReaction";
 import { ResizableDock } from "@/components/ResizableDock";
@@ -19,12 +18,6 @@ import { ShareDialog } from "@/components/ShareDialog";
 import { PresenceBadge } from "@/components/PresenceBadge";
 import { folioClaudeLabel } from "@/lib/identity";
 
-// SuperDoc touches the DOM at import time and is ~22 MB of JS, so it loads
-// browser-only and only for documents that use it.
-const SuperDocEditor = dynamic(
-  () => import("@/components/SuperDocEditor").then((m) => m.SuperDocEditor),
-  { ssr: false, loading: () => <p className="px-6 py-10 text-muted">Opening…</p> },
-);
 // BlockNote is browser-only too: ProseMirror needs the DOM.
 const BlockNoteEditor = dynamic(
   () => import("@/components/BlockNoteEditor").then((m) => m.BlockNoteEditor),
@@ -176,40 +169,22 @@ function DocBody({ documentId }: { documentId: Id<"documents"> }) {
       </div>
     );
   }
-  // Wait for the document before choosing an editor: mounting TipTap on a
-  // SuperDoc document, even briefly, is exactly what schema.ts forbids.
   if (doc === undefined) {
     return <p className="px-6 py-10 text-muted">Loading…</p>;
   }
+  // Every document is on BlockNote now (TipTap and SuperDoc were removed in
+  // v0.75.0). Opening BlockNote on anything else would start an empty room
+  // whose first save wipes the document's rows, so refuse instead.
+  if (doc.editor !== "blocknote") {
+    return (
+      <p className="px-6 py-10 text-muted">
+        This document was made with an older editor Folio no longer has, so it can&apos;t be opened here.
+      </p>
+    );
+  }
   // key on documentId → a doc switch fully remounts the editor (fresh refs),
-  // so load/debounce/hash state never leaks between documents.
-  // A TipTap document converts to SuperDoc when opened (migration phase 4).
-  // Same element either way, so the editor that converted it stays mounted
-  // once the flag flips. Only a document whose conversion failed still opens
-  // in TipTap.
-  // BlockNote is Folio's editor: a SuperDoc document converts to it when
-  // opened (same element either way, so the converting editor stays mounted
-  // after the flip). One whose BlockNote conversion failed keeps opening in
-  // SuperDoc; a TipTap one goes through SuperDoc first, below.
-  if (doc.editor === "blocknote" || (doc.editor === "superdoc" && !doc.blocknoteFailure)) {
-    return (
-      <BlockNoteEditor
-        key={documentId}
-        documentId={documentId}
-        convert={doc.editor === "superdoc"}
-      />
-    );
-  }
-  if (doc.editor === "superdoc" || !doc.conversionFailure) {
-    return (
-      <SuperDocEditor
-        key={documentId}
-        documentId={documentId}
-        legacy={doc.editor === "superdoc" ? undefined : { fontKey: doc.fontFamily }}
-      />
-    );
-  }
-  return <DocEditor key={documentId} documentId={documentId} />;
+  // so sync and extraction state never leak between documents.
+  return <BlockNoteEditor key={documentId} documentId={documentId} />;
 }
 
 /** Sets the viewer's "since you last looked" baseline the first time they

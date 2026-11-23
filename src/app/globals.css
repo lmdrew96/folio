@@ -23,9 +23,6 @@
   --folio-chip: #d6e1e1;
   --folio-line: rgba(19, 40, 43, 0.14); /* hairlines and the page edge */
   --folio-paper-edge: var(--folio-line);
-  /* Ink for highlighted text — the light-theme ink in both themes, since a
-     highlight stays bright in the dark (SuperDoc editor). */
-  --folio-ink-on-highlight: #13282b;
   --folio-paper-shadow: 0 0 0 1px var(--folio-line), 0 18px 44px -22px rgba(0, 0, 0, 0.25);
 
   /* Accents. Coral is the primary fill (with --folio-on-coral for its label)
@@ -130,108 +127,6 @@ body {
   }
 }
 
-/* ── The writing surface IS the serif — Literata at a longform reading rhythm.
-   Color vars override the typography plugin's grays with the theme's ink, so
-   one block serves both modes. ── */
-.ProseMirror {
-  font-family: var(--folio-prose-font), Georgia, serif;
-
-  --tw-prose-body: var(--foreground);
-  --tw-prose-headings: var(--foreground);
-  --tw-prose-bold: var(--foreground);
-  --tw-prose-links: var(--folio-ink-blue);
-  --tw-prose-quotes: var(--muted);
-  --tw-prose-quote-borders: var(--folio-line);
-  --tw-prose-hr: var(--folio-line);
-  --tw-prose-code: var(--folio-ink-blue);
-  --tw-prose-bullets: var(--muted);
-  --tw-prose-counters: var(--muted);
-}
-
-/* Each block tier's real default size. prose-lg's own em-relative sizes (an h1
-   at 2.25em of 1.125rem ≈ 40px) otherwise win, which left the toolbar's size
-   field blank on headings with nothing honest to show and made "Heading 2" a
-   guess rather than a size. A block's own explicit font-size (inline style,
-   from the FontSize extension) still overrides these regardless of source
-   order. Keep in sync with DEFAULT_FONT_SIZE / HEADING_FONT_SIZES in
-   components/extensions/font-size.ts. */
-.ProseMirror p {
-  font-size: 11px;
-}
-.ProseMirror h1 {
-  font-size: 20px;
-}
-.ProseMirror h2 {
-  font-size: 16px;
-}
-.ProseMirror h3 {
-  font-size: 14px;
-}
-.ProseMirror h4 {
-  font-size: 12px;
-}
-
-/* Theme-aware highlights. The mark carries a semantic name (data-highlight);
-   light mode gets a light tint + dark ink, dark mode a deep muted tint + light
-   text — so a highlight reads calmly in either theme instead of washing out. */
-.ProseMirror mark {
-  border-radius: 3px;
-  padding: 0 0.12em;
-  background-color: transparent;
-  /* Inherit the theme's prose color so an unmatched/legacy highlight stays
-     readable instead of falling back to the browser's default black <mark>. */
-  color: inherit;
-}
-.ProseMirror mark[data-highlight="amber"] {
-  background-color: #ffd7c3;
-  color: #20161e;
-}
-.ProseMirror mark[data-highlight="green"] {
-  background-color: #c6c3ba;
-  color: #20161e;
-}
-.ProseMirror mark[data-highlight="mint"] {
-  background-color: #c6c6cb;
-  color: #20161e;
-}
-.ProseMirror mark[data-highlight="lavender"] {
-  background-color: #cdc1c8;
-  color: #20161e;
-}
-.dark .ProseMirror mark[data-highlight="amber"] {
-  background-color: #734b37;
-  color: #fff2eb;
-}
-.dark .ProseMirror mark[data-highlight="green"] {
-  background-color: #474338;
-  color: #ecebe8;
-}
-.dark .ProseMirror mark[data-highlight="mint"] {
-  background-color: #3e3948;
-  color: #e4e4e7;
-}
-.dark .ProseMirror mark[data-highlight="lavender"] {
-  background-color: #49293e;
-  color: #e6e0e4;
-}
-
-/* Headings sit snug above the next line — prose-lg's default leaves an H1 with
-   a huge gap before the following block. Keep the space *above* a heading
-   (separates sections); collapse the space *below* it to the heading's margin. */
-.ProseMirror :is(h1, h2, h3, h4) {
-  /* Declare the heading ink here rather than leaning on the typography
-     plugin's own `color: var(--tw-prose-headings)` rule — that one lives in
-     @layer utilities at (0,1,0), so any unlayered rule touching heading color
-     silently outranks it. This is unlayered at (0,1,1) and reads the same var,
-     so the theme (and the @media print override below) still drives the value;
-     it just can't lose the cascade any more. */
-  color: var(--tw-prose-headings);
-  margin-bottom: 0.3em;
-}
-.ProseMirror :is(h1, h2, h3, h4) + * {
-  margin-top: 0;
-}
-
 /* ── Per-block attribution (Patch 3, restyled v1) ─────────────────────────────
    A quiet marginal tick, NOT a bullet. The data + tooltip are unchanged; only
    the indicator is restyled so longform prose reads as prose, not a list.
@@ -273,40 +168,6 @@ body {
   }
 }
 
-/* Find & replace — the search bar paints its match set as decorations. */
-.ProseMirror .folio-find-match {
-  background: rgba(255, 193, 87, 0.4);
-  border-radius: 2px;
-}
-.ProseMirror .folio-find-match-active {
-  background: rgba(255, 152, 0, 0.65);
-}
-
-/* Footnotes — the number is a real node attribute (see extensions/footnote.ts),
-   not a live-only decoration, so it round-trips through export. */
-.ProseMirror .folio-footnote-ref {
-  cursor: pointer;
-  color: var(--folio-attr-nae);
-}
-.ProseMirror .folio-footnote-ref::after {
-  content: attr(data-n);
-}
-.ProseMirror .folio-footnote {
-  cursor: pointer;
-  font-size: 0.85em;
-  opacity: 0.7;
-}
-.ProseMirror .folio-footnote::before {
-  content: attr(data-n) ". ";
-  font-variant-numeric: tabular-nums;
-  opacity: 0.7;
-}
-.ProseMirror .folio-footnote[data-n="1"] {
-  margin-top: 2rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--folio-paper-edge);
-}
-
 /* ── Tables ───────────────────────────────────────────────────────────────────
    Quiet ruled grid tinted from the ink colour; header cells get a faint tint
    rather than a heavy fill. Fixed layout (columns aren't drag-resizable), and
@@ -344,155 +205,6 @@ body {
   inset: 0;
   background: color-mix(in srgb, var(--folio-attr-sibling) 18%, transparent);
   pointer-events: none;
-}
-
-/* ── SuperDoc editor ───────────────────────────────────────────────────────────
-   SuperDoc themes itself through --sd-* custom properties declared on :root.
-   `html:root` outranks that, and every value reads a Folio token, so the
-   editor follows the light/dark switch the same way the rest of Folio does.
-   Its menus are attached to <body> (outside .folio-superdoc), which is why
-   these live on the root rather than on the editor wrapper. ── */
-html:root {
-  --sd-surface-canvas: var(--folio-backdrop);
-  --sd-layout-page-bg: var(--folio-paper);
-  --sd-surface-page: var(--folio-paper);
-  --sd-layout-page-shadow: var(--folio-paper-shadow);
-  --sd-ui-bg: var(--folio-paper);
-  --sd-ui-toolbar-bg: var(--folio-paper);
-  --sd-ui-surface-bg: var(--folio-paper);
-  --sd-ui-dropdown-bg: var(--folio-paper);
-  --sd-ui-text: var(--foreground);
-  --sd-ui-toolbar-button-text: var(--foreground);
-  --sd-ui-dropdown-text: var(--foreground);
-  --sd-ui-dropdown-hover-text: var(--foreground);
-  --sd-ui-text-muted: color-mix(in srgb, var(--foreground) 55%, transparent);
-  --sd-ui-border: var(--folio-paper-edge);
-  --sd-ui-dropdown-border: var(--folio-paper-edge);
-  --sd-ui-hover-bg: color-mix(in srgb, var(--foreground) 8%, transparent);
-  --sd-ui-dropdown-hover-bg: color-mix(in srgb, var(--foreground) 8%, transparent);
-  --sd-ui-toolbar-button-hover-bg: color-mix(in srgb, var(--foreground) 8%, transparent);
-  --sd-ui-active-bg: color-mix(in srgb, var(--foreground) 14%, transparent);
-  --sd-ui-toolbar-button-active-bg: color-mix(in srgb, var(--foreground) 14%, transparent);
-  --sd-ui-dropdown-active-bg: color-mix(in srgb, var(--foreground) 14%, transparent);
-  --sd-ui-font-family: var(--font-sans);
-}
-.folio-superdoc {
-  color: var(--foreground);
-}
-
-/* Dark mode inverts the paper. SuperDoc paints default-coloured ("auto")
-   text with an inline `color: rgb(0, 0, 0)`, which no variable reaches — so
-   in the dark, map exactly that to Folio's ink. Text the document colours on
-   purpose (links, red, …) keeps its colour. */
-.dark .folio-superdoc [style*="color: rgb(0, 0, 0)"] {
-  color: var(--foreground) !important;
-}
-/* Highlighted text keeps dark ink in both themes — light ink on a bright
-   highlight would be unreadable. */
-.folio-superdoc [style*="background-color"] {
-  color: var(--folio-ink-on-highlight) !important;
-}
-
-/* Paginated layout: the layers box must span the whole column. SuperDoc
-   centres the page inside it, and its fit-to-width zoom scales that box from
-   the top-left corner — left at the page's own width, a scaled-down page
-   landed off-centre and ran off the right edge. Breathing room under the
-   toolbar comes from the vertical margin. */
-.folio-superdoc .superdoc--contained > .superdoc__layers {
-  width: 100%;
-  margin: 1.5rem 0;
-}
-
-/* Continuous layout: SuperDoc renders a bare flow, so give it Folio's sheet. */
-.folio-superdoc .superdoc--web-layout {
-  background: var(--folio-backdrop);
-}
-.folio-superdoc .superdoc-web-flow {
-  box-sizing: border-box;
-  max-width: 48rem;
-  min-height: 70vh;
-  margin: 2.5rem auto;
-  padding: 3.5rem 4rem;
-  background: var(--folio-paper);
-  border: 1px solid var(--folio-paper-edge);
-  border-radius: 2px;
-  box-shadow: var(--folio-paper-shadow);
-}
-
-/* Phones: the sheet is the screen. Desktop margins (and a 4rem gutter each
-   side) would leave a ribbon of text; the bottom padding keeps the last line
-   clear of the footer pills. Pages get less room under the toolbar. */
-@media (max-width: 767px) {
-  .folio-superdoc .superdoc-web-flow {
-    max-width: none;
-    margin: 0;
-    padding: 1.5rem 1.25rem 5rem;
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-  }
-  .folio-superdoc .superdoc--contained > .superdoc__layers {
-    margin: 0.75rem 0;
-  }
-}
-
-/* Attribution tick (see src/superdoc/folioExtension.ts) — the same quiet marginal
-   tick as the TipTap editor's `.ProseMirror .folio-attr`: hidden for human
-   writers until the block is hovered, faintly present for Cleo. SuperDoc
-   stamps the extension's data as `data-superdoc-ext-*`; in the continuous
-   layout (which SuperDoc doesn't decorate) SuperDocEditor stamps the same
-   attributes itself, so this one rule covers both layouts. */
-.folio-superdoc .superdoc-web-flow-block.folio-attr {
-  position: relative; /* paginated fragments are already absolutely placed */
-}
-.folio-superdoc .folio-attr::before {
-  content: "";
-  position: absolute;
-  left: -1rem;
-  top: 0.2em;
-  height: 1.1em;
-  width: 2px;
-  border-radius: 2px;
-  background: var(--folio-attr-nae);
-  opacity: 0;
-  transition: opacity 120ms ease;
-}
-.folio-superdoc .folio-attr:hover::before {
-  opacity: 0.5;
-}
-.folio-superdoc .folio-attr[data-superdoc-ext-folio-author="claude"]::before {
-  background: var(--folio-attr-sibling);
-  opacity: 0.45;
-}
-.folio-superdoc .folio-attr[data-superdoc-ext-folio-author="claude"]:hover::before {
-  opacity: 0.75;
-}
-@media (prefers-reduced-motion: reduce) {
-  .folio-superdoc .folio-attr::before {
-    transition: none;
-  }
-}
-
-/* SuperDoc sizes toolbar icons with `.superdoc-toolbar svg`, but the overflow
-   (⋮) menu is attached to <body>, outside .superdoc-toolbar — so its icons
-   collapsed to 0×0 and the menu looked empty. Give them the toolbar's size. */
-.sd-toolbar-overflow-menu .sd-toolbar-icon__icon {
-  width: 16px;
-}
-.sd-toolbar-overflow-menu .sd-toolbar-icon__icon svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-/* Same root cause for colour: the dropdown carets in that menu set no fill of
-   their own and fell back to black. */
-.sd-toolbar-overflow-menu svg {
-  fill: currentColor;
-}
-/* Most toolbar icons are filled with currentColor, but some (line height)
-   are drawn with a hard-coded black stroke, which stayed black in dark mode. */
-.sd-toolbar-icon__icon svg [stroke]:not([stroke="none"]) {
-  stroke: currentColor;
 }
 
 /* ── BlockNote editor ─────────────────────────────────────────────────────────
@@ -596,10 +308,10 @@ html body .bn-container[data-color-scheme] {
 
 /* ── Print: put just the paper on the page ────────────────────────────────────
    Cmd/Ctrl+P prints the document sheet alone. We hide the desk chrome (header,
-   the changes/Cleo sidebar + drawer, the editor toolbar, the floating save
-   pill), release the app's full-height flex/overflow cage so the prose flows
-   across pages instead of clipping to one screen, and force calm dark-on-white
-   ink no matter which theme is active. ── */
+   the changes/Cleo sidebar + drawer, the editor toolbar, the save pill),
+   release the app's full-height flex/overflow cage so the prose flows across
+   pages instead of clipping to one screen, and force dark-on-white ink no
+   matter which theme is active. ── */
 @media print {
   html,
   body {
@@ -617,17 +329,9 @@ html body .bn-container[data-color-scheme] {
 
   /* Desk chrome — everything that isn't the sheet. An allowlist, not a
      blocklist: keep the sheet, its contents, and the chain of wrappers that
-     leads to it; hide every other element. The old blocklist (header, aside,
-     .fixed) missed the wide-screen changes/Cleo dock — a plain div — so PDF
-     export printed Cleo's panel beside the document. Anything new added to
-     the desk is now hidden by default instead of leaking onto the page. */
-  body
-    *:not(:has(.folio-paper, .folio-superdoc)):not(
-      .folio-paper,
-      .folio-paper *,
-      .folio-superdoc,
-      .folio-superdoc *
-    ) {
+     leads to it; hide every other element, so nothing new on the desk can
+     leak onto the page. */
+  body *:not(:has(.folio-paper)):not(.folio-paper, .folio-paper *) {
     display: none !important;
   }
   /* Fallback for a browser without :has() — the old named chrome. */
@@ -635,6 +339,16 @@ html body .bn-container[data-color-scheme] {
   aside,
   .fixed {
     display: none !important;
+  }
+
+  /* Mist's ink whatever the theme, so a dark-mode print isn't light ink on
+     white paper (the editor's text color reads --foreground). */
+  :root,
+  .dark {
+    --foreground: #13282b;
+    --muted: #455d60;
+    --folio-ink-blue: #2d5f86;
+    --folio-highlight: rgba(240, 138, 110, 0.35);
   }
 
   /* The sheet becomes the page: no float, no tint — page margins do the framing. */
@@ -647,92 +361,9 @@ html body .bn-container[data-color-scheme] {
     padding: 0 !important;
   }
 
-  /* Calm, legible ink regardless of the active theme (including dark mode). */
-  .ProseMirror,
-  .dark .ProseMirror {
-    --tw-prose-body: #1a1a1a;
-    --tw-prose-headings: #000;
-    --tw-prose-bold: #000;
-    --tw-prose-links: #1a1a1a;
-    --tw-prose-quotes: #333;
-    --tw-prose-quote-borders: #ccc;
-    --tw-prose-hr: #ccc;
-    --tw-prose-code: #333;
-    --tw-prose-bullets: #555;
-    --tw-prose-counters: #555;
-  }
-
-  /* Highlights stay meaningful — light tint + dark ink, even from dark mode. */
-  .ProseMirror mark[data-highlight] {
-    color: #20161e !important;
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
-  }
-  .ProseMirror mark[data-highlight="amber"] {
-    background-color: #ffd7c3 !important;
-  }
-  .ProseMirror mark[data-highlight="green"] {
-    background-color: #c6c3ba !important;
-  }
-  .ProseMirror mark[data-highlight="mint"] {
-    background-color: #c6c6cb !important;
-  }
-  .ProseMirror mark[data-highlight="lavender"] {
-    background-color: #cdc1c8 !important;
-  }
-
   /* Attribution ticks are an editing aid, not part of the document. */
-  .ProseMirror .folio-attr::before,
-  .folio-superdoc .folio-attr::before {
+  .ProseMirror .folio-attr::before {
     display: none !important;
-  }
-
-  /* SuperDoc documents. The editor wrapper is on the allowlist above, so hide
-     what inside it isn't the document: SuperDoc's toolbar and Folio's own
-     floating controls (word count, outline, save pill). */
-  .folio-superdoc .superdoc-toolbar-container,
-  .folio-superdoc > .fixed {
-    display: none !important;
-  }
-  /* Dark on white whatever the theme: undo the dark-mode paper and ink. */
-  html:root {
-    --sd-layout-page-bg: #fff;
-    --sd-surface-page: #fff;
-    --sd-surface-canvas: #fff;
-  }
-  .folio-superdoc,
-  .folio-superdoc [style*="color: rgb(0, 0, 0)"],
-  .dark .folio-superdoc [style*="color: rgb(0, 0, 0)"] {
-    color: #000 !important;
-  }
-  /* Paginated layout: each SuperDoc page is already a full Letter sheet with
-     its own margins, so print it 1:1 on a margin-free named page (see
-     @page superdoc-page below) and break after each one. The flex column
-     they sit in is flattened — Chrome doesn't fragment flex items reliably. */
-  .folio-superdoc .presentation-editor {
-    display: block !important;
-  }
-  .folio-superdoc .superdoc__layers {
-    margin: 0 !important;
-  }
-  .folio-superdoc .superdoc-page {
-    page: superdoc-page;
-    break-after: page;
-    margin: 0 !important;
-    box-shadow: none !important;
-  }
-  /* Continuous layout: the sheet becomes plain paper inside the 1in margins. */
-  .folio-superdoc .superdoc--web-layout {
-    background: #fff !important;
-  }
-  .folio-superdoc .superdoc-web-flow {
-    max-width: none !important;
-    min-height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: none !important;
-    box-shadow: none !important;
-    background: #fff !important;
   }
 
   /* Tables: plain grey rules on white, and no cell-selection tint. */
@@ -767,9 +398,4 @@ html body .bn-container[data-color-scheme] {
    on its own, so it doesn't need the nesting. */
 @page {
   margin: 1in;
-}
-/* SuperDoc's paginated pages carry their own margins — print them edge to edge. */
-@page superdoc-page {
-  size: letter;
-  margin: 0;
 }

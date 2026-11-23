@@ -86,8 +86,8 @@ export function ChangeLog() {
               })}
             </ul>
 
-            {/* SuperDoc's engine is AGPL, which asks that users of the app
-                can get its source. */}
+            {/* Added when SuperDoc's AGPL engine required a source link; that
+                requirement left with SuperDoc in v0.75.0. */}
             <p className="border-t border-black/10 pt-3 text-xs text-muted dark:border-white/10">
               Folio is open source —{" "}
               <a

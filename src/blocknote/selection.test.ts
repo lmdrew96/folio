@@ -3,7 +3,7 @@ import { BlockNoteEditor, type PartialBlock } from "@blocknote/core";
 import { blockText } from "../../convex/blockMarkdown";
 import { blockPlainText, flatten, selectionText, toRows, type BnBlock } from "./rows";
 
-// Same rule as the footer's countWords (SuperDocFooter.tsx).
+// Same rule as countWords in components/EditorToolbar.tsx.
 const countWords = (t: string) => (t.trim() ? t.trim().split(/\s+/).length : 0);
 
 const p = (text: string) => ({ type: "paragraph" as const, content: text });

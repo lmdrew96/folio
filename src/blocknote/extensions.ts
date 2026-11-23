@@ -23,7 +23,7 @@ import {
   type getRelativeSelection,
 } from "y-prosemirror";
 import { relativeTime } from "@/lib/time";
-import { smartTypography } from "@/superdoc/typography";
+import { smartTypography } from "./typography";
 
 // ---------------------------------------------------------------------------
 // Smart typography
@@ -89,8 +89,8 @@ type AttributionState = { map: Map<string, BlockAttribution>; decorations: Decor
 
 const attributionKey = new PluginKey<AttributionState>("folioAttribution");
 
-/** A node decoration per attributed block. Same class and data-author as the
- *  TipTap editor used, so globals.css's `.ProseMirror .folio-attr` rules draw
+/** A node decoration per attributed block, with the class and data-author
+ *  globals.css's `.ProseMirror .folio-attr` rules draw
  *  the tick: hidden for human writers until hover, faintly present for Cleo. */
 const buildDecorations = (doc: EditorState["doc"], map: Map<string, BlockAttribution>) => {
   if (map.size === 0) return DecorationSet.empty;

@@ -1,5 +1,3 @@
-import type { Editor } from "@tiptap/react";
-import type { JSONContent } from "@tiptap/core";
 
 export type ExportFormat = "pdf" | "docx" | "md" | "rtf" | "html" | "txt";
 
@@ -13,8 +11,16 @@ export const EXPORT_FORMATS: { id: ExportFormat; label: string; ext: string }[] 
     { id: "txt", label: "Plain text", ext: "txt" },
   ];
 
-type Node = JSONContent;
-type Mark = NonNullable<JSONContent["marks"]>[number];
+/** ProseMirror-style JSON, the shape src/blocknote/rows.ts `toTipTapDoc`
+ *  produces and every serializer below reads. */
+type Mark = { type: string; attrs?: Record<string, unknown> };
+type Node = {
+  type?: string;
+  attrs?: Record<string, unknown>;
+  content?: Node[];
+  marks?: Mark[];
+  text?: string;
+};
 
 const hasMark = (marks: Mark[] | undefined, type: string) =>
   marks?.some((m) => m.type === type) ?? false;
@@ -114,9 +120,9 @@ function mdInline(nodes: Node[] | undefined): string {
   return out;
 }
 
-/** A list item's own text line(s) — paragraphs, plus headings now that a
- *  bullet can be promoted to one (see DocEditor's ListItem content override).
- *  Without heading here, a heading'd list line exported as an empty bullet. */
+/** A list item's own text line(s): paragraphs, plus headings, since a bullet
+ *  line can be a heading. Without heading here, a heading'd list line
+ *  exported as an empty bullet. */
 function isItemLine(child: Node): boolean {
   return child.type === "paragraph" || child.type === "heading";
 }
@@ -400,32 +406,7 @@ const htmlEscape = (s: string) =>
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c,
   );
 
-/** The editor's HTML, minus editor-only plumbing: block ids (UniqueID's
- *  data-id) and footnote cross-reference ids are internal bookkeeping, and
- *  footnote numbers exist only as CSS in the app — write them in as text so
- *  the references and notes aren't blank in the exported file. */
-function cleanEditorHtml(html: string): string {
-  const doc = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
-  doc.querySelectorAll("sup.folio-footnote-ref").forEach((el) => {
-    el.textContent = el.getAttribute("data-n") ?? "";
-  });
-  doc.querySelectorAll("p.folio-footnote").forEach((el, i) => {
-    if (i === 0) el.classList.add("first");
-    const n = el.getAttribute("data-n");
-    if (n && n !== "0") el.prepend(`${n}. `);
-  });
-  doc
-    .querySelectorAll("[data-id], [data-ref-id], [data-footnote-id], [data-n]")
-    .forEach((el) => {
-      for (const attr of ["data-id", "data-ref-id", "data-footnote-id", "data-n"]) {
-        el.removeAttribute(attr);
-      }
-    });
-  return doc.body.innerHTML;
-}
-
-/** A self-contained, readable HTML file around an editor's body HTML — shared
- *  by the TipTap and SuperDoc exports so both produce the same file. */
+/** A self-contained, readable HTML file around the editor's body HTML. */
 export const standaloneHtml = (title: string, bodyHtml: string) =>
   `<!doctype html>
 <html lang="en">
@@ -458,9 +439,6 @@ ${bodyHtml}
 </body>
 </html>
 `;
-
-const toHtml = (editor: Editor, title: string) =>
-  standaloneHtml(title, cleanEditorHtml(editor.getHTML()));
 
 // ── Word (.docx) — docx is dynamically imported so it never enters the main bundle ─
 
@@ -687,71 +665,6 @@ async function toDocxBlob(doc: Node, title: string): Promise<Blob> {
   return Packer.toBlob(document);
 }
 
-// ── dispatch ─────────────────────────────────────────────────────────────────
-
-export async function exportDocument(
-  editor: Editor,
-  title: string,
-  format: ExportFormat,
-): Promise<void> {
-  if (format === "pdf") {
-    // Reuse the print pipeline (globals.css @media print puts just the sheet on
-    // the page); the browser's print dialog offers "Save as PDF".
-    window.print();
-    return;
-  }
-
-  const base = slugify(title);
-  const json = editor.getJSON();
-
-  switch (format) {
-    case "txt":
-      download(
-        editor.getText({
-          blockSeparator: "\n\n",
-          textSerializers: {
-            footnote: ({ node }) =>
-              footnoteLabel(node.toJSON() as Node) + node.textContent,
-            // One line per row, cells separated by tabs — pastes cleanly into
-            // a spreadsheet, and doesn't blow each cell into its own paragraph.
-            table: ({ node }) => {
-              const lines: string[] = [];
-              node.forEach((row) => {
-                const cells: string[] = [];
-                row.forEach((cell) =>
-                  cells.push(cell.textBetween(0, cell.content.size, " ", " ").trim()),
-                );
-                lines.push(cells.join("\t"));
-              });
-              return lines.join("\n");
-            },
-          },
-        }),
-        `${base}.txt`,
-        "text/plain;charset=utf-8",
-      );
-      return;
-    case "html":
-      download(toHtml(editor, title), `${base}.html`, "text/html;charset=utf-8");
-      return;
-    case "md":
-      download(toMarkdown(json), `${base}.md`, "text/markdown;charset=utf-8");
-      return;
-    case "rtf":
-      download(toRtf(json), `${base}.rtf`, "application/rtf");
-      return;
-    case "docx": {
-      const blob = await toDocxBlob(json, title);
-      download(
-        blob,
-        `${base}.docx`,
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      );
-      return;
-    }
-  }
-}
-
 // ── BlockNote ────────────────────────────────────────────────────────────────
 
 /** Plain text from a TipTap-shaped doc: blank line between blocks, one line
@@ -799,7 +712,7 @@ function txtBlocks(nodes: Node[] | undefined, depth = 0): string[] {
  * serializers above already read; `bodyHtml` is BlockNote's own HTML.
  */
 export async function exportBlockNote(
-  doc: JSONContent,
+  doc: Node,
   bodyHtml: string,
   title: string,
   format: ExportFormat,

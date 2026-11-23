@@ -14,9 +14,8 @@ import { BlockNoteView } from "@blocknote/mantine";
 import "@blocknote/mantine/style.css";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import { blockText } from "@convex/blockMarkdown";
 import { folioSchema, FolioFormattingToolbar } from "@/blocknote/schema";
-import { attachConvexSync, type SyncHandle } from "@/superdoc/convexProvider";
+import { attachConvexSync, type SyncHandle } from "@/lib/convexProvider";
 import { registerPendingSaveFlush } from "@/lib/pendingSave";
 import { fontCssValue } from "@/lib/fonts";
 import { exportBlockNote, type ExportFormat } from "@/lib/export";
@@ -36,8 +35,7 @@ import {
   undoSelectionExtension,
   type BlockAttribution,
 } from "@/blocknote/extensions";
-import { countWords, type OutlineHeading } from "./SuperDocFooter";
-import { EditorToolbar, OutlineRail } from "./EditorToolbar";
+import { countWords, EditorToolbar, OutlineRail, type OutlineHeading } from "./EditorToolbar";
 
 /** Where BlockNote keeps the document inside its Y.Doc. */
 const FRAGMENT = "blocknote";
@@ -45,27 +43,21 @@ const FRAGMENT = "blocknote";
 const EXTRACT_DEBOUNCE_MS = 1000;
 /** How long to wait before re-claiming a room another tab is still creating. */
 const CLAIM_RETRY_MS = 2000;
-/** How often to check back while another tab converts this document. */
-const BUSY_RETRY_MS = 5000;
-/** Longest a save-dependent step (conversion, the update toast) waits. */
+/** Longest the update toast waits for edits to finish saving. */
 const SAVE_WAIT_MS = 30_000;
 /** Whether the outline rail beside the page is shown (per device). */
 const OUTLINE_KEY = "folio:outline:visible";
 
 type Connection = "connecting" | "synced" | "degraded" | "failed";
-/** Moving a SuperDoc document onto BlockNote. */
-type Phase = "none" | "busy" | "converting" | "failed";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const squash = (s: string) => s.replace(/\s+/g, " ").trim();
 const codeOf = (e: unknown) =>
   e instanceof ConvexError ? (e.data as { code?: string } | undefined)?.code : undefined;
 
 /**
  * A document edited in BlockNote. Its Y.Doc lives in Convex (convex/ydoc.ts,
- * `space: "blocknote"`), synced on the page by the same provider SuperDoc's
- * worker uses. This component also:
- *   - converts a SuperDoc document on open (`convert`), keeping block ids,
+ * `space: "blocknote"`), synced on the page by src/lib/convexProvider.ts.
+ * This component also:
  *   - rebuilds the derived `blocks` rows after local edits settle, keyed by
  *     BlockNote's own block ids, so the diff panel, attribution, Cleo and the
  *     MCP door keep working,
@@ -73,22 +65,12 @@ const codeOf = (e: unknown) =>
  *     unload until they have.
  * Key it on documentId: the Y.Doc and editor are made once per document.
  */
-export function BlockNoteEditor({
-  documentId,
-  convert = false,
-}: {
-  documentId: Id<"documents">;
-  /** The document is still on SuperDoc: move it to BlockNote on open. */
-  convert?: boolean;
-}) {
+export function BlockNoteEditor({ documentId }: { documentId: Id<"documents"> }) {
   const { getToken } = useAuth();
   const { resolvedTheme } = useTheme();
   const convex = useConvex();
   const claimRoom = useMutation(api.ydoc.claimRoom);
   const reconcile = useMutation(api.blocks.reconcile);
-  const prepareBlockNote = useMutation(api.conversion.prepareBlockNote);
-  const finishBlockNote = useMutation(api.conversion.finishBlockNote);
-  const failBlockNote = useMutation(api.conversion.failBlockNote);
   const meta = useQuery(api.documents.get, { documentId });
 
   const [ydoc] = useState(() => new Y.Doc());
@@ -123,10 +105,6 @@ export function BlockNoteEditor({
   const connectionRef = useRef<Connection>("connecting");
   const unpushed = useRef(false);
   const synced = useRef(false);
-  // True until this document is on BlockNote; extraction stays off meanwhile
-  // (the block rows still belong to SuperDoc).
-  const converting = useRef(convert);
-  const [phase, setPhase] = useState<Phase>(convert ? "converting" : "none");
   const [openError, setOpenError] = useState<string | null>(null);
   const unsynced = connection === "degraded" || connection === "failed";
 
@@ -150,7 +128,7 @@ export function BlockNoteEditor({
 
   const extract = useCallback(async (): Promise<void> => {
     // Before the first sync the editor is empty; writing that would wipe the rows.
-    if (!synced.current || converting.current) return;
+    if (!synced.current) return;
     if (extracting.current) {
       extractAgain.current = true; // an edit landed mid-run; go once more after
       return extracting.current;
@@ -207,55 +185,6 @@ export function BlockNoteEditor({
     };
   }, [editor, scheduleExtract]);
 
-  // ---- converting from SuperDoc ----
-  const convertNow = useCallback(async () => {
-    const giveUp = async (reason: string) => {
-      console.error(`Folio: couldn't move this document to BlockNote — ${reason}`);
-      setPhase("failed");
-      try {
-        await failBlockNote({ documentId, reason });
-      } catch (e) {
-        console.error("Folio: couldn't record the failed conversion", e);
-      }
-    };
-    try {
-      // updatedAt first: if a SuperDoc tab saves after this, finish refuses.
-      const doc = await convex.query(api.documents.get, { documentId });
-      const rows = await convex.query(api.blocks.list, { documentId });
-      if (!doc) return await giveUp("the document is unavailable");
-
-      if (ydoc.getXmlFragment(FRAGMENT).length === 0) {
-        const blocks = rowsToBlocks(rows);
-        // replaceBlocks' types are the schema's; these are plain partial blocks.
-        editor.replaceBlocks(
-          editor.document,
-          (blocks.length ? blocks : [{ type: "paragraph" }]) as Parameters<typeof editor.replaceBlocks>[1],
-        );
-      }
-
-      // Text check: every word, in order, and every row's id still here.
-      const converted = toRows(editor.document as unknown as BnBlock[]);
-      const textOf = (r: { content: unknown }) =>
-        blockText(typeof r.content === "string" ? JSON.parse(r.content) : r.content);
-      const before = squash(rows.map(textOf).join(" "));
-      const after = squash(converted.map(textOf).join(" "));
-      if (before !== after) return await giveUp("text check: the converted text differs");
-      const ids = new Set(converted.map((r) => r.blockId));
-      const lost = rows.find((r) => textOf(r) !== "" && !ids.has(r.blockId));
-      if (lost) return await giveUp(`block ${lost.blockId} lost its id`);
-
-      if (!(await waitUntilSaved())) return await giveUp("the converted document didn't finish saving");
-      const head = await convex.query(api.ydoc.head, { documentId, space: "blocknote" });
-      if (!head?.hasAny) return await giveUp("the converted document never reached the server");
-
-      await finishBlockNote({ documentId, basedOn: doc.updatedAt, blocks: converted });
-      converting.current = false;
-      setPhase("none");
-    } catch (e) {
-      await giveUp(codeOf(e) ?? (e instanceof Error ? e.message : String(e)));
-    }
-  }, [convex, documentId, editor, failBlockNote, finishBlockNote, waitUntilSaved, ydoc]);
-
   // ---- open: claim the room, then sync ----
   const fetchToken = useCallback(async () => (await getToken({ template: "convex" })) ?? null, [getToken]);
 
@@ -270,22 +199,6 @@ export function BlockNoteEditor({
     };
     const open = async () => {
       try {
-        if (converting.current) {
-          const state = await prepareBlockNote({ documentId, claimToken });
-          if (cancelled) return;
-          if (state === "busy") {
-            setPhase("busy");
-            timer = setTimeout(() => void open(), BUSY_RETRY_MS);
-            return;
-          }
-          if (state === "unsupported") {
-            setOpenError("Only SuperDoc documents can move to BlockNote.");
-            return;
-          }
-          if (state === "failed") return; // DocWorkspace reopens it in SuperDoc
-          if (state === "converted") converting.current = false; // another tab did it
-          setPhase(converting.current ? "converting" : "none");
-        }
         const mode = await claimRoom({ documentId, claimToken, space: "blocknote" });
         if (cancelled) return;
         if (mode === "wait") {
@@ -297,7 +210,7 @@ export function BlockNoteEditor({
         // opener builds the Y.Doc from them. Fetched before syncing so it's
         // in place before anything can be typed or extracted.
         const seed =
-          mode === "create" && !converting.current
+          mode === "create"
             ? await convex.query(api.blocks.list, { documentId })
             : [];
         if (cancelled) return;
@@ -314,12 +227,11 @@ export function BlockNoteEditor({
               if (synced.current) return;
               synced.current = true;
               if (seed.length && ydoc.getXmlFragment(FRAGMENT).length === 0) {
-                // Same rows → blocks path as converting, ids kept, so the
-                // extraction this triggers leaves the rows (and their author) as is.
+                // Block ids are kept, so the extraction this triggers leaves
+                // the rows (and their author) as they are.
                 editor.replaceBlocks(editor.document, rowsToBlocks(seed) as Parameters<typeof editor.replaceBlocks>[1]);
               }
               setLiveBlocks(editor.document as unknown as BnBlock[]);
-              if (converting.current) void convertNow();
             },
             onDegraded: () => setState("degraded"),
             onFailed: (detail) => {
@@ -344,7 +256,7 @@ export function BlockNoteEditor({
       // Sends any edits still waiting before closing the connection.
       void sync?.destroy();
     };
-  }, [claimRoom, claimToken, convertNow, convex, documentId, editor, fetchToken, prepareBlockNote, ydoc]);
+  }, [claimRoom, claimToken, convex, documentId, editor, fetchToken, ydoc]);
 
   // Closing or reloading the tab can't wait for a save, so it asks instead.
   useEffect(() => {
@@ -453,7 +365,7 @@ export function BlockNoteEditor({
       <EditorToolbar
         editor={editor}
         documentId={documentId}
-        editable={phase === "none"}
+        editable
         wordCount={wordCount}
         selectedWordCount={selectedWordCount}
         outlineOpen={outlineOpen}
@@ -475,7 +387,6 @@ export function BlockNoteEditor({
         >
           <BlockNoteView
             editor={editor}
-            editable={phase === "none"} // nothing typed mid-conversion
             theme={resolvedTheme === "dark" ? "dark" : "light"}
             formattingToolbar={false}
           >
@@ -483,19 +394,7 @@ export function BlockNoteEditor({
           </BlockNoteView>
         </div>
       </div>
-      {phase !== "none" && (
-        // Covers the editor so nothing is typed mid-check.
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-[var(--folio-backdrop)]/90">
-          <p className="text-sm text-muted" aria-live="polite">
-            {phase === "failed"
-              ? "This document couldn't be moved to the new editor. Reopening it as it was…"
-              : phase === "busy"
-                ? "Another tab is moving this document to the new editor…"
-                : "Moving this document to the new editor…"}
-          </p>
-        </div>
-      )}
-      {/* Same quiet pill the other editors use for their save story. */}
+      {/* A quiet pill when edits aren't reaching the server. */}
       <div
         className={`absolute bottom-5 left-1/2 z-20 flex print:hidden -translate-x-1/2 items-center gap-2 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-foreground shadow-sm transition-opacity duration-200 ${
           unsynced ? "opacity-100" : "pointer-events-none opacity-0"

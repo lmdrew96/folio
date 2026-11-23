@@ -9,7 +9,8 @@
  * stable id and structured content, so each one maps straight to one row.
  *
  *   toRows        editor.document → rows (flattened, document order)
- *   rowsToBlocks  SuperDoc-derived rows → BlockNote blocks, ids kept (conversion)
+ *   rowsToBlocks  stored rows → BlockNote blocks, ids kept (seeding a room
+ *                 from server-written rows, e.g. a review sheet)
  */
 
 // Minimal structural slices of BlockNote's types — the editor's own generics
@@ -105,8 +106,8 @@ export function inlineToPM(content: BnInline[] | undefined): PMNode[] {
 
 const cellInline = (cell: BnCell): BnInline[] => (Array.isArray(cell) ? cell : (cell.content ?? []));
 
-/** Wrap an item in `depth` list levels — the same shape src/superdoc/extract.ts
- *  writes for a DOCX list paragraph, which blockMarkdown renders indented. */
+/** Wrap an item in `depth` list levels — the shape SuperDoc-era rows use for
+ *  a nested list item, which blockMarkdown renders indented. */
 const listNode = (content: PMNode[], listType: string, depth: number): PMNode => {
   let node: PMNode = { type: "paragraph", content };
   for (let d = 0; d < depth; d++) node = { type: listType, content: [{ type: "listItem", content: [node] }] };
