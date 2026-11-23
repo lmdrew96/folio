@@ -23,12 +23,12 @@ import { folioClaudeLabel } from "@/lib/identity";
 // browser-only and only for documents that use it.
 const SuperDocEditor = dynamic(
   () => import("@/components/SuperDocEditor").then((m) => m.SuperDocEditor),
-  { ssr: false, loading: () => <p className="px-6 py-10 text-foreground/50">Opening…</p> },
+  { ssr: false, loading: () => <p className="px-6 py-10 text-muted">Opening…</p> },
 );
 // BlockNote is browser-only too: ProseMirror needs the DOM.
 const BlockNoteEditor = dynamic(
   () => import("@/components/BlockNoteEditor").then((m) => m.BlockNoteEditor),
-  { ssr: false, loading: () => <p className="px-6 py-10 text-foreground/50">Opening…</p> },
+  { ssr: false, loading: () => <p className="px-6 py-10 text-muted">Opening…</p> },
 );
 
 /** Owner-only "Share" entry point in the header — hidden entirely for an
@@ -68,7 +68,7 @@ function DocTitleEditor({ documentId }: { documentId: Id<"documents"> }) {
   }
 
   if (doc === undefined) {
-    return <span className="text-sm text-foreground/40">Loading…</span>;
+    return <span className="text-sm text-muted">Loading…</span>;
   }
   if (doc === null) return null;
 
@@ -76,7 +76,7 @@ function DocTitleEditor({ documentId }: { documentId: Id<"documents"> }) {
   // of an input that looks editable but silently fails to save on blur.
   if (doc.role !== "owner") {
     return (
-      <span className="w-48 max-w-[40vw] truncate px-1.5 py-0.5 text-sm text-foreground/70">
+      <span className="w-48 max-w-[40vw] truncate px-1.5 py-0.5 font-serif text-base text-foreground/70">
         {doc.title || "Untitled"}
       </span>
     );
@@ -112,7 +112,7 @@ function DocTitleEditor({ documentId }: { documentId: Id<"documents"> }) {
       }}
       placeholder="Untitled"
       aria-label="Document title"
-      className="w-48 max-w-[40vw] truncate rounded bg-transparent px-1.5 py-0.5 text-sm text-foreground/70 outline-none transition placeholder:text-foreground/30 hover:bg-black/5 focus:bg-black/5 focus:text-foreground dark:hover:bg-white/10 dark:focus:bg-white/10"
+      className="w-48 max-w-[40vw] truncate rounded bg-transparent px-1.5 py-0.5 font-serif text-base text-foreground/70 outline-none transition placeholder:text-muted hover:bg-black/5 focus:bg-black/5 focus:text-foreground dark:hover:bg-white/10 dark:focus:bg-white/10"
     />
   );
 }
@@ -140,7 +140,7 @@ function PanelToggle({
       onClick={onClick}
       aria-label={`Changes and ${folioClaudeLabel()}`}
       title={`Changes & ${folioClaudeLabel()}`}
-      className="relative flex h-8 w-8 items-center justify-center rounded-md text-foreground/60 transition hover:bg-black/5 hover:text-foreground lg:hidden dark:hover:bg-white/10"
+      className="relative flex h-8 w-8 items-center justify-center rounded-md text-muted transition hover:bg-black/5 hover:text-foreground lg:hidden dark:hover:bg-white/10"
     >
       <svg
         width="18"
@@ -170,7 +170,7 @@ function DocBody({ documentId }: { documentId: Id<"documents"> }) {
   if (doc === null) {
     return (
       <div className="mx-auto w-full max-w-3xl px-6 py-16">
-        <p className="text-foreground/60">
+        <p className="text-muted">
           This document doesn&apos;t exist or isn&apos;t yours.
         </p>
       </div>
@@ -179,7 +179,7 @@ function DocBody({ documentId }: { documentId: Id<"documents"> }) {
   // Wait for the document before choosing an editor: mounting TipTap on a
   // SuperDoc document, even briefly, is exactly what schema.ts forbids.
   if (doc === undefined) {
-    return <p className="px-6 py-10 text-foreground/50">Loading…</p>;
+    return <p className="px-6 py-10 text-muted">Loading…</p>;
   }
   // key on documentId → a doc switch fully remounts the editor (fresh refs),
   // so load/debounce/hash state never leaks between documents.
@@ -241,11 +241,11 @@ export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-[var(--folio-backdrop)]">
-      <header className="flex shrink-0 items-center justify-between border-b border-black/10 px-6 py-3 dark:border-white/10">
+      <header className="flex shrink-0 items-center justify-between border-b border-line px-6 py-3">
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="font-serif text-base font-medium tracking-tight text-foreground"
+            className="font-serif text-[26px] leading-none text-foreground"
             title="All documents"
           >
             Folio
@@ -269,7 +269,7 @@ export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
       </header>
 
       <AuthLoading>
-        <p className="px-6 py-10 text-foreground/50">Loading…</p>
+        <p className="px-6 py-10 text-muted">Loading…</p>
       </AuthLoading>
       <Authenticated>
         {/* Editor + diff panel mount only once Convex auth is confirmed, so the
@@ -305,7 +305,7 @@ export function DocWorkspace({ documentId }: { documentId: Id<"documents"> }) {
                 <button
                   onClick={() => setPanelOpen(false)}
                   aria-label="Close panel"
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/60 transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
                 >
                   <svg
                     width="16"

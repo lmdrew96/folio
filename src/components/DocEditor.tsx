@@ -807,7 +807,7 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
         } ${
           saveStatus === "retrying" || saveStatus === "error"
             ? "text-foreground"
-            : "pointer-events-none text-foreground/60"
+            : "pointer-events-none text-muted"
         }`}
       >
         <span aria-live="polite">
@@ -843,7 +843,7 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
                 ? "Words in selection / in document — click to hide"
                 : "Hide word count"
           }
-          className="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-foreground/60 shadow-sm transition hover:text-foreground"
+          className="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-muted shadow-sm transition hover:text-foreground"
         >
           {!wordCountVisible
             ? "Word count"
@@ -859,7 +859,7 @@ export function DocEditor({ documentId }: { documentId: Id<"documents"> }) {
           <InputPopover
             label={doc?.wordGoal ? "Edit word goal" : "Set a word goal"}
             trigger={doc?.wordGoal ? "Edit goal" : "Set goal"}
-            triggerClassName="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-2 py-1 text-xs text-foreground/40 shadow-sm transition hover:text-foreground"
+            triggerClassName="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-2 py-1 text-xs text-muted shadow-sm transition hover:text-foreground"
             fieldLabel="Word count goal"
             placeholder="e.g. 2000"
             inputMode="numeric"

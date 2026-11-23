@@ -153,7 +153,7 @@ export function InputPopover({
             }}
             className="flex flex-col gap-1.5"
           >
-            <label htmlFor={fieldId} className="text-xs text-foreground/50">
+            <label htmlFor={fieldId} className="text-xs text-muted">
               {fieldLabel}
             </label>
             <input
@@ -171,7 +171,7 @@ export function InputPopover({
               }}
               aria-invalid={error ? true : undefined}
               aria-describedby={error ? errorId : undefined}
-              className="w-full rounded-md border border-foreground/15 bg-transparent px-2 py-1 text-sm text-foreground outline-none placeholder:text-foreground/35 focus:ring-2 focus:ring-[var(--folio-attr-sibling)]"
+              className="w-full rounded-md border border-foreground/15 bg-transparent px-2 py-1 text-sm text-foreground outline-none placeholder:text-muted focus:ring-2 focus:ring-[var(--folio-attr-sibling)]"
             />
             {error && (
               <p id={errorId} role="alert" className="text-xs text-foreground/80">
@@ -186,7 +186,7 @@ export function InputPopover({
                     onClear();
                     finish();
                   }}
-                  className="mr-auto rounded px-2 py-1 text-xs text-foreground/60 transition hover:text-foreground"
+                  className="mr-auto rounded px-2 py-1 text-xs text-muted transition hover:text-foreground"
                 >
                   {clearLabel}
                 </button>
@@ -194,7 +194,7 @@ export function InputPopover({
               <button
                 type="button"
                 onClick={close}
-                className="rounded px-2 py-1 text-xs text-foreground/60 transition hover:text-foreground"
+                className="rounded px-2 py-1 text-xs text-muted transition hover:text-foreground"
               >
                 Cancel
               </button>

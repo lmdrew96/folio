@@ -121,7 +121,7 @@ function applyReplacement(
 }
 
 const BTN =
-  "flex h-7 min-w-7 items-center justify-center rounded-md px-1.5 text-sm text-foreground/60 transition hover:bg-black/5 hover:text-foreground disabled:opacity-40 dark:hover:bg-white/10";
+  "flex h-7 min-w-7 items-center justify-center rounded-md px-1.5 text-sm text-muted transition hover:bg-black/5 hover:text-foreground disabled:opacity-40 dark:hover:bg-white/10";
 const BTN_ON = "bg-black/10 text-foreground dark:bg-white/15";
 
 /** Invisible-until-invoked (Cmd/Ctrl+F) find bar over the editor. Doesn't
@@ -278,9 +278,9 @@ export function FindReplace({ editor }: { editor: Editor }) {
           }}
           placeholder="Find…"
           aria-label="Find"
-          className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-sm text-foreground outline-none placeholder:text-foreground/40"
+          className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-sm text-foreground outline-none placeholder:text-muted"
         />
-        <span className="shrink-0 px-1 text-xs tabular-nums text-foreground/40">
+        <span className="shrink-0 px-1 text-xs tabular-nums text-muted">
           {matches.length === 0 ? "0/0" : `${activeIndex + 1}/${matches.length}`}
         </span>
         <button
@@ -341,7 +341,7 @@ export function FindReplace({ editor }: { editor: Editor }) {
             onChange={(e) => setReplacement(e.target.value)}
             placeholder="Replace with…"
             aria-label="Replace with"
-            className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-sm text-foreground outline-none placeholder:text-foreground/40"
+            className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-sm text-foreground outline-none placeholder:text-muted"
           />
           <button
             type="button"

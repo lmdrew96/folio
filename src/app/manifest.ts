@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "A writing space that knows what changed since you last looked.",
     start_url: "/",
     display: "standalone",
-    background_color: "#f9f1eb",
-    theme_color: "#572F48",
+    background_color: "#0f1a1c",
+    theme_color: "#0f1a1c",
     icons: [
       { src: "/icons/192", sizes: "192x192", type: "image/png" },
       { src: "/icons/512", sizes: "512x512", type: "image/png" },

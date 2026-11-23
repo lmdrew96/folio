@@ -1,6 +1,6 @@
 /**
  * Shared glyph for every generated app icon (favicon, apple-icon, manifest
- * icons). A single off-white "page" on a deep-violet ground — no custom font
+ * icons). A Squid Ink "page" on the sea-dark desk — no custom font
  * loading, so it stays well under ImageResponse's 500KB bundle limit.
  *
  * `maskable` drops the self-rounding and shrinks the glyph so Android's own
@@ -25,7 +25,7 @@ export function folioIconElement({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "#572F48",
+        background: "#0f1a1c",
         borderRadius: maskable ? 0 : size * 0.22,
       }}
     >
@@ -33,7 +33,7 @@ export function folioIconElement({
         style={{
           width: pageWidth,
           height: pageHeight,
-          background: "#fff6f2",
+          background: "#1f3135",
           borderRadius: size * 0.045,
           display: "flex",
           flexDirection: "column",
@@ -47,7 +47,7 @@ export function folioIconElement({
             width: "100%",
             height: size * 0.035,
             borderRadius: size * 0.02,
-            background: "#4E4C5E",
+            background: "#f08a6e",
           }}
         />
         <div
@@ -55,7 +55,7 @@ export function folioIconElement({
             width: "70%",
             height: size * 0.035,
             borderRadius: size * 0.02,
-            background: "#d9d7d1",
+            background: "#7fb0d6",
           }}
         />
       </div>

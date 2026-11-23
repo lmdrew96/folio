@@ -73,7 +73,7 @@ export function WeekRecap({ folderName }: { folderName: (id: Id<"folders">) => s
           <div>
             <h3 className="font-serif text-lg text-foreground">This week on your desk</h3>
             {recap && recap.length > 0 && (
-              <p className="text-xs text-foreground/50">
+              <p className="text-xs text-muted">
                 {recap.length} {recap.length === 1 ? "document" : "documents"}
                 {started > 0 ? ` · ${started} new` : ""}
                 {totalWords > 0 ? ` · about ${totalWords.toLocaleString()} words added` : ""}
@@ -81,13 +81,13 @@ export function WeekRecap({ folderName }: { folderName: (id: Id<"folders">) => s
             )}
           </div>
           {recap === undefined ? (
-            <p className="text-sm text-foreground/50">Looking back…</p>
+            <p className="text-sm text-muted">Looking back…</p>
           ) : recap.length === 0 ? (
-            <p className="text-sm text-foreground/60">Nothing touched in the last seven days. The desk will keep.</p>
+            <p className="text-sm text-muted">Nothing touched in the last seven days. The desk will keep.</p>
           ) : (
             ordered.map(([name, docs]) => (
               <section key={name} className="flex flex-col gap-1">
-                <h4 className="text-xs font-medium uppercase tracking-wide text-foreground/50">{name}</h4>
+                <h4 className="text-xs font-medium uppercase tracking-wide text-muted">{name}</h4>
                 <ul className="flex flex-col">
                   {docs.map((d) => (
                     <li key={d.id}>
@@ -96,8 +96,8 @@ export function WeekRecap({ folderName }: { folderName: (id: Id<"folders">) => s
                         className="flex items-baseline gap-2 rounded px-1.5 py-1 text-sm text-foreground/80 hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
                       >
                         <span className="min-w-0 flex-1 truncate">{d.title || "Untitled"}</span>
-                        {d.created && <span className="shrink-0 text-xs text-foreground/50">new</span>}
-                        <span className="shrink-0 text-xs text-foreground/50">
+                        {d.created && <span className="shrink-0 text-xs text-muted">new</span>}
+                        <span className="shrink-0 text-xs text-muted">
                           {d.wordsAdded > 0 ? `+${d.wordsAdded.toLocaleString()} words` : "edited"}
                         </span>
                       </Link>

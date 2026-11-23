@@ -156,7 +156,7 @@ function FolderActions({
         aria-expanded={open}
         aria-haspopup="menu"
         title="Folder actions"
-        className={`flex h-6 w-6 items-center justify-center rounded text-foreground/40 transition hover:bg-black/5 hover:text-foreground focus-visible:opacity-100 dark:hover:bg-white/10 ${
+        className={`flex h-6 w-6 items-center justify-center rounded text-muted transition hover:bg-black/5 hover:text-foreground focus-visible:opacity-100 dark:hover:bg-white/10 ${
           open ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-lg:opacity-100"
         }`}
       >
@@ -184,7 +184,7 @@ function FolderActions({
                 Move to…
               </button>
               <div className="border-t border-foreground/10 px-3 pb-1 pt-2">
-                <span className="text-xs text-foreground/50">Color</span>
+                <span className="text-xs text-muted">Color</span>
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   {FOLDER_COLORS.map((c) => (
                     <button
@@ -208,7 +208,7 @@ function FolderActions({
                     role="menuitemradio"
                     aria-checked={!folder.color}
                     onClick={() => act(() => setColor({ folderId: folder._id, color: null }))}
-                    className="rounded px-1.5 text-xs text-foreground/60 transition hover:text-foreground"
+                    className="rounded px-1.5 text-xs text-muted transition hover:text-foreground"
                   >
                     None
                   </button>
@@ -226,7 +226,7 @@ function FolderActions({
           )}
           {mode === "move" && (
             <>
-              <p className="px-3 pb-1 pt-1.5 text-xs text-foreground/50">Move “{folder.name}” to</p>
+              <p className="px-3 pb-1 pt-1.5 text-xs text-muted">Move “{folder.name}” to</p>
               <button
                 type="button"
                 role="menuitem"
@@ -263,7 +263,7 @@ function FolderActions({
                   type="button"
                   role="menuitem"
                   onClick={() => setMode("main")}
-                  className="rounded px-2 py-1 text-xs text-foreground/60 transition hover:text-foreground"
+                  className="rounded px-2 py-1 text-xs text-muted transition hover:text-foreground"
                 >
                   Cancel
                 </button>
@@ -320,7 +320,7 @@ function FolderButton({
     >
       <FolderDot color={folder.color} />
       <span className="min-w-0 flex-1 truncate">{folder.name}</span>
-      {count > 0 && <span className="text-xs tabular-nums text-foreground/40">{count}</span>}
+      {count > 0 && <span className="text-xs tabular-nums text-muted">{count}</span>}
     </button>
   );
 }
@@ -459,7 +459,7 @@ export function FolderSidebar({
                     }
                     aria-expanded={isOpen}
                     aria-label={`${isOpen ? "Collapse" : "Expand"} ${f.name}`}
-                    className="flex h-6 w-4 shrink-0 items-center justify-center text-foreground/40 transition hover:text-foreground"
+                    className="flex h-6 w-4 shrink-0 items-center justify-center text-muted transition hover:text-foreground"
                   >
                     <svg
                       width="10"
@@ -535,7 +535,7 @@ export function FolderSidebar({
             className={`${ROW} ${view.kind === "all" ? ROW_ACTIVE : ROW_IDLE}`}
           >
             <span className="min-w-0 flex-1 truncate">All documents</span>
-            <span className="text-xs tabular-nums text-foreground/40">{totalCount}</span>
+            <span className="text-xs tabular-nums text-muted">{totalCount}</span>
           </button>
         </li>
         <li>
@@ -548,7 +548,7 @@ export function FolderSidebar({
             className={`${ROW} ${view.kind === "unfiled" ? ROW_ACTIVE : ROW_IDLE}`}
           >
             <span className="min-w-0 flex-1 truncate">Unfiled</span>
-            <span className="text-xs tabular-nums text-foreground/40">{unfiledCount}</span>
+            <span className="text-xs tabular-nums text-muted">{unfiledCount}</span>
           </button>
         </li>
       </ul>
@@ -558,7 +558,7 @@ export function FolderSidebar({
         style={topLevelDrop.style}
         className="flex items-center justify-between gap-2 rounded-md px-2 py-0.5"
       >
-        <span className="text-xs font-medium uppercase tracking-wide text-foreground/45">Folders</span>
+        <span className="text-xs font-medium uppercase tracking-wide text-muted">Folders</span>
         <div className="flex items-center gap-1">
           {folders.length > 1 && (
             <button
@@ -566,7 +566,7 @@ export function FolderSidebar({
               onClick={() => onSortChange(sort === "az" ? "newest" : "az")}
               title={sort === "az" ? "Sorted A–Z — switch to newest first" : "Newest first — switch to A–Z"}
               aria-label={`Sort folders: ${sort === "az" ? "A to Z" : "newest first"}`}
-              className="rounded px-1.5 py-0.5 text-xs text-foreground/50 transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+              className="rounded px-1.5 py-0.5 text-xs text-muted transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
             >
               {sort === "az" ? "A–Z" : "Newest"}
             </button>
@@ -576,7 +576,7 @@ export function FolderSidebar({
             onClick={() => newFolder(null)}
             aria-label="New folder"
             title="New folder"
-            className="flex h-6 w-6 items-center justify-center rounded text-foreground/50 transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+            className="flex h-6 w-6 items-center justify-center rounded text-muted transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <path d="M12 5v14M5 12h14" />
@@ -592,16 +592,16 @@ export function FolderSidebar({
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter folders…"
-          className="mx-2 rounded-md border border-foreground/10 bg-transparent px-2 py-1 text-xs text-foreground outline-none placeholder:text-foreground/40 focus:ring-2 focus:ring-[var(--folio-attr-sibling)]"
+          className="mx-2 rounded-md border border-foreground/10 bg-transparent px-2 py-1 text-xs text-foreground outline-none placeholder:text-muted focus:ring-2 focus:ring-[var(--folio-attr-sibling)]"
         />
       )}
 
       {folders.length === 0 && creatingIn === undefined ? (
-        <p className="px-2 text-xs text-foreground/45">
+        <p className="px-2 text-xs text-muted">
           No folders yet. Use + to make one, then file documents into it from their cards.
         </p>
       ) : visible && visible.size === 0 ? (
-        <p className="px-2 text-xs text-foreground/45">No folders match.</p>
+        <p className="px-2 text-xs text-muted">No folders match.</p>
       ) : (
         renderLevel(null, 0)
       )}

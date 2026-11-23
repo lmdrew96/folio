@@ -53,7 +53,7 @@ const LINE_SPACINGS = [
 ];
 
 const BTN =
-  "flex h-8 min-w-8 items-center justify-center rounded-md px-1.5 text-sm leading-none text-foreground/60 transition hover:bg-black/5 hover:text-foreground disabled:opacity-40 dark:hover:bg-white/10";
+  "flex h-8 min-w-8 items-center justify-center rounded-md px-1.5 text-sm leading-none text-muted transition hover:bg-black/5 hover:text-foreground disabled:opacity-40 dark:hover:bg-white/10";
 const BTN_ACTIVE = "bg-black/10 text-foreground dark:bg-white/15";
 
 function ToolButton({
@@ -310,7 +310,7 @@ function SwatchPopover({
               onClear();
               close();
             }}
-            className="ml-1 flex h-5 items-center rounded px-1.5 text-xs text-foreground/60 transition hover:text-foreground"
+            className="ml-1 flex h-5 items-center rounded px-1.5 text-xs text-muted transition hover:text-foreground"
           >
             {clearLabel}
           </button>
@@ -453,7 +453,7 @@ function TableMenu({ editor, inTable }: { editor: Editor; inTable: boolean }) {
             className="flex flex-col gap-2"
           >
             <div className="flex items-center gap-2">
-              <label className="flex flex-col gap-0.5 text-xs text-foreground/50">
+              <label className="flex flex-col gap-0.5 text-xs text-muted">
                 Rows
                 <input
                   ref={rowsRef}
@@ -468,10 +468,10 @@ function TableMenu({ editor, inTable }: { editor: Editor; inTable: boolean }) {
                   className={fieldClass}
                 />
               </label>
-              <span aria-hidden="true" className="mt-4 text-foreground/40">
+              <span aria-hidden="true" className="mt-4 text-muted">
                 ×
               </span>
-              <label className="flex flex-col gap-0.5 text-xs text-foreground/50">
+              <label className="flex flex-col gap-0.5 text-xs text-muted">
                 Columns
                 <input
                   type="number"
@@ -503,7 +503,7 @@ function TableMenu({ editor, inTable }: { editor: Editor; inTable: boolean }) {
               <button
                 type="button"
                 onClick={close}
-                className="rounded px-2 py-1 text-xs text-foreground/60 transition hover:text-foreground"
+                className="rounded px-2 py-1 text-xs text-muted transition hover:text-foreground"
               >
                 Cancel
               </button>
@@ -567,7 +567,7 @@ function LineSpacingControl({
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => apply(o.value)}
               className={`flex w-full items-center justify-between px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/10 ${
-                current === o.value ? "text-foreground" : "text-foreground/60"
+                current === o.value ? "text-foreground" : "text-muted"
               }`}
             >
               <span>{o.label}</span>
@@ -622,7 +622,7 @@ function FontFamilyControl({
         >
           {FONT_GROUPS.map((group) => (
             <div key={group.category}>
-              <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-medium uppercase tracking-wide text-foreground/35">
+              <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted">
                 {group.label}
               </p>
               {FONT_OPTIONS.filter((f) => f.category === group.category).map((f) => (
@@ -637,7 +637,7 @@ function FontFamilyControl({
                   }}
                   style={{ fontFamily: `var(${f.variable}), ${f.fallback}` }}
                   className={`flex w-full items-center justify-between px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/10 ${
-                    current.key === f.key ? "text-foreground" : "text-foreground/60"
+                    current.key === f.key ? "text-foreground" : "text-muted"
                   }`}
                 >
                   <span>{f.label}</span>
@@ -713,7 +713,7 @@ function FontSizeControl({ editor, current }: { editor: Editor; current: string 
       placeholder="Size"
       aria-label="Font size in pixels"
       title="Font size (px) — Default when empty"
-      className="h-8 w-14 rounded-md bg-transparent px-1.5 text-sm text-foreground/80 outline-none transition placeholder:text-foreground/40 hover:bg-black/5 focus:bg-black/5 dark:hover:bg-white/10 dark:focus:bg-white/10"
+      className="h-8 w-14 rounded-md bg-transparent px-1.5 text-sm text-foreground/80 outline-none transition placeholder:text-muted hover:bg-black/5 focus:bg-black/5 dark:hover:bg-white/10 dark:focus:bg-white/10"
     />
   );
 }
@@ -768,7 +768,7 @@ function ExportMenu({ editor, title }: { editor: Editor; title: string }) {
               className="flex w-full items-center justify-between px-3 py-1.5 text-sm text-foreground/70 transition hover:bg-black/5 hover:text-foreground disabled:opacity-50 dark:hover:bg-white/10"
             >
               <span>{f.label}</span>
-              <span className="text-[11px] uppercase text-foreground/35">
+              <span className="text-[11px] uppercase text-muted">
                 {busy === f.id ? "…" : `.${f.ext}`}
               </span>
             </button>
@@ -823,19 +823,19 @@ function MoreMenu({
           className="absolute right-0 top-9 z-30 flex w-56 flex-col gap-2 rounded-lg border border-foreground/10 bg-[var(--folio-paper)] p-2 shadow-md"
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-foreground/50">Font</span>
+            <span className="text-xs text-muted">Font</span>
             <FontFamilyControl value={fontFamily} onChange={onFontFamilyChange} />
           </div>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-foreground/50">Size</span>
+            <span className="text-xs text-muted">Size</span>
             <FontSizeControl editor={editor} current={fontSize} />
           </div>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-foreground/50">Line spacing</span>
+            <span className="text-xs text-muted">Line spacing</span>
             <LineSpacingControl editor={editor} current={lineHeight} />
           </div>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-foreground/50">Export</span>
+            <span className="text-xs text-muted">Export</span>
             <ExportMenu editor={editor} title={title} />
           </div>
         </div>

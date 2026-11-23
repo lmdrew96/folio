@@ -44,7 +44,7 @@ export function UpdateToast() {
       <p className="text-sm font-medium text-foreground">
         {phase === "unsaved" ? "Couldn’t save your latest edit" : "A newer Folio is ready"}
       </p>
-      <p className="mt-0.5 text-xs text-foreground/60">
+      <p className="mt-0.5 text-xs text-muted">
         {phase === "unsaved"
           ? "Refreshing now would lose it. Check your connection, or refresh anyway."
           : "This tab is running an older version. Your work is saved first."}
@@ -65,7 +65,7 @@ export function UpdateToast() {
         </button>
         <button
           onClick={dismiss}
-          className="rounded-full px-3 py-1.5 text-xs font-medium text-foreground/60 transition hover:bg-black/5 dark:hover:bg-white/10"
+          className="rounded-full px-3 py-1.5 text-xs font-medium text-muted transition hover:bg-black/5 dark:hover:bg-white/10"
         >
           Not now
         </button>

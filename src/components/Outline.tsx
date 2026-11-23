@@ -63,7 +63,7 @@ export function Outline({ editor }: { editor: Editor }) {
         aria-expanded={open}
         aria-label="Document outline"
         title="Outline"
-        className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] text-foreground/60 shadow-sm transition hover:text-foreground"
+        className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] text-muted shadow-sm transition hover:text-foreground"
       >
         <svg
           width="14"

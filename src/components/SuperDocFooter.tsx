@@ -80,7 +80,7 @@ export function SuperDocFooter({
               ? "Words in selection / in document — click to hide"
               : "Hide word count"
         }
-        className="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-foreground/60 shadow-sm transition hover:text-foreground"
+        className="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-muted shadow-sm transition hover:text-foreground"
       >
         {!visible
           ? "Word count"
@@ -94,7 +94,7 @@ export function SuperDocFooter({
         <InputPopover
           label={doc?.wordGoal ? "Edit word goal" : "Set a word goal"}
           trigger={doc?.wordGoal ? "Edit goal" : "Set goal"}
-          triggerClassName="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-2 py-1 text-xs text-foreground/40 shadow-sm transition hover:text-foreground"
+          triggerClassName="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-2 py-1 text-xs text-muted shadow-sm transition hover:text-foreground"
           fieldLabel="Word count goal"
           placeholder="e.g. 2000"
           inputMode="numeric"
@@ -114,7 +114,7 @@ export function SuperDocFooter({
         <button
           onClick={pagePreview.toggle}
           aria-pressed={pagePreview.active}
-          className="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-foreground/60 shadow-sm transition hover:text-foreground"
+          className="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-muted shadow-sm transition hover:text-foreground"
         >
           {pagePreview.active ? "Edit" : "Page preview"}
         </button>
@@ -161,7 +161,7 @@ function OutlineMenu({
         aria-expanded={open}
         aria-label="Document outline"
         title="Outline"
-        className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] text-foreground/60 shadow-sm transition hover:text-foreground"
+        className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] text-muted shadow-sm transition hover:text-foreground"
       >
         <svg
           width="14"
@@ -254,7 +254,7 @@ function ExportMenu({ onExport }: { onExport: (format: ExportFormat) => Promise<
         }}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-foreground/60 shadow-sm transition hover:text-foreground"
+        className="rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3 py-1 text-xs text-muted shadow-sm transition hover:text-foreground"
       >
         Export
       </button>
@@ -274,11 +274,11 @@ function ExportMenu({ onExport }: { onExport: (format: ExportFormat) => Promise<
               className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-sm text-foreground/70 transition hover:bg-black/5 hover:text-foreground disabled:opacity-50 dark:hover:bg-white/10"
             >
               <span>{busy === f.id ? "Exporting…" : f.label}</span>
-              <span className="text-xs text-foreground/40">.{f.ext}</span>
+              <span className="text-xs text-muted">.{f.ext}</span>
             </button>
           ))}
           {failed && (
-            <p className="px-2 pt-1 text-xs text-foreground/60" role="alert">
+            <p className="px-2 pt-1 text-xs text-muted" role="alert">
               That export didn&apos;t work — try again.
             </p>
           )}

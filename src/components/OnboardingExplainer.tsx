@@ -37,7 +37,7 @@ export function OnboardingExplainer({ documentId }: { documentId: Id<"documents"
       <button
         type="button"
         onClick={dismiss}
-        className="self-start text-foreground/50 underline-offset-2 hover:text-foreground hover:underline"
+        className="self-start text-muted underline-offset-2 hover:text-foreground hover:underline"
       >
         Got it
       </button>

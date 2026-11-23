@@ -1,4 +1,4 @@
-// Folio's curated prose-font list — 4 serif, 4 sans, 2 mono. Each entry's
+// Folio's curated prose-font list — 5 serif, 4 sans, 2 mono. Each entry's
 // `variable` matches a CSS custom property loaded once in layout.tsx via
 // next/font/google; picking a font just swaps which one --folio-prose-font
 // resolves to (see globals.css), no per-font code path needed elsewhere.
@@ -11,6 +11,7 @@ export type FontOption = {
 };
 
 export const FONT_OPTIONS: FontOption[] = [
+  { key: "literata", label: "Literata", category: "serif", variable: "--font-literata", fallback: "Georgia, serif" },
   { key: "fraunces", label: "Fraunces", category: "serif", variable: "--font-fraunces", fallback: "Georgia, serif" },
   { key: "newsreader", label: "Newsreader", category: "serif", variable: "--font-newsreader", fallback: "Georgia, serif" },
   { key: "lora", label: "Lora", category: "serif", variable: "--font-lora", fallback: "Georgia, serif" },
@@ -25,14 +26,14 @@ export const FONT_OPTIONS: FontOption[] = [
   { key: "jetbrains-mono", label: "JetBrains Mono", category: "mono", variable: "--font-jetbrains-mono", fallback: "ui-monospace, monospace" },
 ];
 
-export const DEFAULT_FONT_KEY = "fraunces";
+export const DEFAULT_FONT_KEY = "literata";
 
 export function fontOption(key: string | undefined): FontOption {
   return FONT_OPTIONS.find((f) => f.key === key) ?? FONT_OPTIONS[0];
 }
 
 /** CSS `font-family` value for a stored font key, ready to assign to
- *  --folio-prose-font. Falls back to the default (Fraunces) for an unknown
+ *  --folio-prose-font. Falls back to the default (Literata) for an unknown
  *  or missing key. */
 export function fontCssValue(key: string | undefined): string {
   const opt = fontOption(key);

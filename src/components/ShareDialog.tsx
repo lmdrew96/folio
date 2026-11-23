@@ -86,7 +86,7 @@ export function ShareDialog({
           <button
             onClick={onClose}
             aria-label="Close"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/60 transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
           >
             <svg
               width="16"
@@ -116,7 +116,7 @@ export function ShareDialog({
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             placeholder="Their email…"
-            className="min-w-0 flex-1 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3.5 py-1.5 text-sm text-foreground outline-none transition placeholder:text-foreground/40 focus:ring-2 focus:ring-[var(--folio-attr-sibling)]"
+            className="min-w-0 flex-1 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3.5 py-1.5 text-sm text-foreground outline-none transition placeholder:text-muted focus:ring-2 focus:ring-[var(--folio-attr-sibling)]"
           />
           <button
             type="submit"
@@ -143,7 +143,7 @@ export function ShareDialog({
                 >
                   <span className="min-w-0 truncate">{f.displayName ?? f.email}</span>
                   {f.displayName && (
-                    <span className="shrink-0 truncate text-xs text-foreground/40">
+                    <span className="shrink-0 truncate text-xs text-muted">
                       {f.email}
                     </span>
                   )}
@@ -157,9 +157,9 @@ export function ShareDialog({
 
         <ul className="flex flex-col gap-2">
           {collaborators === undefined ? (
-            <li className="text-sm text-foreground/50">Loading…</li>
+            <li className="text-sm text-muted">Loading…</li>
           ) : collaborators.length === 0 ? (
-            <li className="text-sm text-foreground/50">
+            <li className="text-sm text-muted">
               Not shared with anyone yet.
             </li>
           ) : (
@@ -171,14 +171,14 @@ export function ShareDialog({
                 <span className="min-w-0 truncate text-foreground/80">
                   {c.displayName ?? c.invitedEmail}
                   {!c.accepted && (
-                    <span className="ml-1.5 text-xs text-foreground/40">
+                    <span className="ml-1.5 text-xs text-muted">
                       (pending)
                     </span>
                   )}
                 </span>
                 <button
                   onClick={() => revokeShare({ documentId, shareId: c._id })}
-                  className="shrink-0 text-xs text-foreground/50 underline-offset-2 hover:text-foreground hover:underline"
+                  className="shrink-0 text-xs text-muted underline-offset-2 hover:text-foreground hover:underline"
                 >
                   Remove
                 </button>

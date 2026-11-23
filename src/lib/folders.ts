@@ -1,15 +1,16 @@
 import type { Id } from "@convex/_generated/dataModel";
 
-/** Curated folder colors — Folio's six palette hexes, stored by key so the
- *  theme can lift them for the dark desk (see --folio-folder-* in
- *  globals.css). Mirrored by COLOR_KEYS in convex/folders.ts. */
+/** Curated folder colors, stored by key so each theme can set its own shade
+ *  (see --folio-folder-* in globals.css). The keys predate the Squid Ink
+ *  theme and keep their old names so stored folders need no migration.
+ *  Mirrored by COLOR_KEYS in convex/folders.ts. */
 export const FOLDER_COLORS = [
-  { key: "poppy", name: "Poppy" },
-  { key: "mecca", name: "Mecca" },
-  { key: "usugaki", name: "Usugaki" },
-  { key: "herbs", name: "Herbs" },
-  { key: "indigo", name: "Indigo" },
-  { key: "violet", name: "Violet" },
+  { key: "poppy", name: "Coral" },
+  { key: "indigo", name: "Ink blue" },
+  { key: "herbs", name: "Sea green" },
+  { key: "usugaki", name: "Sand" },
+  { key: "violet", name: "Lilac" },
+  { key: "mecca", name: "Kelp" },
 ] as const;
 
 export const folderColorVar = (color: string | undefined): string =>

@@ -725,11 +725,11 @@ export function SuperDocEditor({
   };
 
   if (claimError) {
-    return <p className="px-6 py-10 text-foreground/60">{claimError}</p>;
+    return <p className="px-6 py-10 text-muted">{claimError}</p>;
   }
   if (!document) {
     return (
-      <p className="px-6 py-10 text-foreground/50">
+      <p className="px-6 py-10 text-muted">
         {shownPhase === "busy" ? "Another tab is moving this document to the new editor…" : "Opening…"}
       </p>
     );
@@ -771,7 +771,7 @@ export function SuperDocEditor({
       {shownPhase !== "none" && (
         // Covers the editor (toolbar too) so nothing is typed mid-check.
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-[var(--folio-backdrop)]/90">
-          <p className="text-sm text-foreground/60" aria-live="polite">
+          <p className="text-sm text-muted" aria-live="polite">
             {shownPhase === "stuck"
               ? "This document couldn't be moved to the new editor. Reload to try again."
               : shownPhase === "busy"

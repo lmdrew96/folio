@@ -138,7 +138,7 @@ export function ClaudeReaction({ documentId }: { documentId: Id<"documents"> }) 
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold">{label}</h2>
-          <p className="truncate text-[11px] text-black/40 dark:text-white/40">
+          <p className="truncate text-[11px] text-muted">
             your digital writing partner
           </p>
         </div>
@@ -164,7 +164,7 @@ export function ClaudeReaction({ documentId }: { documentId: Id<"documents"> }) 
             key={m.id}
             className="min-w-0 rounded-md border border-black/5 bg-white/30 p-3 dark:border-white/10 dark:bg-white/[0.03]"
           >
-            <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] text-black/40 dark:text-white/40">
+            <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] text-muted">
               <span className="min-w-0 truncate">
                 {speakerLabel(m, label, userId)}
                 {m.kind === "reaction" && m.summary ? ` · reacted to ${m.summary}` : ""}
@@ -178,14 +178,14 @@ export function ClaudeReaction({ documentId }: { documentId: Id<"documents"> }) 
 
         {streaming && (
           <article className="min-w-0 rounded-md border border-black/5 bg-white/40 p-3 dark:border-white/10 dark:bg-white/5">
-            <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-black/40 dark:text-white/40">
-              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#CF4A4D]" />
+            <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-muted">
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-coral" />
               <span className="font-medium">{label} is replying…</span>
             </div>
             {streaming.text ? (
               <Markdown>{streaming.text}</Markdown>
             ) : (
-              <p className="text-sm text-black/40 dark:text-white/40">
+              <p className="text-sm text-muted">
                 {streaming.mode === "reaction"
                   ? "Reading what changed…"
                   : streaming.mode === "check"
@@ -209,7 +209,7 @@ export function ClaudeReaction({ documentId }: { documentId: Id<"documents"> }) 
         )}
 
         {empty && (
-          <p className="text-sm text-black/40 dark:text-white/40">
+          <p className="text-sm text-muted">
             Ask {label} what she thinks, or have her react to the latest changes. She remembers
             this conversation, turn by turn.
           </p>
@@ -362,7 +362,7 @@ function ApplicationStrip({
     if (!app) {
       return (
         <div className="px-4 pb-2">
-          <button onClick={open} className="text-xs text-black/50 underline-offset-2 hover:underline dark:text-white/50">
+          <button onClick={open} className="text-xs text-muted underline-offset-2 hover:underline">
             Writing this for an application? Add the prompt
           </button>
         </div>
@@ -370,7 +370,7 @@ function ApplicationStrip({
     }
     return (
       <div className="mx-4 mb-2 flex min-w-0 items-center gap-2 rounded-md border border-black/5 px-3 py-2 dark:border-white/10">
-        <div className="min-w-0 flex-1 text-xs text-black/60 dark:text-white/60">
+        <div className="min-w-0 flex-1 text-xs text-muted">
           <p className="font-medium text-foreground/80">
             Application{app.wordLimit ? ` · ${app.wordLimit.toLocaleString()}-word limit` : ""}
           </p>

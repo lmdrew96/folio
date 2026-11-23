@@ -22,24 +22,24 @@ type Item = {
 };
 
 const KINDS = {
-  added: { label: "Added", className: "bg-[#CF4A4D]/15 text-[#72292a]" },
-  edited: { label: "Edited", className: "bg-[#DC7668]/20 text-[#794139]" },
-  deleted: { label: "Deleted", className: "bg-[#4E4C5E]/20 text-[#424150]" },
+  added: { label: "Added", className: "bg-coral/15 text-foreground" },
+  edited: { label: "Edited", className: "bg-ink-blue/15 text-foreground" },
+  deleted: { label: "Deleted", className: "bg-chip text-muted" },
 } as const;
 
 // Word-level before/after for an edited block — removed spans strike through
-// in the same indigo used for the "Deleted" badge, added spans highlight in
-// the same poppy used for "Added", so the diff reuses the panel's own palette.
+// in the muted ink of the "Deleted" badge, added spans take the coral
+// highlight wash, so the diff reuses the panel's own palette.
 function DiffText({ parts }: { parts: DiffPart[] }) {
   return (
     <p className="line-clamp-3 break-words text-sm text-black/70 dark:text-white/70">
       {parts.map((part, i) =>
         part.removed ? (
-          <span key={i} className="text-[#4E4C5E] line-through dark:text-[#afaeb7]">
+          <span key={i} className="text-muted line-through">
             {part.value}
           </span>
         ) : part.added ? (
-          <span key={i} className="bg-[#CF4A4D]/20 text-[#72292a] dark:bg-[#CF4A4D]/25 dark:text-[#e9aeaf]">
+          <span key={i} className="bg-highlight text-foreground">
             {part.value}
           </span>
         ) : (
@@ -60,7 +60,7 @@ function Row({ item, kind }: { item: Item; kind: keyof typeof KINDS }) {
         >
           {k.label}
         </span>
-        <span className="min-w-0 truncate text-[11px] text-black/40 dark:text-white/40">
+        <span className="min-w-0 truncate text-[11px] text-muted">
           {item.authorName ?? (item.author ? "Collaborator" : "Nae")} ·{" "}
           {relativeTime(item.at)}
         </span>
@@ -126,7 +126,7 @@ export function DiffPanel({ documentId }: { documentId: Id<"documents"> }) {
         <button
           onClick={caughtUp}
           disabled={marking}
-          className="text-xs font-medium text-black/60 underline-offset-2 hover:underline disabled:opacity-50 dark:text-white/60"
+          className="text-xs font-medium text-muted underline-offset-2 hover:underline disabled:opacity-50"
         >
           {marking ? "…" : "Mark caught up"}
         </button>
@@ -134,14 +134,14 @@ export function DiffPanel({ documentId }: { documentId: Id<"documents"> }) {
 
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {diff === undefined ? (
-          <p className="text-sm text-black/40 dark:text-white/40">Loading…</p>
+          <p className="text-sm text-muted">Loading…</p>
         ) : !diff.hasWatermark ? (
           // Momentary: opening the document sets the baseline (ensureVisited).
-          <p className="text-sm text-black/50 dark:text-white/50">
+          <p className="text-sm text-muted">
             Anything added, edited, or deleted from now on shows up here.
           </p>
         ) : total === 0 ? (
-          <p className="text-sm text-black/50 dark:text-white/50">
+          <p className="text-sm text-muted">
             You&apos;re all caught up — nothing has changed since.
           </p>
         ) : (

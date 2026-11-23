@@ -125,7 +125,7 @@ function DeleteControl({
         <button
           onClick={() => setConfirming(false)}
           disabled={busy}
-          className="rounded-full px-2.5 py-1 text-xs text-foreground/60 hover:text-foreground disabled:opacity-50"
+          className="rounded-full px-2.5 py-1 text-xs text-muted hover:text-foreground disabled:opacity-50"
         >
           Cancel
         </button>
@@ -138,7 +138,7 @@ function DeleteControl({
       onClick={() => setConfirming(true)}
       aria-label={`Delete ${title}`}
       title="Delete document"
-      className="absolute right-2 top-2 z-10 rounded-full p-1.5 text-foreground/40 opacity-60 transition hover:bg-black/5 hover:text-foreground/80 hover:opacity-100 focus-visible:opacity-100 dark:hover:bg-white/10"
+      className="absolute right-2 top-2 z-10 rounded-full p-1.5 text-muted opacity-60 transition hover:bg-black/5 hover:text-foreground/80 hover:opacity-100 focus-visible:opacity-100 dark:hover:bg-white/10"
     >
       <svg
         width="15"
@@ -227,7 +227,7 @@ function SubfolderTile({
     >
       <FolderDot color={folder.color} />
       <span className="min-w-0 flex-1 truncate font-serif text-base text-foreground">{folder.name}</span>
-      <span className="shrink-0 text-xs text-foreground/45">
+      <span className="shrink-0 text-xs text-muted">
         {[
           inside > 0 && `${inside} doc${inside === 1 ? "" : "s"}`,
           nested > 0 && `${nested} folder${nested === 1 ? "" : "s"}`,
@@ -294,7 +294,7 @@ export function DocList() {
   if (docs === undefined || folderRows === undefined) {
     return (
       <>
-        <p className="px-6 py-16 text-center text-foreground/50">Loading…</p>
+        <p className="px-6 py-16 text-center text-muted">Loading…</p>
         {toast}
       </>
     );
@@ -308,7 +308,7 @@ export function DocList() {
             <h2 className="font-serif text-2xl text-foreground">
               Nothing on the desk yet
             </h2>
-            <p className="max-w-sm text-balance text-foreground/60">
+            <p className="max-w-sm text-balance text-muted">
               Start your first document — Folio will track what changes each
               time you come back to it.
             </p>
@@ -402,7 +402,7 @@ export function DocList() {
           <div className="mb-6 flex items-start justify-between gap-4">
             <div className="min-w-0">
               {view.kind === "folder" && (
-                <nav aria-label="Breadcrumb" className="mb-1 flex flex-wrap items-center gap-1 text-xs text-foreground/50">
+                <nav aria-label="Breadcrumb" className="mb-1 flex flex-wrap items-center gap-1 text-xs text-muted">
                   <button type="button" onClick={() => selectView({ kind: "all" })} className="hover:text-foreground">
                     All documents
                   </button>
@@ -469,7 +469,7 @@ export function DocList() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={currentFolder ? `Search in ${currentFolder.name}…` : "Search documents…"}
-              className="w-full max-w-xs rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-4 py-2 text-sm text-foreground outline-none transition placeholder:text-foreground/40 focus:ring-2 focus:ring-[var(--folio-attr-sibling)]"
+              className="w-full max-w-xs rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-4 py-2 text-sm text-foreground outline-none transition placeholder:text-muted focus:ring-2 focus:ring-[var(--folio-attr-sibling)]"
             />
             {showFilter && (
               <div role="group" aria-label="Show" className="flex items-center gap-0.5 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] p-0.5">
@@ -485,7 +485,7 @@ export function DocList() {
                     className={`rounded-full px-3 py-1 text-xs transition ${
                       activeFilter === key
                         ? "bg-black/10 text-foreground dark:bg-white/15"
-                        : "text-foreground/60 hover:text-foreground"
+                        : "text-muted hover:text-foreground"
                     }`}
                   >
                     {FILTERS[key]}
@@ -493,7 +493,7 @@ export function DocList() {
                 ))}
               </div>
             )}
-            <label className="flex items-center gap-2 text-xs text-foreground/50 sm:ml-auto">
+            <label className="flex items-center gap-2 text-xs text-muted sm:ml-auto">
               Sort
               <select
                 value={sort}
@@ -531,7 +531,7 @@ export function DocList() {
 
           {filtered.length === 0 ? (
             subfolders.length === 0 && (
-              <p className="py-10 text-center text-foreground/50">
+              <p className="py-10 text-center text-muted">
                 {trimmedQuery
                   ? <>No documents match &ldquo;{query.trim()}&rdquo;.</>
                   : activeFilter === "shared"
@@ -573,7 +573,7 @@ export function DocList() {
                             </span>
                           )}
                         </div>
-                        <div className="mt-3 flex items-center justify-between gap-2 text-sm text-foreground/50">
+                        <div className="mt-3 flex items-center justify-between gap-2 text-sm text-muted">
                           <span>
                             {sort === "newest" || sort === "oldest"
                               ? `created ${relativeTime(doc.createdAt)}`

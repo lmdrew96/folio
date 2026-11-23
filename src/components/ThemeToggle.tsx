@@ -89,7 +89,7 @@ export function ThemeToggle() {
         aria-expanded={open}
         aria-haspopup="menu"
         title="Theme"
-        className="flex h-8 w-8 items-center justify-center rounded-md text-foreground/60 transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+        className="flex h-8 w-8 items-center justify-center rounded-md text-muted transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
       >
         {mounted ? current.icon : MonitorIcon}
       </button>
@@ -111,7 +111,7 @@ export function ThemeToggle() {
               className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition hover:bg-black/5 dark:hover:bg-white/10 ${
                 mounted && theme === o.value
                   ? "text-foreground"
-                  : "text-foreground/60"
+                  : "text-muted"
               }`}
             >
               <span className="flex h-4 w-4 items-center justify-center">

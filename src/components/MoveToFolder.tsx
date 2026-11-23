@@ -47,7 +47,7 @@ export function MoveToFolder({
         aria-expanded={open}
         aria-haspopup="menu"
         title="Move to folder"
-        className="rounded-full p-1.5 text-foreground/40 opacity-60 transition hover:bg-black/5 hover:text-foreground/80 hover:opacity-100 focus-visible:opacity-100 dark:hover:bg-white/10"
+        className="rounded-full p-1.5 text-muted opacity-60 transition hover:bg-black/5 hover:text-foreground/80 hover:opacity-100 focus-visible:opacity-100 dark:hover:bg-white/10"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
@@ -72,7 +72,7 @@ export function MoveToFolder({
             Unfiled
           </button>
           {destinations.length === 0 ? (
-            <p className="px-3 py-1.5 text-xs text-foreground/50">
+            <p className="px-3 py-1.5 text-xs text-muted">
               No folders yet — make one with + in the folder list.
             </p>
           ) : (

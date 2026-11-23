@@ -427,7 +427,7 @@ export function BlockNoteEditor({
     editor.focus();
   };
 
-  if (openError) return <p className="px-6 py-10 text-foreground/60">{openError}</p>;
+  if (openError) return <p className="px-6 py-10 text-muted">{openError}</p>;
 
   return (
     <div className="folio-blocknote relative flex min-h-0 flex-1 flex-col">
@@ -452,7 +452,7 @@ export function BlockNoteEditor({
       {phase !== "none" && (
         // Covers the editor so nothing is typed mid-check.
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-[var(--folio-backdrop)]/90">
-          <p className="text-sm text-foreground/60" aria-live="polite">
+          <p className="text-sm text-muted" aria-live="polite">
             {phase === "failed"
               ? "This document couldn't be moved to the new editor. Reopening it as it was…"
               : phase === "busy"

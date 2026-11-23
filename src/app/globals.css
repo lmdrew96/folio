@@ -6,89 +6,113 @@
    "System" still resolves to the OS preference — next-themes sets the class. */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ── Folio's own look: calm, paper-forward, distinct from the Lab Notebook
-   dashboards. Warm palette — Valiant Poppy / Mecca Orange / Usugaki / Dried
-   Herbs / Kachi Indigo / Dulcet Violet — a small Folio-only set. ── */
+/* ── Folio's own look: "Squid Ink" (dark) and "Mist" (light). Moody, cozy,
+   hand-made and inky: a deep sea-green desk, a page a step lighter, cool
+   blue-white ink, coral for the writer's hand and ink-blue for Cleo's.
+   Every text token clears 4.5:1 on desk, bar, page and chip in both modes. ── */
 :root {
-  --background: #f9f1eb; /* brand surface — warm cream paper, never #fff */
-  --foreground: #20161e; /* brand ink — soft near-black plum, never #000 */
+  /* Mist — light */
+  --background: #e2eaea; /* the desk */
+  --foreground: #13282b; /* ink */
+  --muted: #455d60; /* secondary text — use this, not a dimmed foreground */
 
-  /* The desk + the page. Backdrop is a soft warm-taupe desk; the sheet sits
-     brighter on top of it so you can see where the paper ends. */
-  --folio-backdrop: #d9d7d1; /* soft warm-taupe desk */
-  --folio-paper: #fff6f2; /* the sheet — bright, near-white peach */
-  --folio-paper-edge: rgba(32, 22, 30, 0.06); /* hairline page edge */
+  /* The desk, the toolbar bar, the page, and a selected/chip fill. */
+  --folio-backdrop: #e2eaea;
+  --folio-bar: #e8efef;
+  --folio-paper: #f6fafa;
+  --folio-chip: #d6e1e1;
+  --folio-line: rgba(19, 40, 43, 0.14); /* hairlines and the page edge */
+  --folio-paper-edge: var(--folio-line);
   /* Ink for highlighted text — the light-theme ink in both themes, since a
      highlight stays bright in the dark (SuperDoc editor). */
-  --folio-ink-on-highlight: #20161e;
-  --folio-paper-shadow:
-    0 1px 2px rgba(32, 22, 30, 0.04), 0 14px 40px -16px rgba(32, 22, 30, 0.18);
+  --folio-ink-on-highlight: #13282b;
+  --folio-paper-shadow: 0 0 0 1px var(--folio-line), 0 18px 44px -22px rgba(0, 0, 0, 0.25);
 
-  /* Attribution author colors — brand-fixed, legible on both themes. */
-  --folio-attr-nae: #cf4a4d; /* valiant poppy — any human writer (Nae or a collaborator) */
-  --folio-attr-sibling: #4e4c5e; /* kachi indigo — Claude siblings (Cleo, Coru, …) */
+  /* Accents. Coral is the primary fill (with --folio-on-coral for its label)
+     and the human hand; ink-blue is links, the word count and Cleo's hand. */
+  --folio-coral: #a8432a;
+  --folio-on-coral: #f6fafa;
+  --folio-ink-blue: #2d5f86;
+  --folio-highlight: rgba(240, 138, 110, 0.35);
 
-  /* Folder colors — the six Folio palette hexes (src/lib/folders.ts keys). */
-  --folio-folder-poppy: #cf4a4d;
-  --folio-folder-mecca: #dc7668;
-  --folio-folder-usugaki: #ffa67a;
-  --folio-folder-herbs: #817965;
-  --folio-folder-indigo: #4e4c5e;
-  --folio-folder-violet: #572f48;
+  /* Attribution ticks. */
+  --folio-attr-nae: var(--folio-coral); /* any human writer (Nae or a collaborator) */
+  --folio-attr-sibling: var(--folio-ink-blue); /* Claude siblings (Cleo, Coru, …) */
 
-  /* The prose column's font — defaults to the brand serif, overridden inline
-     per-document (see DocEditor.tsx) from the curated list in src/lib/fonts.ts. */
-  --folio-prose-font: var(--font-serif);
+  /* Folder colors. The stored keys (src/lib/folders.ts, convex/folders.ts)
+     predate this theme, so they keep their old names: poppy → coral,
+     indigo → ink-blue, herbs → sea-green, usugaki → sand, violet → lilac-grey,
+     mecca → kelp. Light mode takes deeper shades so the dots read on Mist. */
+  --folio-folder-poppy: #a8432a;
+  --folio-folder-indigo: #2d5f86;
+  --folio-folder-herbs: #2f7d68;
+  --folio-folder-usugaki: #8a6d2c;
+  --folio-folder-violet: #5e5a9e;
+  --folio-folder-mecca: #3f6f5e;
+
+  /* The prose column's font — Literata by default, overridden inline
+     per-document from the curated list in src/lib/fonts.ts. */
+  --folio-prose-font: var(--font-literata);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-space-grotesk);
-  --font-serif: var(--font-fraunces);
+  --color-muted: var(--muted);
+  --color-desk: var(--folio-backdrop);
+  --color-bar: var(--folio-bar);
+  --color-page: var(--folio-paper);
+  --color-chip: var(--folio-chip);
+  --color-line: var(--folio-line);
+  --color-coral: var(--folio-coral);
+  --color-on-coral: var(--folio-on-coral);
+  --color-ink-blue: var(--folio-ink-blue);
+  --color-highlight: var(--folio-highlight);
+  /* Chrome and prose: Literata. Headings, titles and the wordmark: IM Fell
+     English, which Google ships in Latin only — Literata (latin-ext) follows
+     it so a title with ă/ș/ț still renders those letters calmly. */
+  --font-sans: var(--font-literata), Georgia, serif;
+  --font-serif: var(--font-im-fell), var(--font-literata), Georgia, serif;
   --font-mono: var(--font-geist-mono);
 }
 
 .dark {
-  /* Low-contrast dark: deep plum canvas, warm dusty ink — not white. */
-  --background: #20161e;
-  --foreground: #ddd7dc;
+  /* Squid Ink — dark */
+  --background: #0f1a1c;
+  --foreground: #dcebea;
+  --muted: #9fb5b4;
 
-  /* In the dark the sheet is *lifted* above the desk (lighter, not shadowed)
-     so the page edge still reads without harsh contrast. */
-  --folio-backdrop: #1a1218; /* deep desk */
-  --folio-paper: #362d35; /* sheet, a step lighter than the desk */
-  --folio-paper-edge: rgba(255, 255, 255, 0.06);
-  --folio-paper-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.3), 0 18px 44px -18px rgba(0, 0, 0, 0.6);
+  --folio-backdrop: #0f1a1c;
+  --folio-bar: #122023;
+  --folio-paper: #152326;
+  --folio-chip: #1f3135;
+  --folio-line: rgba(220, 235, 234, 0.12);
+  --folio-paper-shadow: 0 0 0 1px var(--folio-line), 0 18px 44px -22px rgba(0, 0, 0, 0.45);
 
-  /* Lighten the attribution accents for dark paper — the raw brand hexes are
-     too deep to read as a thin tick mark once the desk itself goes dark. */
-  --folio-attr-nae: #e9aeaf;
-  --folio-attr-sibling: #afaeb7;
+  --folio-coral: #f08a6e;
+  --folio-on-coral: #0f1a1c;
+  --folio-ink-blue: #7fb0d6;
+  --folio-highlight: rgba(240, 138, 110, 0.28);
 
-  /* Folder colors, lifted for the dark desk the same way — indigo and violet
-     would otherwise vanish into it. */
-  --folio-folder-poppy: #e9aeaf;
-  --folio-folder-mecca: #efb3a9;
-  --folio-folder-usugaki: #ffc9a8;
-  --folio-folder-herbs: #bdb7a6;
-  --folio-folder-indigo: #afaeb7;
-  --folio-folder-violet: #c9a3bc;
+  --folio-folder-poppy: #f08a6e;
+  --folio-folder-indigo: #7fb0d6;
+  --folio-folder-herbs: #7fcfb8;
+  --folio-folder-usugaki: #d8c08a;
+  --folio-folder-violet: #a9a6d6;
+  --folio-folder-mecca: #5f9c86;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
+  font-family: var(--font-sans);
 }
 
 /* The page itself — a sheet floating on the desk. Standard margins come from
    the padding; the hairline edge + soft shadow show where the paper ends. */
 .folio-paper {
   background: var(--folio-paper);
-  border: 1px solid var(--folio-paper-edge);
-  border-radius: 24px;
+  border-radius: 10px;
   box-shadow: var(--folio-paper-shadow);
   padding: clamp(2.5rem, 4vw, 4rem) clamp(1.5rem, 5vw, 4rem);
 }
@@ -96,8 +120,7 @@ body {
 /* A document on the desk — a small sheet. Same material as the page, scaled. */
 .folio-card {
   background: var(--folio-paper);
-  border: 1px solid var(--folio-paper-edge);
-  border-radius: 16px;
+  border-radius: 10px;
   box-shadow: var(--folio-paper-shadow);
   transition: transform 140ms ease;
 }
@@ -107,22 +130,22 @@ body {
   }
 }
 
-/* ── The writing surface IS the serif — Fraunces at a longform reading rhythm.
-   Color vars override the typography plugin's grays with calm, on-brand ink. ── */
+/* ── The writing surface IS the serif — Literata at a longform reading rhythm.
+   Color vars override the typography plugin's grays with the theme's ink, so
+   one block serves both modes. ── */
 .ProseMirror {
   font-family: var(--folio-prose-font), Georgia, serif;
-  font-variation-settings: "SOFT" 0, "WONK" 1;
 
-  --tw-prose-body: #443b42;
-  --tw-prose-headings: #20161e;
-  --tw-prose-bold: #20161e;
-  --tw-prose-links: #572f48;
-  --tw-prose-quotes: #572f48;
-  --tw-prose-quote-borders: #e6e4e0;
-  --tw-prose-hr: #efeeeb;
-  --tw-prose-code: #572f48;
-  --tw-prose-bullets: #4e4c5e;
-  --tw-prose-counters: #4e4c5e;
+  --tw-prose-body: var(--foreground);
+  --tw-prose-headings: var(--foreground);
+  --tw-prose-bold: var(--foreground);
+  --tw-prose-links: var(--folio-ink-blue);
+  --tw-prose-quotes: var(--muted);
+  --tw-prose-quote-borders: var(--folio-line);
+  --tw-prose-hr: var(--folio-line);
+  --tw-prose-code: var(--folio-ink-blue);
+  --tw-prose-bullets: var(--muted);
+  --tw-prose-counters: var(--muted);
 }
 
 /* Each block tier's real default size. prose-lg's own em-relative sizes (an h1
@@ -146,19 +169,6 @@ body {
 }
 .ProseMirror h4 {
   font-size: 12px;
-}
-
-.dark .ProseMirror {
-  --tw-prose-body: #d0cacf;
-  --tw-prose-headings: #f1eff1;
-  --tw-prose-bold: #f1eff1;
-  --tw-prose-links: #b8a8b2;
-  --tw-prose-quotes: #b8a8b2;
-  --tw-prose-quote-borders: #3f373e;
-  --tw-prose-hr: #1d141b;
-  --tw-prose-code: #b8a8b2;
-  --tw-prose-bullets: #afaeb7;
-  --tw-prose-counters: #afaeb7;
 }
 
 /* Theme-aware highlights. The mark carries a semantic name (data-highlight);
@@ -518,16 +528,23 @@ html body .bn-container[data-color-scheme] {
 }
 .folio-blocknote .bn-editor {
   font-family: var(--folio-prose-font);
-  font-size: 1.0625rem;
-  line-height: 1.7;
+  font-size: 1.125rem;
+  line-height: 1.75;
 }
-/* Calm heading tiers for longform — BlockNote's defaults (3em/2em) shout. */
+/* Links are ink-blue. */
+.folio-blocknote .bn-editor a {
+  color: var(--folio-ink-blue);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+/* Calm heading tiers for longform — BlockNote's defaults (3em/2em) shout.
+   Headings are set in IM Fell English (one weight, so no faux bold). */
 .folio-blocknote .bn-block-content[data-content-type="heading"] {
-  font-family: var(--folio-prose-font);
+  font-family: var(--font-serif);
 }
 .folio-blocknote .bn-block-content[data-content-type="heading"] :is(h1, h2, h3, h4, h5, h6) {
-  font-weight: 600;
-  line-height: 1.3;
+  font-weight: 400;
+  line-height: 1.2;
 }
 .folio-blocknote .bn-block-content[data-content-type="heading"] h1 {
   font-size: 1.75em;

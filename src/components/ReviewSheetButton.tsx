@@ -142,7 +142,7 @@ export function ReviewSheetButton({
                       onChange={() => toggle(d._id)}
                     />
                     <span className="min-w-0 flex-1 truncate">{d.title || "Untitled"}</span>
-                    <span className="shrink-0 text-xs text-foreground/40">
+                    <span className="shrink-0 text-xs text-muted">
                       {new Date(d.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                     </span>
                   </label>
@@ -150,7 +150,7 @@ export function ReviewSheetButton({
               );
             })}
           </ul>
-          <p className="text-xs text-foreground/50">
+          <p className="text-xs text-muted">
             {picked.size} of up to {MAX_SOURCES} picked
           </p>
           {error && (

@@ -1,5 +1,15 @@
 [
   {
+    "hash": "c3e6919",
+    "date": "2026-11-22",
+    "subject": "v0.72.0: retheme Folio as Squid Ink (dark) and Mist (light)"
+  },
+  {
+    "hash": "5842df2",
+    "date": "2026-11-22",
+    "subject": "v0.71.3: fix the Convex URL so Folio connects on Cloudflare"
+  },
+  {
     "hash": "be89600",
     "date": "2026-11-22",
     "subject": "v0.71.2: move folio.adhdesigns.dev to the Cloudflare Worker"
@@ -38,15 +48,5 @@
     "hash": "bd2ce21",
     "date": "2026-10-11",
     "subject": "v0.68.0: application check — Cleo compares a draft against its prompt and word limit"
-  },
-  {
-    "hash": "822b777",
-    "date": "2026-10-11",
-    "subject": "v0.67.0: Export menu for BlockNote documents (PDF, Word, Markdown, RTF, HTML, text)"
-  },
-  {
-    "hash": "15ae496",
-    "date": "2026-10-11",
-    "subject": "v0.66.2: move Cleo to Sonnet 5.5 with the model id in src/lib/ai.ts"
   }
 ]

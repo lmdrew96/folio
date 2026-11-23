@@ -47,7 +47,7 @@ export function ChangeLog() {
               <button
                 onClick={() => setOpen(false)}
                 aria-label="Close"
-                className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/60 transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
               >
                 <svg
                   width="16"
@@ -70,12 +70,12 @@ export function ChangeLog() {
                 const match = entry.subject.match(VERSION_RE);
                 return (
                   <li key={entry.hash} className="flex items-start gap-3 text-sm">
-                    <span className="mt-0.5 shrink-0 text-xs text-foreground/40">
+                    <span className="mt-0.5 shrink-0 text-xs text-muted">
                       {entry.date}
                     </span>
                     <span className="min-w-0 text-foreground/80">
                       {match && (
-                        <span className="mr-1.5 rounded-full bg-black/5 px-1.5 py-0.5 text-[11px] font-medium text-foreground/60 dark:bg-white/10">
+                        <span className="mr-1.5 rounded-full bg-black/5 px-1.5 py-0.5 text-[11px] font-medium text-muted dark:bg-white/10">
                           v{match[1]}
                         </span>
                       )}
@@ -88,7 +88,7 @@ export function ChangeLog() {
 
             {/* SuperDoc's engine is AGPL, which asks that users of the app
                 can get its source. */}
-            <p className="border-t border-black/10 pt-3 text-xs text-foreground/50 dark:border-white/10">
+            <p className="border-t border-black/10 pt-3 text-xs text-muted dark:border-white/10">
               Folio is open source —{" "}
               <a
                 href="https://github.com/lmdrew96/folio"

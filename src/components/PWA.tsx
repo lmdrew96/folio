@@ -55,7 +55,7 @@ export function PWA() {
   return (
     <div className="fixed bottom-4 right-4 z-50 w-72 rounded-lg border border-foreground/10 bg-[var(--folio-paper)] p-4 shadow-md">
       <p className="text-sm font-medium text-foreground">Install Folio</p>
-      <p className="mt-0.5 text-xs text-foreground/60">
+      <p className="mt-0.5 text-xs text-muted">
         Add it to your dock for quicker access and an offline fallback.
       </p>
       <div className="mt-3 flex gap-2">
@@ -67,7 +67,7 @@ export function PWA() {
         </button>
         <button
           onClick={dismiss}
-          className="rounded-full px-3 py-1.5 text-xs font-medium text-foreground/60 transition hover:bg-black/5 dark:hover:bg-white/10"
+          className="rounded-full px-3 py-1.5 text-xs font-medium text-muted transition hover:bg-black/5 dark:hover:bg-white/10"
         >
           Not now
         </button>

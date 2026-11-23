@@ -14,7 +14,7 @@ export function HomeScreen() {
   return (
     <div className="flex min-h-dvh flex-col bg-[var(--folio-backdrop)]">
       <header className="flex items-center justify-between px-6 py-3">
-        <span className="font-serif text-lg font-medium tracking-tight text-foreground">
+        <span className="font-serif text-[26px] leading-none text-foreground">
           Folio
         </span>
         <div className="flex items-center gap-1">
@@ -25,7 +25,7 @@ export function HomeScreen() {
               onClick={() => setConnectOpen(true)}
               title="Connect an AI"
               aria-label="Connect an AI"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-foreground/60 transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-muted transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
             >
               {/* A plug: this is where outside assistants connect in. */}
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -41,7 +41,7 @@ export function HomeScreen() {
       </header>
 
       <AuthLoading>
-        <p className="flex-1 px-6 py-16 text-center text-foreground/50">
+        <p className="flex-1 px-6 py-16 text-center text-muted">
           Loading…
         </p>
       </AuthLoading>
@@ -50,7 +50,7 @@ export function HomeScreen() {
         <main className="flex flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
           <div className="space-y-3">
             <h1 className="font-serif text-5xl text-foreground">Folio</h1>
-            <p className="max-w-md text-balance text-foreground/60">
+            <p className="max-w-md text-balance text-muted">
               A writing space that knows what changed since you last looked — so
               Claude can react to your edits, not re-read your whole document.
             </p>

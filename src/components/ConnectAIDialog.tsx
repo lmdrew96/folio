@@ -60,9 +60,9 @@ function KeyRow({
     <li className="flex items-center justify-between gap-3 py-2">
       <div className="min-w-0">
         <p className="truncate text-sm text-foreground">
-          {k.label} <span className="font-mono text-xs text-foreground/40">…{k.last4}</span>
+          {k.label} <span className="font-mono text-xs text-muted">…{k.last4}</span>
         </p>
-        <p className="text-xs text-foreground/50">
+        <p className="text-xs text-muted">
           made {relativeTime(k.createdAt)} ·{" "}
           {k.lastUsedAt ? `last used ${relativeTime(k.lastUsedAt)}` : "never used"}
         </p>
@@ -90,7 +90,7 @@ function KeyRow({
             type="button"
             disabled={busy}
             onClick={() => setConfirming(false)}
-            className="rounded-full px-2.5 py-1 text-xs text-foreground/60 hover:text-foreground"
+            className="rounded-full px-2.5 py-1 text-xs text-muted hover:text-foreground"
           >
             Cancel
           </button>
@@ -100,7 +100,7 @@ function KeyRow({
           type="button"
           onClick={() => setConfirming(true)}
           aria-label={`Revoke ${k.label}`}
-          className="shrink-0 rounded-full px-2.5 py-1 text-xs text-foreground/60 transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+          className="shrink-0 rounded-full px-2.5 py-1 text-xs text-muted transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
         >
           Revoke
         </button>
@@ -172,7 +172,7 @@ export function ConnectAIDialog({ onClose }: { onClose: () => void }) {
           <button
             onClick={onClose}
             aria-label="Close"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-foreground/60 transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-muted transition hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M18 6 6 18M6 6l12 12" />
@@ -209,7 +209,7 @@ export function ConnectAIDialog({ onClose }: { onClose: () => void }) {
                 headers may instead use <code className="font-mono">{MCP_BASE}/mcp</code> with{" "}
                 <code className="font-mono">Authorization: Bearer &lt;key&gt;</code>.
               </p>
-              <p className="text-foreground/50">
+              <p className="text-muted">
                 The link contains the key — treat it like a password. Revoke it below if it
                 ever leaks.
               </p>
@@ -224,7 +224,7 @@ export function ConnectAIDialog({ onClose }: { onClose: () => void }) {
           </div>
         ) : (
           <form onSubmit={submit} noValidate className="flex flex-col gap-1.5">
-            <label htmlFor="folio-key-label" className="text-xs text-foreground/50">
+            <label htmlFor="folio-key-label" className="text-xs text-muted">
               Which AI is this for?
             </label>
             <div className="flex items-center gap-2">
@@ -239,7 +239,7 @@ export function ConnectAIDialog({ onClose }: { onClose: () => void }) {
                 placeholder="e.g. Claude, ChatGPT"
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? "folio-key-error" : undefined}
-                className="min-w-0 flex-1 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3.5 py-1.5 text-sm text-foreground outline-none transition placeholder:text-foreground/40 focus:ring-2 focus:ring-[var(--folio-attr-sibling)]"
+                className="min-w-0 flex-1 rounded-full border border-[var(--folio-paper-edge)] bg-[var(--folio-paper)] px-3.5 py-1.5 text-sm text-foreground outline-none transition placeholder:text-muted focus:ring-2 focus:ring-[var(--folio-attr-sibling)]"
               />
               <button
                 type="submit"
@@ -258,13 +258,13 @@ export function ConnectAIDialog({ onClose }: { onClose: () => void }) {
         )}
 
         <div>
-          <h3 className="text-xs font-medium uppercase tracking-wide text-foreground/45">
+          <h3 className="text-xs font-medium uppercase tracking-wide text-muted">
             Connected AIs
           </h3>
           {keys === undefined ? (
-            <p className="py-2 text-sm text-foreground/50">Loading…</p>
+            <p className="py-2 text-sm text-muted">Loading…</p>
           ) : keys.length === 0 ? (
-            <p className="py-2 text-sm text-foreground/50">None yet.</p>
+            <p className="py-2 text-sm text-muted">None yet.</p>
           ) : (
             <ul className="divide-y divide-foreground/10">
               {keys.map((k) => (
